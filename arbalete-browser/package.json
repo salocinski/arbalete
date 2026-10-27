@@ -2,12 +2,15 @@
   "name": "arbalete-browser",
   "version": "0.1.0",
   "private": true,
-  "description": "Prototype de navigateur desktop inspire d'Arc",
+  "description": "Prototype de navigateur desktop inspiré d'Arc",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.web.config.ts",
     "build": "electron-vite build",
+    "build:web": "vite build --config vite.web.config.ts",
     "preview": "electron-vite preview",
+    "preview:web": "vite preview --config vite.web.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

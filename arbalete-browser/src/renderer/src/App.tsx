@@ -5,6 +5,7 @@ import {
   Globe2, ChevronDown, Download, ShieldCheck, Moon, Sun, Monitor, ExternalLink
 } from 'lucide-react'
 import type { BrowserState, BrowserTab } from '../../shared/types'
+import { isPreviewMode } from './previewApi'
 
 const starterState: BrowserState = {
   tabs: [
@@ -186,6 +187,14 @@ export default function App() {
 
         <div className="page-stage">
           <div className={`web-content ${isDemo ? 'demo-placeholder' : ''}`} ref={contentRef}>
+            {!isDemo && isPreviewMode() && activeTab && (
+              <div className="preview-frame" data-testid="preview-frame">
+                <p className="eyebrow">APERÇU NAVIGATEUR</p>
+                <h2>{activeTab.isLoading ? 'Chargement…' : activeTab.title}</h2>
+                <code>{activeTab.url}</code>
+                <p>Contenu web simulé : dans Electron, la page réelle s'affiche ici.</p>
+              </div>
+            )}
             {isDemo && (
               <div className="welcome-card">
                 <div className="welcome-orb"><Sparkles size={26}/></div>

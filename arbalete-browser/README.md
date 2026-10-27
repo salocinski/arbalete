@@ -17,6 +17,12 @@ npm install
 npm run dev
 ```
 
+Aperçu de l'interface dans un navigateur, sans Electron (API simulée), pour les tests `/qa` et `/design-review` de gstack :
+
+```powershell
+npm run dev:web   # http://localhost:5180
+```
+
 ## Interactions incluses
 
 - Barre latérale repliable : `Ctrl+Shift+B`

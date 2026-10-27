@@ -124,6 +124,10 @@ kbd { color: #6e7080; font: 10px 'Segoe UI',sans-serif; border: 1px solid #34354
 .theme-light .tab-item.active .tab-title { color: #29233a; }
 .theme-light .tab-title, .theme-light .nav-item { color: #555568; }
 .theme-light .nav-item:hover, .theme-light .tab-item:hover:not(.active) { background: #e6e6ef; }
+.preview-frame { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; color: var(--muted); border: 1px dashed var(--border); border-radius: 12px; margin: 12px; }
+.preview-frame h2 { margin: 0; color: var(--text); font: 600 22px 'Segoe UI',sans-serif; }
+.preview-frame code { font-size: 12px; padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--text); max-width: 100%; overflow-wrap: anywhere; }
+.preview-frame p:last-child { font-size: 12px; margin: 0; }
 @media (max-height: 700px) {
   .welcome-card { top: 45%; transform: translate(-50%,-45%) scale(.88); }
   .prototype-note { margin-top: 25px; }
