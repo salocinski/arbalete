@@ -1,0 +1,29 @@
+# Dépendances et builds
+node_modules/
+out/
+dist/
+release/
+*.tsbuildinfo
+
+# Environnement et secrets
+.env
+.env.*
+!.env.example
+
+# Journaux et caches
+*.log
+npm-debug.log*
+.eslintcache
+coverage/
+
+# Systèmes et éditeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# gstack : l'installation est globale (~/.claude/skills/gstack), jamais copiée dans le dépôt
+.claude/skills/gstack/
+.gstack/
