@@ -16,7 +16,8 @@
     "build:web": "vite build --config vite.web.config.ts",
     "preview": "electron-vite preview",
     "preview:web": "vite preview --config vite.web.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "electron-vite build && playwright test"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -24,6 +25,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.19.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

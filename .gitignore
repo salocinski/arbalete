@@ -27,3 +27,7 @@ desktop.ini
 # gstack : l'installation est globale (~/.claude/skills/gstack), jamais copiée dans le dépôt
 .claude/skills/gstack/
 .gstack/
+
+# Résultats Playwright (npm run test:smoke)
+test-results/
+playwright-report/
