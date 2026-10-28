@@ -14,8 +14,10 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Backlog, epics, statuts | **Arbalète Suivi** : https://claude.ai/artifact/FpicMw6k8toB6GKWEp6BhW (tickets `ARB-n`, epics `EP-nn`) |
 | Design | `DESIGN.md` (racine) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
+| Licence | **GPL-3.0-or-later** (`LICENSE`) : tout code ajouté doit être compatible (pas de dépendance sous licence propriétaire ou incompatible GPL) |
+| Contribution externe | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` |
 
-Le backlog vit dans Arbalète Suivi, pas dans un fichier. Si un skill gstack (`/ship`, `/review`…)
+Le backlog vit dans Arbalète Suivi (privé pour l'instant ; les issues GitHub deviendront le backlog public à l'ouverture du dépôt), pas dans un fichier. Si un skill gstack (`/ship`, `/review`…)
 propose de créer `TODOS.md`, répondre **Skip** et signaler les éléments à ajouter au tableau.
 
 ## Structure
@@ -78,7 +80,7 @@ signature, mises à jour automatiques via GitHub Releases) est planifiée dans E
 
 ## Conventions
 
-- Branches : `arb-<n>-<description-courte>` (ex. `arb-12-ipc-sender`).
+- Branches : `arb-<n>-<description-courte>` pour les tickets du tableau (ex. `arb-12-ipc-sender`), `<numéro-issue>-<description>` pour les contributions externes.
 - Commits : `<type>: <résumé>` avec `feat`, `fix`, `chore`, `refactor`, `docs`, `test` ; référencer le ticket
   dans le corps (`Ticket: ARB-12`).
 - Une PR = un ticket ou une petite grappe de tickets d'une même epic.
