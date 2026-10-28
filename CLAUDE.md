@@ -38,19 +38,27 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | Commande | Rôle |
 |---|---|
 | `npm install` | Installer les dépendances |
+| `npx install-electron` | Télécharger le binaire Electron (depuis Electron 42, `npm install` ne le fait plus ; sans lui, `dev`, `preview` et `test:smoke` échouent avec « Electron uninstall ») |
 | `npm run dev` | Lancer l'application Electron en développement |
 | `npm run dev:web` | **Aperçu navigateur** de l'interface sur http://localhost:5180 (API simulée) |
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build Electron (main, preload, renderer) dans `out/` |
 | `npm run build:web` | Build de l'aperçu navigateur dans `out/web/` |
+| `npm run test:smoke` | Build puis smoke test Playwright de l'app Electron (`tests/smoke.spec.ts`) |
 
 ## Testing
 
-Pas encore de lanceur de tests (Vitest et Playwright arrivent avec EP-14). D'ici là, la barrière minimale est :
+Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4, étendu par EP-14 (Vitest arrive avec EP-14).
+Il couvre C1 à C6 du contrat de régression : démarrage avec `window.arbalete`, barre d'adresse, précédent/suivant,
+onglets, `target=_blank` en onglet, schéma non http refusé. Pages de test servies en http sur 127.0.0.1.
+La barrière minimale avant une PR :
 
 ```bash
-cd arbalete-browser && npm run typecheck && npm run build
+cd arbalete-browser && npm run typecheck && npm run test:smoke
 ```
+
+`test:smoke` ouvre des fenêtres Arbalète pendant quelques secondes. Le premier onglet charge google.com :
+le démarrage demande le réseau, pas les assertions.
 
 Pour tester l'interface avec `/qa`, `/qa-only`, `/design-review` ou `/browse` : lancer `npm run dev:web`
 et viser **http://localhost:5180**. L'aperçu remplace les pages web par un cadre « Aperçu navigateur » :
@@ -85,6 +93,9 @@ signature, mises à jour automatiques via GitHub Releases) est planifiée dans E
   dans le corps (`Ticket: ARB-12`).
 - Une PR = un ticket ou une petite grappe de tickets d'une même epic.
 - Version à 4 segments dans `VERSION` (`0.1.0.0`), gérée par `/ship`.
+- Dépendances : `electron` est épinglé en version exacte (sans `^`), pour que le Chromium livré se lise dans
+  `package.json` ; les autres dépendances gardent `^`, le `package-lock.json` fige l'installation.
+  `@types/node` suit la majeure de Node embarquée par Electron (Node 24 pour Electron 45).
 
 ## Cycle de travail avec gstack
 

@@ -23,6 +23,7 @@ Prérequis : Windows 10/11, [Node.js LTS](https://nodejs.org), Git.
 git clone https://github.com/salocinski/arbalete.git
 cd arbalete\arbalete-browser
 npm install
+npx install-electron   # télécharge le binaire Electron, que npm install ne récupère plus
 npm run dev
 ```
 
@@ -32,6 +33,7 @@ npm run dev
 | `npm run dev:web` | Aperçu de l'interface dans un navigateur, sur http://localhost:5180 |
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build de production |
+| `npm run test:smoke` | Test automatisé de l'app construite (Playwright) |
 
 ## Technologies
 

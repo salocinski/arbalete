@@ -14,6 +14,7 @@ Dans PowerShell, à la racine du projet :
 
 ```powershell
 npm install
+npx install-electron   # télécharge le binaire Electron, que npm install ne récupère plus
 npm run dev
 ```
 
