@@ -17,7 +17,9 @@
   "include": [
     "electron.vite.config.ts",
     "vite.web.config.ts",
+    "playwright.config.ts",
     "src/**/*.ts",
-    "src/**/*.tsx"
+    "src/**/*.tsx",
+    "tests/**/*.ts"
   ]
 }

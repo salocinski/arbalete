@@ -19,8 +19,12 @@ Prérequis : Windows 10/11, Node.js LTS, Git.
 git clone https://github.com/<ton-compte>/arbalete.git   # ton fork
 cd arbalete\arbalete-browser
 npm install
+npx install-electron   # télécharge le binaire Electron, que npm install ne récupère plus
 npm run dev
 ```
+
+`npx install-electron` est à relancer après chaque `npm ci` ou mise à jour d'Electron (par exemple après avoir
+récupéré une PR Dependabot) : sans le binaire, `npm run dev` et `npm run test:smoke` échouent.
 
 `npm run dev:web` lance l'interface seule dans un navigateur (API Electron simulée) : pratique pour
 travailler sur l'interface sans redémarrer Electron.
@@ -35,6 +39,7 @@ travailler sur l'interface sans redémarrer Electron.
    ```powershell
    npm run typecheck
    npm run build
+   npm run test:smoke
    ```
 4. Ouvre une **pull request** vers `main` en remplissant le modèle. Mentionne l'issue (`Fixes #42`).
 5. Une PR est fusionnée par un mainteneur après revue, en *squash* (un commit par PR).

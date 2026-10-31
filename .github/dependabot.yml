@@ -1,0 +1,22 @@
+# Mises à jour hebdomadaires des dépendances d'Arbalète (ARB-4).
+# Electron a son propre groupe : une casse de l'outillage ne retient pas un correctif de Chromium.
+# Les majeures d'Electron arrivent aussi : Electron ne maintient que les 3 dernières.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /arbalete-browser
+    schedule:
+      interval: weekly
+    groups:
+      electron:
+        patterns:
+          - electron
+      outillage:
+        patterns:
+          - vite
+          - electron-vite
+          - "@vitejs/*"
+    ignore:
+      # @types/node suit la majeure de Node embarquée par Electron : on la monte à la main avec Electron.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]

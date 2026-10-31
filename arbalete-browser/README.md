@@ -14,8 +14,12 @@ Dans PowerShell, à la racine du projet :
 
 ```powershell
 npm install
+npx install-electron   # télécharge le binaire Electron, que npm install ne récupère plus
 npm run dev
 ```
+
+`npx install-electron` est à relancer après chaque `npm ci` ou mise à jour d'Electron : sans le binaire,
+`npm run dev` échoue.
 
 Aperçu de l'interface dans un navigateur, sans Electron (API simulée), pour les tests `/qa` et `/design-review` de gstack :
 
