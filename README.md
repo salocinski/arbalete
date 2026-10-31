@@ -27,6 +27,9 @@ npx install-electron   # télécharge le binaire Electron, que npm install ne r�
 npm run dev
 ```
 
+`npx install-electron` est à relancer après chaque `npm ci` ou mise à jour d'Electron : sans le binaire,
+`npm run dev` échoue.
+
 | Commande | Rôle |
 |---|---|
 | `npm run dev` | Lancer Arbalète (Electron) |

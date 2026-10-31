@@ -48,7 +48,7 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 
 ## Testing
 
-Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4, étendu par EP-14 (Vitest arrive avec EP-14).
+Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4 ; EP-14 l'étendra et ajoutera Vitest.
 Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
 barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Pages de test servies en http sur

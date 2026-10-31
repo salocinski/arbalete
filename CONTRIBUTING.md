@@ -23,6 +23,9 @@ npx install-electron   # télécharge le binaire Electron, que npm install ne r�
 npm run dev
 ```
 
+`npx install-electron` est à relancer après chaque `npm ci` ou mise à jour d'Electron (par exemple après avoir
+récupéré une PR Dependabot) : sans le binaire, `npm run dev` et `npm run test:smoke` échouent.
+
 `npm run dev:web` lance l'interface seule dans un navigateur (API Electron simulée) : pratique pour
 travailler sur l'interface sans redémarrer Electron.
 
