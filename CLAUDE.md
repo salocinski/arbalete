@@ -38,7 +38,7 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | Commande | Rôle |
 |---|---|
 | `npm install` | Installer les dépendances |
-| `npx install-electron` | Télécharger le binaire Electron (depuis Electron 42, `npm install` ne le fait plus ; sans lui, `dev`, `preview` et `test:smoke` échouent avec « Electron uninstall ») |
+| `npx install-electron` | Télécharger le binaire Electron : depuis Electron 42, `npm install` ne le fait plus. À relancer après chaque `npm ci` ou mise à jour d'Electron (réinstallation de `node_modules/electron`). Sans lui, `dev` et `preview` échouent avec « Electron uninstall » et `test:smoke` avec une erreur d'installation d'Electron |
 | `npm run dev` | Lancer l'application Electron en développement |
 | `npm run dev:web` | **Aperçu navigateur** de l'interface sur http://localhost:5180 (API simulée) |
 | `npm run typecheck` | Vérification TypeScript |
@@ -49,8 +49,10 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 ## Testing
 
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4, étendu par EP-14 (Vitest arrive avec EP-14).
-Il couvre C1 à C6 du contrat de régression : démarrage avec `window.arbalete`, barre d'adresse, précédent/suivant,
-onglets, `target=_blank` en onglet, schéma non http refusé. Pages de test servies en http sur 127.0.0.1.
+Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
+précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
+barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Pages de test servies en http sur
+127.0.0.1. Restent manuels : C8 (thème système) et C10 (aperçu web).
 La barrière minimale avant une PR :
 
 ```bash
@@ -96,6 +98,8 @@ signature, mises à jour automatiques via GitHub Releases) est planifiée dans E
 - Dépendances : `electron` est épinglé en version exacte (sans `^`), pour que le Chromium livré se lise dans
   `package.json` ; les autres dépendances gardent `^`, le `package-lock.json` fige l'installation.
   `@types/node` suit la majeure de Node embarquée par Electron (Node 24 pour Electron 45).
+- PR Dependabot : pas de CI avant ARB-8. Avant de fusionner, récupérer la branche puis lancer dans `arbalete-browser/`
+  `npm ci`, `npx install-electron`, `npm run typecheck` et `npm run test:smoke`.
 
 ## Cycle de travail avec gstack
 
