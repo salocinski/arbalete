@@ -51,8 +51,14 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4 ; EP-14 l'étendra et ajoutera Vitest.
 Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
-barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Pages de test servies en http sur
+barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-12/13/14, il vérifie
+aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
+fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15). Pages de test servies en http sur
 127.0.0.1. Restent manuels : C8 (thème système) et C10 (aperçu web).
+
+La CSP de l'interface est injectée par `vite-csp.ts` : stricte au build, assouplie pour le serveur de dev
+(`'unsafe-inline'`, WebSocket du HMR). L'avertissement Electron « Insecure Content-Security-Policy » en `npm run dev`
+est donc attendu ; il ne doit jamais apparaître sur l'app construite.
 La barrière minimale avant une PR :
 
 ```bash

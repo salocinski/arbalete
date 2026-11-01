@@ -275,3 +275,71 @@ test('C4 : créer, activer et fermer des onglets ; seul l’onglet actif est aff
   expect((await etat()).tabs).toHaveLength(1)
   expect(await vuesAffichees()).toBe(vuesAvecUnOnglet)
 })
+
+// Value: protects=Content-Security-Policy stricte de l'interface construite (ARB-13) : aucun script inline ne s'exécute;
+//   fails_when=la balise CSP n'est plus injectée au build, ou script-src accepte 'unsafe-inline';
+//   why_new=aucun test ne regardait la CSP, absente avant ARB-13; seam=none;
+//   no_claim=ne couvre ni la CSP assouplie du serveur de dev, ni les autres directives (style-src, connect-src…).
+test('C13 : l’interface refuse les scripts inline (Content-Security-Policy)', async () => {
+  const resultat = await ui.evaluate(() => new Promise<string>((termine) => {
+    document.addEventListener('securitypolicyviolation', (event) => termine(event.violatedDirective), { once: true })
+    const script = document.createElement('script')
+    script.textContent = 'document.documentElement.dataset.scriptInline = "exécuté"'
+    document.head.append(script)
+    // Sans CSP, le script s'exécute de façon synchrone et aucune violation n'arrive.
+    setTimeout(() => termine(document.documentElement.dataset.scriptInline ?? 'aucune violation'), 2_000)
+  }))
+  expect(resultat).toMatch(/^script-src/)
+})
+
+// Value: protects=vérification de l'émetteur IPC (ARB-14) : une page qui obtient le preload hors de l'interface ne pilote rien;
+//   fails_when=un canal n'appelle plus emetteurAutorise, ou le contrôle accepte une autre fenêtre ou une autre URL;
+//   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
+//   no_claim=ne couvre pas un iframe dans l'interface (bloqué en amont par la CSP et ARB-12).
+test('C14 : un appel IPC venant d’une autre page que l’interface est refusé', async () => {
+  const avant = await etat()
+  const resultats = await app.evaluate(async ({ BrowserWindow }, { preload, url }) => {
+    const intruse = new BrowserWindow({ show: false, webPreferences: { preload, contextIsolation: true, sandbox: true } })
+    try {
+      await intruse.loadURL(url)
+      // set-content-bounds part avant les invocations : leur réponse prouve qu'il a déjà été traité.
+      return await intruse.webContents.executeJavaScript(`
+        window.arbalete.setContentBounds({ x: 0, y: 0, width: 10, height: 10 })
+        Promise.allSettled([
+          window.arbalete.getState(),
+          window.arbalete.createTab('http://127.0.0.1:1/intrus'),
+          window.arbalete.navigate('http://127.0.0.1:1/intrus')
+        ]).then((resultats) => resultats.map((resultat) => resultat.status))`)
+    } finally {
+      intruse.destroy()
+    }
+  }, { preload: resolve(__dirname, '../out/preload/index.js'), url: `${origine}/page-a.html` })
+
+  expect(resultats).toEqual(['rejected', 'rejected', 'rejected'])
+  const apres = await etat()
+  expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
+  expect(ongletActif(apres)?.url).toBe(ongletActif(avant)?.url)
+  await attendreVueAlignee()
+})
+
+// Value: protects=verrouillage de la fenêtre d'interface (ARB-12) : elle ne navigue pas et n'ouvre pas de fenêtre;
+//   fails_when=le gestionnaire will-navigate ou setWindowOpenHandler de mainWindow disparaît;
+//   why_new=C5 et C6 ne visent que les onglets, jamais la fenêtre d'interface; seam=none;
+//   no_claim=ne couvre pas le glisser-déposer réel d'un lien (même événement will-navigate, non simulé).
+test('C15 : la fenêtre d’interface ne navigue pas et n’ouvre pas de fenêtre', async () => {
+  const urlInterface = ui.url()
+  const cible = `${origine}/page-b.html`
+
+  expect(await ui.evaluate((url) => window.open(url) === null, cible)).toBe(true)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
+
+  const navigationEmpechee = app.evaluate(({ BrowserWindow }) => new Promise<boolean>((termine) => {
+    BrowserWindow.getAllWindows()[0].webContents.once('will-navigate', (event) => {
+      setImmediate(() => termine(event.defaultPrevented))
+    })
+  }))
+  await ui.evaluate((url) => { location.href = url }, cible)
+  expect(await navigationEmpechee).toBe(true)
+  expect(ui.url()).toBe(urlInterface)
+  expect(await ui.evaluate(() => typeof window.arbalete)).toBe('object')
+})
