@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.1.2.0] - 2026-11-01
+
+### Modifié
+- L'interface d'Arbalète est verrouillée : seule sa propre page peut piloter le navigateur. Une page web qui
+  obtiendrait le pont `window.arbalete`, un iframe ou une autre fenêtre voit ses commandes refusées.
+- La fenêtre de l'interface ne navigue plus : un lien glissé sur la barre latérale ou un script ne peut plus la
+  remplacer par une autre page, ni ouvrir de nouvelle fenêtre.
+- L'interface construite applique une Content-Security-Policy stricte : aucun script ou style inline, aucune
+  ressource externe. Le serveur de développement garde une politique assouplie pour le rechargement à chaud.
+- Une app empaquetée ignore `ELECTRON_RENDERER_URL` : elle charge toujours son interface embarquée.
+
+### Ajouté
+- Les tests automatisés couvrent ce verrouillage : CSP du build, appels refusés depuis une autre page ou un autre
+  fichier local, fenêtre qui ne navigue pas, et mode développement servi par Vite (`tests/developpement.spec.ts`).
+
 ## [0.1.1.0] - 2026-10-31
 
 ### Modifié

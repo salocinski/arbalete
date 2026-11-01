@@ -1,10 +1,14 @@
 import { createServer, type Server } from 'node:http'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
 
-// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12), exécuté sur l'app construite (out/).
+// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12) et verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
+// exécutés sur l'app construite (out/). C18 (mode développement) est dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
 
@@ -59,6 +63,27 @@ function etat(): Promise<BrowserState> {
 
 function ongletActif(state: BrowserState) {
   return state.tabs.find((tab) => tab.id === state.activeTabId)
+}
+
+// Charge une URL dans la fenêtre d'interface depuis le processus principal (sans passer par will-navigate).
+function chargerInterface(url: string) {
+  return app.evaluate(({ BrowserWindow }, cible) => BrowserWindow.getAllWindows()[0].webContents.loadURL(cible), url)
+}
+
+// Statut de deux appels IPC depuis la page affichée dans la fenêtre d'interface.
+function statutsAppelsIpc(): Promise<string[]> {
+  return ui.evaluate(() => Promise.allSettled([
+    window.arbalete.getState(),
+    window.arbalete.createTab('http://127.0.0.1:1/intrus')
+  ]).then((reponses) => reponses.map((reponse) => reponse.status)))
+}
+
+// Après un rechargement de l'interface : mêmes onglets, interface affichée, vue alignée.
+async function verifierInterfaceIntacte(avant: BrowserState) {
+  const apres = await etat()
+  expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
+  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await attendreVueAlignee()
 }
 
 // Exécute du code dans la page de l'onglet actif, comme un geste utilisateur (navigation initiée par la page).
@@ -274,4 +299,139 @@ test('C4 : créer, activer et fermer des onglets ; seul l’onglet actif est aff
   await expect.poll(async () => idsInitiaux.includes((await etat()).tabs[0]?.id)).toBe(false)
   expect((await etat()).tabs).toHaveLength(1)
   expect(await vuesAffichees()).toBe(vuesAvecUnOnglet)
+})
+
+// Value: protects=Content-Security-Policy stricte de l'interface construite (ARB-13) : aucun script inline ne s'exécute;
+//   fails_when=la balise CSP n'est plus injectée au build, ou script-src accepte 'unsafe-inline';
+//   why_new=aucun test ne regardait la CSP, absente avant ARB-13; seam=none;
+//   no_claim=ne couvre ni la CSP assouplie du serveur de dev, ni les autres directives (style-src, connect-src…).
+test('C13 : l’interface refuse les scripts inline (Content-Security-Policy)', async () => {
+  const resultat = await ui.evaluate(() => new Promise<string>((termine) => {
+    document.addEventListener('securitypolicyviolation', (event) => termine(event.violatedDirective), { once: true })
+    const script = document.createElement('script')
+    script.textContent = 'document.documentElement.dataset.scriptInline = "exécuté"'
+    document.head.append(script)
+    // Sans CSP, le script s'exécute de façon synchrone et aucune violation n'arrive.
+    setTimeout(() => termine(document.documentElement.dataset.scriptInline ?? 'aucune violation'), 2_000)
+  }))
+  expect(resultat).toMatch(/^script-src/)
+})
+
+// Value: protects=vérification de l'émetteur IPC (ARB-14) : une page qui obtient le preload hors de l'interface ne pilote rien;
+//   fails_when=un canal n'appelle plus emetteurAutorise, ou le contrôle accepte une autre fenêtre ou une autre URL;
+//   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
+//   no_claim=ne couvre pas un iframe dans l'interface (bloqué en amont par la CSP et ARB-12).
+test('C14 : un appel IPC venant d’une autre page que l’interface est refusé', async () => {
+  const avant = await etat()
+  const resultats = await app.evaluate(async ({ BrowserWindow }, { preload, url }) => {
+    const intruse = new BrowserWindow({ show: false, webPreferences: { preload, contextIsolation: true, sandbox: true } })
+    try {
+      await intruse.loadURL(url)
+      // set-content-bounds part avant les invocations : leur réponse prouve qu'il a déjà été traité.
+      return await intruse.webContents.executeJavaScript(`
+        window.arbalete.setContentBounds({ x: 0, y: 0, width: 10, height: 10 })
+        Promise.allSettled([
+          window.arbalete.getState(),
+          window.arbalete.createTab('http://127.0.0.1:1/intrus'),
+          window.arbalete.navigate('http://127.0.0.1:1/intrus')
+        ]).then((resultats) => resultats.map((resultat) => resultat.status))`)
+    } finally {
+      intruse.destroy()
+    }
+  }, { preload: resolve(__dirname, '../out/preload/index.js'), url: `${origine}/page-a.html` })
+
+  expect(resultats).toEqual(['rejected', 'rejected', 'rejected'])
+  const apres = await etat()
+  expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
+  expect(ongletActif(apres)?.url).toBe(ongletActif(avant)?.url)
+  await attendreVueAlignee()
+})
+
+// Value: protects=verrouillage de la fenêtre d'interface (ARB-12) : elle ne navigue pas et n'ouvre pas de fenêtre;
+//   fails_when=le gestionnaire will-navigate ou setWindowOpenHandler de mainWindow disparaît;
+//   why_new=C5 et C6 ne visent que les onglets, jamais la fenêtre d'interface; seam=none;
+//   no_claim=ne couvre pas le glisser-déposer réel d'un lien (même événement will-navigate, non simulé).
+test('C15 : la fenêtre d’interface ne navigue pas et n’ouvre pas de fenêtre', async () => {
+  const urlInterface = ui.url()
+  const cible = `${origine}/page-b.html`
+
+  expect(await ui.evaluate((url) => window.open(url) === null, cible)).toBe(true)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
+
+  // L'écouteur est posé (évaluation attendue) avant la navigation : les deux passent par des canaux distincts.
+  await app.evaluate(({ BrowserWindow }) => {
+    const global = globalThis as { navigationEmpechee?: Promise<boolean> }
+    global.navigationEmpechee = new Promise<boolean>((termine) => {
+      BrowserWindow.getAllWindows()[0].webContents.once('will-navigate', (event) => {
+        setImmediate(() => termine(event.defaultPrevented))
+      })
+    })
+  })
+  await ui.evaluate((url) => { location.href = url }, cible)
+  expect(await app.evaluate(() => (globalThis as { navigationEmpechee?: Promise<boolean> }).navigationEmpechee))
+    .toBe(true)
+  expect(ui.url()).toBe(urlInterface)
+  expect(await ui.evaluate(() => typeof window.arbalete)).toBe('object')
+})
+
+// Value: protects=contrôle de l'URL de l'émetteur IPC (estUrlInterface, ARB-14) : si la fenêtre d'interface affiche
+//   une autre page que out/renderer/index.html, le preload qu'elle garde n'y pilote plus le processus principal;
+//   fails_when=emetteurAutorise ne compare plus l'URL du cadre (seule l'identité de la fenêtre), ou estUrlInterface
+//   accepte n'importe quelle page http ou file; why_new=C14 est refusé dès la comparaison des webContents (fenêtre
+//   intruse) et C15 empêche la navigation initiée par la page, sans jamais exercer la vérification d'URL; seam=none
+//   (le test charge la page depuis le processus principal, ce qui ne passe pas par will-navigate);
+//   no_claim=ne couvre ni la branche de développement (origine d'ELECTRON_RENDERER_URL), ni un iframe dans l'interface.
+test('C16 : la fenêtre d’interface chargée sur une autre page ne pilote plus l’IPC', async () => {
+  const urlInterface = ui.url()
+  const avant = await etat()
+
+  let resultats: string[]
+  try {
+    await chargerInterface(`${origine}/page-a.html`)
+    await expect(ui).toHaveURL(`${origine}/page-a.html`)
+    resultats = await statutsAppelsIpc()
+  } finally {
+    // L'interface est rechargée même en cas d'échec : les tests suivants en dépendent.
+    await chargerInterface(urlInterface)
+  }
+
+  expect(resultats).toEqual(['rejected', 'rejected'])
+  await verifierInterfaceIntacte(avant)
+})
+
+// Value: protects=branche file:// d'estUrlInterface (ARB-14) : seule out/renderer/index.html, au chemin exact, pilote
+//   l'IPC ; une page locale ailleurs sur le disque, même nommée renderer/index.html, est refusée;
+//   fails_when=estUrlInterface accepte toute URL file:, ou ne compare plus que la fin du chemin (endsWith
+//   '/renderer/index.html'), ou compare le nom de fichier seul; why_new=C16 charge une page http et passe déjà par le
+//   test de protocole, sans jamais atteindre la comparaison de chemin; seam=none (pages écrites dans le dossier
+//   temporaire et chargées depuis le processus principal, comme C16);
+//   no_claim=ne couvre ni la casse ou les raccourcis 8.3 des chemins Windows, ni la branche de développement.
+test('C17 : une page locale hors de out/renderer chargée dans l’interface ne pilote pas l’IPC', async () => {
+  const urlInterface = ui.url()
+  const avant = await etat()
+  const dossier = mkdtempSync(join(tmpdir(), 'arbalete-c17-'))
+  const page = '<!doctype html><title>Intruse locale</title>'
+  const etrangere = join(dossier, 'intruse.html')
+  // Quasi-homonyme : même fin de chemin que l'interface construite, autre emplacement.
+  const homonyme = join(dossier, 'out', 'renderer', 'index.html')
+  mkdirSync(join(dossier, 'out', 'renderer'), { recursive: true })
+  writeFileSync(etrangere, page)
+  writeFileSync(homonyme, page)
+
+  const resultats: Record<string, string[]> = {}
+  try {
+    for (const [nom, chemin] of [['étrangère', etrangere], ['homonyme', homonyme]]) {
+      const url = pathToFileURL(chemin).href
+      await chargerInterface(url)
+      await expect(ui).toHaveURL(url)
+      resultats[nom] = await statutsAppelsIpc()
+    }
+  } finally {
+    // L'interface est rechargée même en cas d'échec : les tests suivants en dépendent.
+    await chargerInterface(urlInterface)
+    rmSync(dossier, { recursive: true, force: true })
+  }
+
+  expect(resultats).toEqual({ étrangère: ['rejected', 'rejected'], homonyme: ['rejected', 'rejected'] })
+  await verifierInterfaceIntacte(avant)
 })

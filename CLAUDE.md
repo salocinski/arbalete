@@ -29,6 +29,8 @@ arbalete-browser/
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
   src/renderer/src/        interface React (App.tsx, styles.css)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
+  vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
+  tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
 ```
 
 ## Commandes
@@ -44,15 +46,24 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build Electron (main, preload, renderer) dans `out/` |
 | `npm run build:web` | Build de l'aperçu navigateur dans `out/web/` |
-| `npm run test:smoke` | Build puis smoke test Playwright de l'app Electron (`tests/smoke.spec.ts`) |
+| `npm run test:smoke` | Build puis tests Playwright de l'app Electron : `tests/smoke.spec.ts` (app construite) et `tests/developpement.spec.ts` (mode développement, serveur Vite) |
 
 ## Testing
 
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4 ; EP-14 l'étendra et ajoutera Vitest.
 Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
-barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Pages de test servies en http sur
-127.0.0.1. Restent manuels : C8 (thème système) et C10 (aperçu web).
+barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-12/13/14, il vérifie
+aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
+fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
+page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.
+Pages de test servies en http sur 127.0.0.1. `tests/developpement.spec.ts` (C18) vérifie qu'en développement
+l'interface servie par le serveur Vite garde l'IPC sous sa CSP assouplie. Restent manuels : C8 (thème système)
+et C10 (aperçu web).
+
+La CSP de l'interface est injectée par `vite-csp.ts` : stricte au build, assouplie pour le serveur de dev
+(`'unsafe-inline'`, WebSocket du HMR). L'avertissement Electron « Insecure Content-Security-Policy » en `npm run dev`
+est donc attendu ; il ne doit jamais apparaître sur l'app construite.
 La barrière minimale avant une PR :
 
 ```bash
@@ -138,3 +149,22 @@ cd $HOME\.claude\skills\gstack
 
 Skills like /qa, /ship, /review, /investigate, and /browse become available after install.
 Use ~/.claude/skills/gstack/... for gstack file paths.
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. Route only to skills in the session's available-skills list; answer directly for quick questions or small scoped edits.
+
+Key routing rules:
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate, unless one read-only check confirms the cause and a narrow fix (then fix it and run the focused test)
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
+- Author a backlog-ready spec/issue → invoke /spec

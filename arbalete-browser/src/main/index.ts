@@ -1,6 +1,9 @@
-import { app, BrowserWindow, WebContentsView, ipcMain, session, nativeTheme } from 'electron'
+import { app, BrowserWindow, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab } from '../shared/types'
+
+const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 
 type TabRecord = {
   data: BrowserTab
@@ -135,6 +138,41 @@ function activeRecord(): TabRecord | undefined {
   return activeTabId ? tabs.get(activeTabId) : undefined
 }
 
+// L'interface est servie par Vite en développement (ELECTRON_RENDERER_URL) et depuis out/renderer en build.
+// Une app empaquetée ignore la variable : sinon elle chargerait, avec le preload, l'URL qu'on lui désigne.
+const URL_DEV = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL
+
+function estUrlInterface(url: string): boolean {
+  let adresse: URL
+  try { adresse = new URL(url) } catch { return false }
+  if (URL_DEV) return adresse.origin === new URL(URL_DEV).origin
+  // L'hôte vide écarte un chemin UNC (file://serveur/...) de même chemin que l'interface.
+  return adresse.protocol === 'file:' && adresse.host === ''
+    && adresse.pathname === pathToFileURL(CHEMIN_INTERFACE).pathname
+}
+
+// Seul le cadre principal de la fenêtre d'interface pilote le processus principal (ARB-14) :
+// une autre page qui obtiendrait le preload, un iframe ou une fenêtre intruse est refusé.
+function emetteurAutorise(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  const cadre = event.senderFrame
+  const autorise = !!mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents
+    && cadre !== null && cadre.parent === null && estUrlInterface(cadre.url)
+  if (!autorise) console.warn(`IPC refusé : émetteur non autorisé (${cadre?.url ?? 'cadre détruit'})`)
+  return autorise
+}
+
+function traiter(canal: string, gestionnaire: (...args: unknown[]) => unknown) {
+  ipcMain.handle(canal, (event, ...args) => {
+    if (!emetteurAutorise(event)) throw new Error('Émetteur IPC non autorisé')
+    return gestionnaire(...args)
+  })
+}
+
+function exigerTexte(valeur: unknown): string {
+  if (typeof valeur !== 'string') throw new Error('Argument IPC invalide : texte attendu')
+  return valeur
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -152,10 +190,16 @@ function createWindow() {
     }
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+  // L'interface ne navigue jamais et n'ouvre aucune fenêtre (ARB-12) : un lien glissé sur la barre
+  // latérale ou un script injecté ne peut pas remplacer l'interface, qui garde l'accès au preload.
+  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
+
+  if (URL_DEV) {
+    void mainWindow.loadURL(URL_DEV)
   } else {
-    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    void mainWindow.loadFile(CHEMIN_INTERFACE)
   }
 
   mainWindow.on('resize', () => {
@@ -171,20 +215,22 @@ app.whenReady().then(() => {
     callback(false)
   })
 
-  ipcMain.handle('browser:get-state', () => stateSnapshot())
-  ipcMain.handle('browser:get-system-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+  traiter('browser:get-state', () => stateSnapshot())
+  traiter('browser:get-system-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
   nativeTheme.on('updated', () => {
     mainWindow?.webContents.send('browser:system-theme', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
   })
-  ipcMain.handle('browser:create-tab', (_event, url?: string) => createTab(url))
-  ipcMain.handle('browser:close-tab', (_event, id: string) => closeTab(id))
-  ipcMain.handle('browser:activate-tab', (_event, id: string) => {
+  traiter('browser:create-tab', (url) => createTab(url === undefined ? undefined : exigerTexte(url)))
+  traiter('browser:close-tab', (id) => closeTab(exigerTexte(id)))
+  traiter('browser:activate-tab', (valeur) => {
+    const id = exigerTexte(valeur)
     if (!tabs.has(id)) return
     activeTabId = id
     setActiveView()
     updateTabFromView(id)
   })
-  ipcMain.handle('browser:navigate', (_event, url: string) => {
+  traiter('browser:navigate', (valeur) => {
+    const url = exigerTexte(valeur)
     const record = activeRecord()
     if (!record) return
     const normalized = normalizeUrl(url)
@@ -192,16 +238,17 @@ app.whenReady().then(() => {
     void record.view.webContents.loadURL(normalized).catch(console.error)
     broadcastState()
   })
-  ipcMain.handle('browser:back', () => {
+  traiter('browser:back', () => {
     const wc = activeRecord()?.view.webContents
     if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack()
   })
-  ipcMain.handle('browser:forward', () => {
+  traiter('browser:forward', () => {
     const wc = activeRecord()?.view.webContents
     if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
   })
-  ipcMain.handle('browser:reload', () => activeRecord()?.view.webContents.reload())
-  ipcMain.on('browser:set-content-bounds', (_event, bounds) => {
+  traiter('browser:reload', () => activeRecord()?.view.webContents.reload())
+  ipcMain.on('browser:set-content-bounds', (event, bounds) => {
+    if (!emetteurAutorise(event)) return
     if (![bounds?.x, bounds?.y, bounds?.width, bounds?.height].every(Number.isFinite)) return
     contentBounds = {
       x: Math.max(0, Math.round(bounds.x)),

@@ -18,6 +18,7 @@
     "electron.vite.config.ts",
     "vite.web.config.ts",
     "playwright.config.ts",
+    "vite-csp.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
     "tests/**/*.ts"
