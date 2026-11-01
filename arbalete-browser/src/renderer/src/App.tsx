@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, RotateCw, Plus, Search, PanelLeftClose, PanelLeftOpen,
-  Pin, X, Command, Star, Clock3, Settings2, Sparkles, Layers3, Github,
+  Pin, X, Command, Star, Clock3, Settings2, Sparkles, Layers3, GitBranch,
   Globe2, ChevronDown, Download, ShieldCheck, Moon, Sun, Monitor, ExternalLink
 } from 'lucide-react'
 import type { BrowserState, BrowserTab } from '../../shared/types'
@@ -207,7 +207,7 @@ export default function App() {
                   <button type="submit">Explorer <ArrowRight size={15}/></button>
                 </form>
                 <div className="quick-links">
-                  <button onClick={() => { setAddress('https://github.com'); void window.arbalete.navigate('https://github.com') }}><span className="quick-icon github"><Github size={18}/></span><span>GitHub</span></button>
+                  <button onClick={() => { setAddress('https://github.com'); void window.arbalete.navigate('https://github.com') }}><span className="quick-icon github"><GitBranch size={18}/></span><span>GitHub</span></button>
                   <button onClick={() => { setAddress('https://www.electronjs.org'); void window.arbalete.navigate('https://www.electronjs.org') }}><span className="quick-icon electron"><Layers3 size={18}/></span><span>Electron</span></button>
                   <button onClick={() => { setAddress('https://react.dev'); void window.arbalete.navigate('https://react.dev') }}><span className="quick-icon react"><Globe2 size={18}/></span><span>React</span></button>
                   <button onClick={() => void window.arbalete.createTab()}><span className="quick-icon add"><Plus size={18}/></span><span>Nouvel onglet</span></button>
