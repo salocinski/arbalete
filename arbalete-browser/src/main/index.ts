@@ -139,12 +139,16 @@ function activeRecord(): TabRecord | undefined {
 }
 
 // L'interface est servie par Vite en développement (ELECTRON_RENDERER_URL) et depuis out/renderer en build.
+// Une app empaquetée ignore la variable : sinon elle chargerait, avec le preload, l'URL qu'on lui désigne.
+const URL_DEV = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL
+
 function estUrlInterface(url: string): boolean {
   let adresse: URL
   try { adresse = new URL(url) } catch { return false }
-  const urlDev = process.env.ELECTRON_RENDERER_URL
-  if (urlDev) return adresse.origin === new URL(urlDev).origin
-  return adresse.protocol === 'file:' && adresse.pathname === pathToFileURL(CHEMIN_INTERFACE).pathname
+  if (URL_DEV) return adresse.origin === new URL(URL_DEV).origin
+  // L'hôte vide écarte un chemin UNC (file://serveur/...) de même chemin que l'interface.
+  return adresse.protocol === 'file:' && adresse.host === ''
+    && adresse.pathname === pathToFileURL(CHEMIN_INTERFACE).pathname
 }
 
 // Seul le cadre principal de la fenêtre d'interface pilote le processus principal (ARB-14) :
@@ -192,8 +196,8 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+  if (URL_DEV) {
+    void mainWindow.loadURL(URL_DEV)
   } else {
     void mainWindow.loadFile(CHEMIN_INTERFACE)
   }
