@@ -29,6 +29,8 @@ arbalete-browser/
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
   src/renderer/src/        interface React (App.tsx, styles.css)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
+  vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
+  tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
 ```
 
 ## Commandes
@@ -44,7 +46,7 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build Electron (main, preload, renderer) dans `out/` |
 | `npm run build:web` | Build de l'aperçu navigateur dans `out/web/` |
-| `npm run test:smoke` | Build puis smoke test Playwright de l'app Electron (`tests/smoke.spec.ts`) |
+| `npm run test:smoke` | Build puis tests Playwright de l'app Electron : `tests/smoke.spec.ts` (app construite) et `tests/developpement.spec.ts` (mode développement, serveur Vite) |
 
 ## Testing
 
@@ -53,8 +55,11 @@ Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `win
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
 barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
-fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15). Pages de test servies en http sur
-127.0.0.1. Restent manuels : C8 (thème système) et C10 (aperçu web).
+fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
+page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.
+Pages de test servies en http sur 127.0.0.1. `tests/developpement.spec.ts` (C18) vérifie qu'en développement
+l'interface servie par le serveur Vite garde l'IPC sous sa CSP assouplie. Restent manuels : C8 (thème système)
+et C10 (aperçu web).
 
 La CSP de l'interface est injectée par `vite-csp.ts` : stricte au build, assouplie pour le serveur de dev
 (`'unsafe-inline'`, WebSocket du HMR). L'avertissement Electron « Insecure Content-Security-Policy » en `npm run dev`

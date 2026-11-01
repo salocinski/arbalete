@@ -7,7 +7,8 @@ import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
 
-// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12), exécuté sur l'app construite (out/).
+// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12) et verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
+// exécutés sur l'app construite (out/). C18 (mode développement) est dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
 
