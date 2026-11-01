@@ -1,6 +1,9 @@
 import { createServer, type Server } from 'node:http'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
 
@@ -59,6 +62,27 @@ function etat(): Promise<BrowserState> {
 
 function ongletActif(state: BrowserState) {
   return state.tabs.find((tab) => tab.id === state.activeTabId)
+}
+
+// Charge une URL dans la fenêtre d'interface depuis le processus principal (sans passer par will-navigate).
+function chargerInterface(url: string) {
+  return app.evaluate(({ BrowserWindow }, cible) => BrowserWindow.getAllWindows()[0].webContents.loadURL(cible), url)
+}
+
+// Statut de deux appels IPC depuis la page affichée dans la fenêtre d'interface.
+function statutsAppelsIpc(): Promise<string[]> {
+  return ui.evaluate(() => Promise.allSettled([
+    window.arbalete.getState(),
+    window.arbalete.createTab('http://127.0.0.1:1/intrus')
+  ]).then((reponses) => reponses.map((reponse) => reponse.status)))
+}
+
+// Après un rechargement de l'interface : mêmes onglets, interface affichée, vue alignée.
+async function verifierInterfaceIntacte(avant: BrowserState) {
+  const apres = await etat()
+  expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
+  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await attendreVueAlignee()
 }
 
 // Exécute du code dans la page de l'onglet actif, comme un geste utilisateur (navigation initiée par la page).
@@ -333,13 +357,80 @@ test('C15 : la fenêtre d’interface ne navigue pas et n’ouvre pas de fenêtr
   expect(await ui.evaluate((url) => window.open(url) === null, cible)).toBe(true)
   expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
 
-  const navigationEmpechee = app.evaluate(({ BrowserWindow }) => new Promise<boolean>((termine) => {
-    BrowserWindow.getAllWindows()[0].webContents.once('will-navigate', (event) => {
-      setImmediate(() => termine(event.defaultPrevented))
+  // L'écouteur est posé (évaluation attendue) avant la navigation : les deux passent par des canaux distincts.
+  await app.evaluate(({ BrowserWindow }) => {
+    const global = globalThis as { navigationEmpechee?: Promise<boolean> }
+    global.navigationEmpechee = new Promise<boolean>((termine) => {
+      BrowserWindow.getAllWindows()[0].webContents.once('will-navigate', (event) => {
+        setImmediate(() => termine(event.defaultPrevented))
+      })
     })
-  }))
+  })
   await ui.evaluate((url) => { location.href = url }, cible)
-  expect(await navigationEmpechee).toBe(true)
+  expect(await app.evaluate(() => (globalThis as { navigationEmpechee?: Promise<boolean> }).navigationEmpechee))
+    .toBe(true)
   expect(ui.url()).toBe(urlInterface)
   expect(await ui.evaluate(() => typeof window.arbalete)).toBe('object')
+})
+
+// Value: protects=contrôle de l'URL de l'émetteur IPC (estUrlInterface, ARB-14) : si la fenêtre d'interface affiche
+//   une autre page que out/renderer/index.html, le preload qu'elle garde n'y pilote plus le processus principal;
+//   fails_when=emetteurAutorise ne compare plus l'URL du cadre (seule l'identité de la fenêtre), ou estUrlInterface
+//   accepte n'importe quelle page http ou file; why_new=C14 est refusé dès la comparaison des webContents (fenêtre
+//   intruse) et C15 empêche la navigation initiée par la page, sans jamais exercer la vérification d'URL; seam=none
+//   (le test charge la page depuis le processus principal, ce qui ne passe pas par will-navigate);
+//   no_claim=ne couvre ni la branche de développement (origine d'ELECTRON_RENDERER_URL), ni un iframe dans l'interface.
+test('C16 : la fenêtre d’interface chargée sur une autre page ne pilote plus l’IPC', async () => {
+  const urlInterface = ui.url()
+  const avant = await etat()
+
+  let resultats: string[]
+  try {
+    await chargerInterface(`${origine}/page-a.html`)
+    await expect(ui).toHaveURL(`${origine}/page-a.html`)
+    resultats = await statutsAppelsIpc()
+  } finally {
+    // L'interface est rechargée même en cas d'échec : les tests suivants en dépendent.
+    await chargerInterface(urlInterface)
+  }
+
+  expect(resultats).toEqual(['rejected', 'rejected'])
+  await verifierInterfaceIntacte(avant)
+})
+
+// Value: protects=branche file:// d'estUrlInterface (ARB-14) : seule out/renderer/index.html, au chemin exact, pilote
+//   l'IPC ; une page locale ailleurs sur le disque, même nommée renderer/index.html, est refusée;
+//   fails_when=estUrlInterface accepte toute URL file:, ou ne compare plus que la fin du chemin (endsWith
+//   '/renderer/index.html'), ou compare le nom de fichier seul; why_new=C16 charge une page http et passe déjà par le
+//   test de protocole, sans jamais atteindre la comparaison de chemin; seam=none (pages écrites dans le dossier
+//   temporaire et chargées depuis le processus principal, comme C16);
+//   no_claim=ne couvre ni la casse ou les raccourcis 8.3 des chemins Windows, ni la branche de développement.
+test('C17 : une page locale hors de out/renderer chargée dans l’interface ne pilote pas l’IPC', async () => {
+  const urlInterface = ui.url()
+  const avant = await etat()
+  const dossier = mkdtempSync(join(tmpdir(), 'arbalete-c17-'))
+  const page = '<!doctype html><title>Intruse locale</title>'
+  const etrangere = join(dossier, 'intruse.html')
+  // Quasi-homonyme : même fin de chemin que l'interface construite, autre emplacement.
+  const homonyme = join(dossier, 'out', 'renderer', 'index.html')
+  mkdirSync(join(dossier, 'out', 'renderer'), { recursive: true })
+  writeFileSync(etrangere, page)
+  writeFileSync(homonyme, page)
+
+  const resultats: Record<string, string[]> = {}
+  try {
+    for (const [nom, chemin] of [['étrangère', etrangere], ['homonyme', homonyme]]) {
+      const url = pathToFileURL(chemin).href
+      await chargerInterface(url)
+      await expect(ui).toHaveURL(url)
+      resultats[nom] = await statutsAppelsIpc()
+    }
+  } finally {
+    // L'interface est rechargée même en cas d'échec : les tests suivants en dépendent.
+    await chargerInterface(urlInterface)
+    rmSync(dossier, { recursive: true, force: true })
+  }
+
+  expect(resultats).toEqual({ étrangère: ['rejected', 'rejected'], homonyme: ['rejected', 'rejected'] })
+  await verifierInterfaceIntacte(avant)
 })
