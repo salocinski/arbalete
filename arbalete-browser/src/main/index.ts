@@ -1,4 +1,4 @@
-import { app, BrowserWindow, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab } from '../shared/types'
@@ -68,6 +68,23 @@ function updateTabFromView(id: string) {
   broadcastState()
 }
 
+// Ouvertures demandées par les pages (window.open, target=_blank) : seules les adresses web passent (ARB-102),
+// sinon une page http ouvrirait file:// via loadURL depuis le processus principal, que Chromium ne bloque pas.
+// Une page ne peut ouvrir que OUVERTURES_MAX onglets par fenêtre glissante, contre les rafales de window.open.
+const OUVERTURES_MAX = 5
+const FENETRE_OUVERTURES_MS = 10_000
+const ouvertures = new Map<string, number[]>()
+
+function ouvertureAutorisee(onglet: string, url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false
+  const maintenant = Date.now()
+  const recentes = (ouvertures.get(onglet) ?? []).filter((instant) => maintenant - instant < FENETRE_OUVERTURES_MS)
+  const autorisee = recentes.length < OUVERTURES_MAX
+  if (autorisee) recentes.push(maintenant)
+  ouvertures.set(onglet, recentes)
+  return autorisee
+}
+
 function createTab(initialUrl = 'https://www.google.com'): string {
   const id = `tab-${nextTabNumber++}`
   const view = new WebContentsView({
@@ -99,7 +116,7 @@ function createTab(initialUrl = 'https://www.google.com'): string {
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
   view.webContents.setWindowOpenHandler(({ url }) => {
-    void createTab(url)
+    if (ouvertureAutorisee(id, url)) void createTab(url)
     return { action: 'deny' }
   })
   view.webContents.on('will-navigate', (event, url) => {
@@ -123,6 +140,7 @@ function closeTab(id: string) {
   }
   record.view.webContents.close()
   tabs.delete(id)
+  ouvertures.delete(id)
 
   if (activeTabId === id) {
     activeTabId = [...tabs.keys()].at(-1) ?? null
@@ -196,6 +214,15 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
 
+  // Sans menu d'application, F12 n'ouvre plus rien : on le garde en développement seulement.
+  if (URL_DEV) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || input.key !== 'F12') return
+      event.preventDefault()
+      mainWindow?.webContents.toggleDevTools()
+    })
+  }
+
   if (URL_DEV) {
     void mainWindow.loadURL(URL_DEV)
   } else {
@@ -210,6 +237,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Pas de menu d'application (ARB-101) : celui d'Electron, même masqué par autoHideMenuBar, ouvre les DevTools de
+  // l'interface (Ctrl+Maj+I, avec window.arbalete dans la console) et la recharge (Ctrl+R). Les raccourcis
+  // d'Arbalète passent par l'interface ou le processus principal, pas par ce menu.
+  Menu.setApplicationMenu(null)
+
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     // Politique de départ restrictive : aucune permission distante n'est accordée automatiquement.
     callback(false)

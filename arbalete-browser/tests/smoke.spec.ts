@@ -435,3 +435,48 @@ test('C17 : une page locale hors de out/renderer chargée dans l’interface ne 
   expect(resultats).toEqual({ étrangère: ['rejected', 'rejected'], homonyme: ['rejected', 'rejected'] })
   await verifierInterfaceIntacte(avant)
 })
+
+// Value: protects=absence de menu d'application dans le build (ARB-101) : le menu par défaut d'Electron ouvre les
+//   DevTools de l'interface (Ctrl+Maj+I) avec window.arbalete dans la console;
+//   fails_when=Menu.setApplicationMenu(null) disparaît ou un menu avec le rôle toggleDevTools revient;
+//   why_new=aucun test ne regardait le menu; seam=none;
+//   no_claim=ne presse pas Ctrl+Maj+I (les accélérateurs natifs ne reçoivent pas les touches simulées par Playwright).
+test('C19 : l’app construite n’a pas de menu d’application (pas de DevTools par raccourci)', async () => {
+  expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened()))
+    .toBe(false)
+})
+
+// Value: protects=filtre de schéma de setWindowOpenHandler des onglets (ARB-102) : une page http ne peut pas ouvrir
+//   file:// ni un schéma inconnu dans un nouvel onglet chargé par le processus principal;
+//   fails_when=ouvertureAutorisee ne teste plus le schéma (window.open passe tout à createTab);
+//   why_new=C5 ne couvre qu'un target=_blank vers http, C6 que will-navigate; seam=none (l'ouverture http finale
+//   sert de repère : les demandes sont traitées dans l'ordre, donc les refus sont acquis quand elle arrive);
+//   no_claim=ne couvre pas about:blank (refusé aussi, même filtre).
+test('C20 : window.open d’une page n’ouvre que des adresses web', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+
+  await dansOngletActif(
+    "window.open('file:///C:/Windows/win.ini'); window.open('arbalete-test:ouverte'); window.open('/page-b.html')"
+  )
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+  await attendreUrlActive(`${origine}/page-b.html`)
+  expect((await etat()).tabs.filter((tab) => !/^https?:\/\//.test(tab.url))).toEqual([])
+})
+
+// Value: protects=limite d'ouvertures par page (ARB-102) : une rafale de window.open n'ouvre que 5 onglets;
+//   fails_when=la limite disparaît, ou le compte n'est plus tenu par onglet source;
+//   why_new=aucun test n'ouvrait plusieurs fenêtres d'un coup; seam=none (onglet neuf : son compteur part de zéro);
+//   no_claim=ne vérifie pas la remise à zéro après 10 s (attente trop longue pour le smoke test).
+test('C21 : une rafale de window.open n’ouvre que 5 onglets', async () => {
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+
+  await dansOngletActif("for (let n = 0; n < 12; n++) window.open('/page-b.html?n=' + n)")
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 5)
+  await ui.waitForTimeout(1_000)
+  expect((await etat()).tabs.length).toBe(avant + 5)
+})
