@@ -22,15 +22,18 @@ button, input { font: inherit; }
 button { color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app-shell { display: flex; width: 100vw; height: 100vh; background: var(--app-bg); color: var(--text); overflow: hidden; }
-.sidebar { flex: 0 0 252px; width: 252px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 17px 12px 10px; position: relative; z-index: 2; transition: width .18s ease, flex-basis .18s ease; overflow: hidden; }
-.sidebar.is-collapsed { flex-basis: 68px; width: 68px; padding-inline: 10px; }
+.sidebar { width: 252px; height: 100%; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 17px 12px 10px; position: relative; overflow: hidden; }
+/* Barre latérale (ARB-33) : zone fixée au bord gauche, de la taille de sa vue native (ou par-dessus la page dans l'aperçu web). */
+.sidebar-zone { position: fixed; top: 0; left: 0; bottom: 0; z-index: 20; display: flex; color: var(--text); }
+/* Largeurs jumelles de LARGEUR_BANDE (6) et LARGEUR_BARRE (252) dans src/main/index.ts : les changer ensemble. */
+.sidebar-hover-strip { width: 6px; height: 100%; }
+.sidebar-reserve { flex: 0 0 252px; }
+html.vue-barre, html.vue-barre body { background: transparent; min-width: 0; min-height: 0; }
 .brand-row { height: 35px; display: flex; align-items: center; gap: 10px; padding: 0 5px; margin-bottom: 20px; flex-shrink: 0; }
 .brand-mark { width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(145deg,#c4b5fd,#8064dc); color: #1a1725; font: 800 18px 'Segoe UI',sans-serif; box-shadow: 0 3px 15px #8b5cf633; flex-shrink: 0; }
 .brand-mark span { color: #fff; }
 .brand-name { font: 800 16px 'Segoe UI',sans-serif; letter-spacing: -.65px; }
 .sidebar-toggle { margin-left: auto; }
-.sidebar.is-collapsed .brand-row { flex-direction: column; height: auto; gap: 15px; padding: 0; margin-bottom: 22px; }
-.sidebar.is-collapsed .sidebar-toggle { margin: 0; }
 .icon-button, .tiny-icon { border: 0; background: transparent; color: #9294a4; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; width: 30px; height: 30px; flex-shrink: 0; transition: background .15s,color .15s; }
 .icon-button:hover, .tiny-icon:hover { color: var(--text); background: var(--panel-hover); }
 .icon-button:disabled { opacity: .28; cursor: default; }
@@ -71,7 +74,6 @@ kbd { color: #6e7080; font: 10px 'Segoe UI',sans-serif; border: 1px solid #34354
 .profile-copy { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .profile-copy strong { font-size: 11px; color: #d2d1de; font-weight: 600; }
 .profile-copy span { font-size: 9px; color: #737586; }
-.collapsed-icons { display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; }
 .browser-column { min-width: 0; flex: 1; display: flex; flex-direction: column; position: relative; }
 .toolbar { height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 20px; background: #121319; border-bottom: 1px solid var(--border); position: relative; z-index: 2; }
 .nav-controls { display: flex; align-items: center; gap: 2px; }

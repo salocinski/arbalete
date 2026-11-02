@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { BrowserAPI, BrowserState } from '../shared/types'
+import type { BrowserAPI } from '../shared/types'
+
+// Abonnement à un canal diffusé par le processus principal ; renvoie la fonction de désabonnement.
+function ecouter<T>(canal: string, callback: (valeur: T) => void): () => void {
+  const listener = (_event: Electron.IpcRendererEvent, valeur: T) => callback(valeur)
+  ipcRenderer.on(canal, listener)
+  return () => ipcRenderer.removeListener(canal, listener)
+}
 
 const api: BrowserAPI = {
   getState: () => ipcRenderer.invoke('browser:get-state'),
@@ -12,16 +19,14 @@ const api: BrowserAPI = {
   reload: () => ipcRenderer.invoke('browser:reload'),
   setContentBounds: (bounds) => ipcRenderer.send('browser:set-content-bounds', bounds),
   getSystemTheme: () => ipcRenderer.invoke('browser:get-system-theme'),
-  onSystemTheme: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, theme: 'dark' | 'light') => callback(theme)
-    ipcRenderer.on('browser:system-theme', listener)
-    return () => ipcRenderer.removeListener('browser:system-theme', listener)
-  },
-  onState: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: BrowserState) => callback(state)
-    ipcRenderer.on('browser:state', listener)
-    return () => ipcRenderer.removeListener('browser:state', listener)
-  }
+  onSystemTheme: (callback) => ecouter('browser:system-theme', callback),
+  onState: (callback) => ecouter('browser:state', callback),
+  getSidebar: () => ipcRenderer.invoke('browser:get-sidebar'),
+  setSidebar: (action) => ipcRenderer.invoke('browser:set-sidebar', action),
+  onSidebar: (callback) => ecouter('browser:sidebar', callback),
+  getTheme: () => ipcRenderer.invoke('browser:get-theme'),
+  setTheme: (choice) => ipcRenderer.invoke('browser:set-theme', choice),
+  onTheme: (callback) => ecouter('browser:theme', callback)
 }
 
 contextBridge.exposeInMainWorld('arbalete', api)

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { BrowserState, BrowserTab } from '../shared/types'
+import type { BrowserState, BrowserTab, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 
@@ -11,11 +11,20 @@ type TabRecord = {
 }
 
 let mainWindow: BrowserWindow | null = null
+// Barre latérale (ARB-33) : vue native au-dessus de l'onglet, car une WebContentsView masque tout HTML de la fenêtre
+// (règle 4). Masquée, elle n'est qu'une bande transparente au bord gauche qui détecte le survol.
+let barreView: WebContentsView | null = null
+let barre: SidebarState = { open: false, pinned: false }
+// Jumelles de .sidebar / .sidebar-reserve (252) et .sidebar-hover-strip (6) dans styles.css : les changer ensemble.
+const LARGEUR_BARRE = 252
+const LARGEUR_BANDE = 6
+let choixTheme: ThemeChoice = 'system'
 const tabs = new Map<string, TabRecord>()
 let activeTabId: string | null = null
 let nextTabNumber = 1
-// Bornes de la vue web avant que l'interface envoie les siennes : barre latérale repliée (68 px) à l'ouverture (ARB-109).
-let contentBounds = { x: 68, y: 106, width: 900, height: 600 }
+// Bornes de la vue web avant que l'interface envoie les siennes : pleine largeur sous la barre d'outils (64 px),
+// la barre latérale étant masquée à l'ouverture (ARB-33).
+let contentBounds = { x: 0, y: 64, width: 900, height: 600 }
 
 function normalizeUrl(input: string): string {
   const value = input.trim()
@@ -33,10 +42,19 @@ function stateSnapshot(): BrowserState {
   }
 }
 
+// Les deux vues de l'interface : la fenêtre (barre d'outils, zone de page) et la barre latérale.
+function contenusInterface(): WebContents[] {
+  const fenetre = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : undefined
+  return [fenetre, barreView?.webContents]
+    .filter((contenu): contenu is WebContents => !!contenu && !contenu.isDestroyed())
+}
+
+function envoyerAuxInterfaces(canal: string, valeur: unknown) {
+  for (const contenu of contenusInterface()) contenu.send(canal, valeur)
+}
+
 function broadcastState() {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('browser:state', stateSnapshot())
-  }
+  envoyerAuxInterfaces('browser:state', stateSnapshot())
 }
 
 function setActiveView() {
@@ -52,6 +70,35 @@ function setActiveView() {
       record.view.setBounds(contentBounds)
     }
   }
+  // Réajouter une vue déjà présente la remet au premier plan : la barre reste au-dessus de l'onglet affiché.
+  if (barreView) mainWindow.contentView.addChildView(barreView)
+}
+
+// Ouverte ou épinglée : pleine largeur de barre sur toute la hauteur ; masquée : la bande de survol.
+function placerBarre() {
+  if (!mainWindow || mainWindow.isDestroyed() || !barreView) return
+  const { height } = mainWindow.getContentBounds()
+  barreView.setBounds({ x: 0, y: 0, width: barre.open ? LARGEUR_BARRE : LARGEUR_BANDE, height })
+}
+
+// Masquer n'agit pas sur une barre épinglée ; désépingler la referme.
+function agirSurBarre(action: SidebarAction) {
+  const suivant: SidebarState =
+    action === 'open' ? { ...barre, open: true }
+      : action === 'hide' ? (barre.pinned ? barre : { open: false, pinned: false })
+        : barre.pinned ? { open: false, pinned: false } : { open: true, pinned: true }
+  if (suivant.open === barre.open && suivant.pinned === barre.pinned) return
+  barre = suivant
+  placerBarre()
+  envoyerAuxInterfaces('browser:sidebar', barre)
+}
+
+// Un clic dans la page ou dans la barre d'outils retire la barre non épinglée. Le clic, pas le focus : au démarrage le
+// focus passe de lui-même d'une vue à l'autre, et une page le reprend à la fin de son chargement.
+function masquerAuClic(contenu: WebContents) {
+  contenu.on('before-mouse-event', (_event, souris) => {
+    if (souris.type === 'mouseDown') agirSurBarre('hide')
+  })
 }
 
 function updateTabFromView(id: string) {
@@ -115,6 +162,16 @@ function brancherF12(contenu: WebContents) {
   })
 }
 
+// Ctrl+Maj+B épingle ou libère la barre latérale, quel que soit le webContents qui a le focus (règle 5) ;
+// la page ne reçoit pas la combinaison.
+function brancherRaccourciBarre(contenu: WebContents) {
+  contenu.on('before-input-event', (event, input) => {
+    if (!input.control || !input.shift || input.alt || input.key.toLowerCase() !== 'b') return
+    event.preventDefault()
+    if (input.type === 'keyDown' && !input.isAutoRepeat) agirSurBarre('toggle-pin')
+  })
+}
+
 function createTab(initialUrl = 'https://www.google.com'): string {
   const id = `tab-${nextTabNumber++}`
   const view = new WebContentsView({
@@ -153,6 +210,8 @@ function createTab(initialUrl = 'https://www.google.com'): string {
     if (!/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) event.preventDefault()
   })
   brancherF12(view.webContents)
+  brancherRaccourciBarre(view.webContents)
+  masquerAuClic(view.webContents)
 
   activeTabId = id
   setActiveView()
@@ -200,11 +259,11 @@ function estUrlInterface(url: string): boolean {
     && adresse.pathname === pathToFileURL(CHEMIN_INTERFACE).pathname
 }
 
-// Seul le cadre principal de la fenêtre d'interface pilote le processus principal (ARB-14) :
+// Seul le cadre principal des vues de l'interface (fenêtre et barre latérale) pilote le processus principal (ARB-14) :
 // une autre page qui obtiendrait le preload, un iframe ou une fenêtre intruse est refusé.
 function emetteurAutorise(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
   const cadre = event.senderFrame
-  const autorise = !!mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents
+  const autorise = contenusInterface().includes(event.sender)
     && cadre !== null && cadre.parent === null && estUrlInterface(cadre.url)
   if (!autorise) console.warn(`IPC refusé : émetteur non autorisé (${cadre?.url ?? 'cadre détruit'})`)
   return autorise
@@ -222,6 +281,34 @@ function exigerTexte(valeur: unknown): string {
   return valeur
 }
 
+const PREFERENCES_INTERFACE = {
+  preload: join(__dirname, '../preload/index.js'),
+  contextIsolation: true,
+  nodeIntegration: false,
+  sandbox: true
+}
+
+// L'interface ne navigue jamais et n'ouvre aucune fenêtre (ARB-12) : un lien glissé sur la barre
+// latérale ou un script injecté ne peut pas remplacer l'interface, qui garde l'accès au preload.
+function verrouillerInterface(contenu: WebContents) {
+  contenu.on('will-navigate', (event) => event.preventDefault())
+  contenu.setWindowOpenHandler(() => ({ action: 'deny' }))
+  contenu.on('will-attach-webview', (event) => event.preventDefault())
+  brancherF12(contenu)
+  brancherRaccourciBarre(contenu)
+}
+
+// Même page que la fenêtre, avec ?vue=barre : le renderer n'y affiche que la barre latérale.
+function chargerInterface(contenu: WebContents, vue?: string) {
+  if (URL_DEV) {
+    const url = new URL(URL_DEV)
+    if (vue) url.searchParams.set('vue', vue)
+    void contenu.loadURL(url.href)
+  } else {
+    void contenu.loadFile(CHEMIN_INTERFACE, vue ? { query: { vue } } : undefined)
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -231,33 +318,33 @@ function createWindow() {
     backgroundColor: '#101116',
     title: 'Arbalète',
     autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
+    webPreferences: PREFERENCES_INTERFACE
   })
+  verrouillerInterface(mainWindow.webContents)
+  masquerAuClic(mainWindow.webContents)
+  chargerInterface(mainWindow.webContents)
 
-  // L'interface ne navigue jamais et n'ouvre aucune fenêtre (ARB-12) : un lien glissé sur la barre
-  // latérale ou un script injecté ne peut pas remplacer l'interface, qui garde l'accès au preload.
-  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
-
-  brancherF12(mainWindow.webContents)
-
-  if (URL_DEV) {
-    void mainWindow.loadURL(URL_DEV)
-  } else {
-    void mainWindow.loadFile(CHEMIN_INTERFACE)
-  }
+  barreView = new WebContentsView({ webPreferences: PREFERENCES_INTERFACE })
+  barreView.setBackgroundColor('#00000000')
+  verrouillerInterface(barreView.webContents)
+  chargerInterface(barreView.webContents, 'barre')
+  mainWindow.contentView.addChildView(barreView)
+  placerBarre()
 
   mainWindow.on('resize', () => {
     activeRecord()?.view.setBounds(contentBounds)
+    placerBarre()
   })
-  mainWindow.on('closed', () => { mainWindow = null })
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    barreView = null
+  })
   createTab()
+}
+
+function exigerChoix<T extends string>(valeur: unknown, choix: readonly T[]): T {
+  if (!choix.includes(valeur as T)) throw new Error(`Argument IPC invalide : ${choix.join(', ')} attendu`)
+  return valeur as T
 }
 
 app.whenReady().then(() => {
@@ -274,8 +361,16 @@ app.whenReady().then(() => {
   traiter('browser:get-state', () => stateSnapshot())
   traiter('browser:get-system-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
   nativeTheme.on('updated', () => {
-    mainWindow?.webContents.send('browser:system-theme', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+    envoyerAuxInterfaces('browser:system-theme', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
   })
+  // Le thème choisi est tenu ici pour que la fenêtre et la barre latérale l'affichent ensemble.
+  traiter('browser:get-theme', () => choixTheme)
+  traiter('browser:set-theme', (valeur) => {
+    choixTheme = exigerChoix(valeur, ['system', 'dark', 'light'] as const)
+    envoyerAuxInterfaces('browser:theme', choixTheme)
+  })
+  traiter('browser:get-sidebar', () => ({ ...barre }))
+  traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin'] as const)))
   traiter('browser:create-tab', (url) => createTab(url === undefined ? undefined : exigerTexte(url)))
   traiter('browser:close-tab', (id) => closeTab(exigerTexte(id)))
   traiter('browser:activate-tab', (valeur) => {

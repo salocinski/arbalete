@@ -1,4 +1,4 @@
-import type { BrowserAPI, BrowserState, BrowserTab } from '../../shared/types'
+import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
 /**
  * Mode aperçu navigateur.
@@ -46,6 +46,10 @@ export function installPreviewApi(): boolean {
   let next = 1
   const stateListeners = new Set<(state: BrowserState) => void>()
   const themeListeners = new Set<(theme: 'dark' | 'light') => void>()
+  let sidebar: SidebarState = { open: false, pinned: false }
+  const sidebarListeners = new Set<(state: SidebarState) => void>()
+  let theme: ThemeChoice = 'system'
+  const themeChoiceListeners = new Set<(choice: ThemeChoice) => void>()
   const media = window.matchMedia('(prefers-color-scheme: dark)')
   const systemTheme = (): 'dark' | 'light' => (media.matches ? 'dark' : 'light')
   media.addEventListener('change', () => themeListeners.forEach((fn) => fn(systemTheme())))
@@ -126,6 +130,30 @@ export function installPreviewApi(): boolean {
     onState: (callback) => {
       stateListeners.add(callback)
       return () => stateListeners.delete(callback)
+    },
+    // Mêmes transitions que agirSurBarre dans le processus principal.
+    getSidebar: async () => ({ ...sidebar }),
+    setSidebar: async (action) => {
+      const next: SidebarState =
+        action === 'open' ? { ...sidebar, open: true }
+          : action === 'hide' ? (sidebar.pinned ? sidebar : { open: false, pinned: false })
+            : sidebar.pinned ? { open: false, pinned: false } : { open: true, pinned: true }
+      if (next.open === sidebar.open && next.pinned === sidebar.pinned) return
+      sidebar = next
+      sidebarListeners.forEach((fn) => fn({ ...sidebar }))
+    },
+    onSidebar: (callback) => {
+      sidebarListeners.add(callback)
+      return () => sidebarListeners.delete(callback)
+    },
+    getTheme: async () => theme,
+    setTheme: async (choice) => {
+      theme = choice
+      themeChoiceListeners.forEach((fn) => fn(theme))
+    },
+    onTheme: (callback) => {
+      themeChoiceListeners.add(callback)
+      return () => themeChoiceListeners.delete(callback)
     }
   }
 
