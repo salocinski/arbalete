@@ -29,6 +29,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .sidebar-hover-strip { width: 6px; height: 100%; }
 .sidebar-reserve { flex: 0 0 252px; }
 html.vue-barre, html.vue-barre body { background: transparent; min-width: 0; min-height: 0; }
+/* Dans sa vue native, la zone couvre toute la vue : élargie avant le rendu de la barre, la vue ne doit pas laisser
+   un pointeur rapide « hors zone » (mouseleave puis fermeture aussitôt). Les bornes de la vue limitent déjà la barre. */
+html.vue-barre .sidebar-zone { right: 0; }
 .brand-row { height: 35px; display: flex; align-items: center; gap: 10px; padding: 0 5px; margin-bottom: 20px; flex-shrink: 0; }
 .brand-mark { width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(145deg,#c4b5fd,#8064dc); color: #1a1725; font: 800 18px 'Segoe UI',sans-serif; box-shadow: 0 3px 15px #8b5cf633; flex-shrink: 0; }
 .brand-mark span { color: #fff; }
