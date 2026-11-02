@@ -14,7 +14,8 @@ let mainWindow: BrowserWindow | null = null
 const tabs = new Map<string, TabRecord>()
 let activeTabId: string | null = null
 let nextTabNumber = 1
-let contentBounds = { x: 252, y: 106, width: 900, height: 600 }
+// Bornes de la vue web avant que l'interface envoie les siennes : barre latérale repliée (68 px) à l'ouverture (ARB-109).
+let contentBounds = { x: 68, y: 106, width: 900, height: 600 }
 
 function normalizeUrl(input: string): string {
   const value = input.trim()

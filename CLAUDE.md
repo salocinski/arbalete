@@ -53,7 +53,8 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4 ; EP-14 l'étendra et ajoutera Vitest.
 Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
-barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-12/13/14, il vérifie
+barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-109, la barre latérale
+s'ouvre repliée (C31) et Ctrl+Maj+B la replie puis la déploie (C32). Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.
@@ -62,7 +63,7 @@ construite (C24), `window.open` d'une page limité aux adresses web (C20), au pl
 (C21, C22) et 20 toutes pages réunies (C26) par fenêtre de 10 secondes (C23), plus aucune ouverture par les pages
 au-delà de 50 onglets ouverts, l'utilisateur gardant la main (C27).
 Pages de test servies en http sur 127.0.0.1. `tests/developpement.spec.ts` vérifie qu'en développement
-l'interface servie par le serveur Vite garde l'IPC sous sa CSP assouplie (C18) et que F12 ouvre puis ferme ses
+l'interface servie par le serveur Vite garde l'IPC sous sa CSP assouplie, barre latérale repliée au chargement (C18), et que F12 ouvre puis ferme ses
 DevTools, que le focus soit dans l'interface (C25) ou dans un onglet (C28), qu'aucune autre touche ne les ouvre (C29)
 et que la page de l'onglet ne reçoit pas F12 (C30). Restent manuels : C8 (thème système) et C10 (aperçu web).
 

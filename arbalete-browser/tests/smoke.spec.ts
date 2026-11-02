@@ -7,8 +7,9 @@ import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
 
-// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17) et
-// ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open), exécutés sur l'app construite (out/).
+// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
+// ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale repliée d'ARB-109
+// (C31, C32 : à l'ouverture, Ctrl+Maj+B), exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -79,11 +80,22 @@ function statutsAppelsIpc(): Promise<string[]> {
   ]).then((reponses) => reponses.map((reponse) => reponse.status)))
 }
 
+// La barre latérale s'ouvre repliée (ARB-109) : les tests qui passent par ses boutons la déploient d'abord.
+async function deployerBarreLaterale() {
+  // Attend le rendu (juste après un rechargement de l'interface) avant de lire l'état de la barre.
+  const barre = ui.locator('.sidebar')
+  await expect(barre).toBeVisible()
+  if (/is-collapsed/.test(await barre.getAttribute('class') ?? '')) {
+    await ui.locator('[title^="Déployer la barre latérale"]').click()
+  }
+  await expect(ui.locator('.new-tab-button')).toBeVisible()
+}
+
 // Après un rechargement de l'interface : mêmes onglets, interface affichée, vue alignée.
 async function verifierInterfaceIntacte(avant: BrowserState) {
   const apres = await etat()
   expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
-  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await deployerBarreLaterale()
   await attendreVueAlignee()
 }
 
@@ -144,6 +156,49 @@ test('C1 : l’app démarre avec le pont window.arbalete et un onglet', async ()
   const state = await etat()
   expect(state.tabs).toHaveLength(1)
   expect(state.activeTabId).toBe(state.tabs[0].id)
+})
+
+// Value: protects=barre latérale repliée à l'ouverture de la fenêtre (ARB-109) : la page web occupe la largeur
+//   libérée, et le bouton la déploie avec la vue réalignée;
+//   fails_when=l'état initial de sidebarOpen repasse à true, ou la vue web n'est pas alignée sur la zone de contenu
+//   au premier affichage replié; why_new=C9 part d'une barre déjà déployée; seam=none;
+//   no_claim=ne couvre pas Ctrl+Maj+B (raccourci de l'interface) ; laisse la barre déployée pour les tests suivants.
+test('C31 : la barre latérale est repliée à l’ouverture de la fenêtre', async () => {
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
+  await expect(ui.locator('.new-tab-button')).toBeHidden()
+  await attendreVueAlignee()
+  const replie = await rectangleZoneContenu()
+
+  await deployerBarreLaterale()
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeGreaterThan(replie.x)
+  await attendreVueAlignee()
+})
+
+// Value: protects=Ctrl+Maj+B, focus dans l'interface, replie puis déploie la barre latérale (repliée à l'ouverture
+//   depuis ARB-109, le raccourci est l'autre moyen de la déployer), vue web réalignée;
+//   fails_when=la branche Ctrl+Shift+B du keydown de App.tsx disparaît ou n'inverse plus sidebarOpen;
+//   why_new=C9 et C31 passent par le bouton, aucun test ne presse le raccourci; seam=none;
+//   no_claim=ne couvre pas le raccourci avec le focus dans une page web (géré par le keydown de l'interface seul) ;
+//   part d'une barre déployée par le bouton (deployerBarreLaterale), sans dépendre de C31.
+test('C32 : Ctrl+Maj+B replie puis déploie la barre latérale', async () => {
+  await deployerBarreLaterale()
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
+  // Largeur de référence prise une fois la transition CSS de la barre (.18 s) terminée et la vue réalignée.
+  await ui.locator('.sidebar').evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)))
+  await attendreVueAlignee()
+  const deploye = await rectangleZoneContenu()
+
+  await ui.keyboard.press('Control+Shift+B')
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeLessThan(deploye.x)
+  await attendreVueAlignee()
+
+  await ui.keyboard.press('Control+Shift+B')
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
+  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(deploye.x)
+  await attendreVueAlignee()
 })
 
 test('C2 : la barre d’adresse charge localhost sans schéma et une URL complète', async () => {

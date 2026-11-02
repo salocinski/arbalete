@@ -88,8 +88,8 @@ test.afterAll(async () => {
 
 // Value: protects=branche de développement d'ARB-13/14 : l'interface servie par Vite (origine d'ELECTRON_RENDERER_URL)
 //   est acceptée par emetteurAutorise, et la CSP de développement laisse passer le préambule React Refresh et le
-//   WebSocket du rechargement à chaud;
-//   fails_when=estUrlInterface ne reconnaît plus l'origine de dev (localhost contre 127.0.0.1, port, comparaison
+//   WebSocket du rechargement à chaud ; la barre latérale y est repliée au chargement (ARB-109);
+//   fails_when=l'état initial de sidebarOpen repasse à true (la barre arrive déployée en dev), ou estUrlInterface ne reconnaît plus l'origine de dev (localhost contre 127.0.0.1, port, comparaison
 //   d'URL complète), ou la CSP stricte (ou une CSP de dev trop serrée) est servie en dev : React ne démarre pas,
 //   « Refused to … » dans la console ou HMR déconnecté;
 //   why_new=C1-C17 tournent sur l'app construite (file://), la branche dev n'était vérifiée qu'à la main; seam=none
@@ -102,7 +102,9 @@ test('C18 : en développement, l’interface servie par Vite pilote l’IPC sous
   await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.reload())
 
   await expect.poll(() => messages.some((texte) => texte.includes('[vite] connected'))).toBe(true)
-  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await expect(ui.locator('.sidebar')).toBeVisible()
+  // Le rechargement remonte React : la barre latérale repart repliée (ARB-109), en dev comme au build.
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
   const etat = await ui.evaluate(() => window.arbalete.getState())
   expect(etat.tabs.length).toBeGreaterThan(0)
   expect(messages.filter((texte) => /Refused to/.test(texte))).toEqual([])

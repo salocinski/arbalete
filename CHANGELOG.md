@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.1.5.0] - 2026-11-01
+
+### Modifié
+- La barre latérale s'ouvre repliée : à l'ouverture de la fenêtre, seule la bande d'icônes est visible et la page
+  prend la largeur libérée. Le bouton en haut de la barre et Ctrl+Maj+B la déploient toujours.
+
+### Ajouté
+- Les tests C31 et C32 vérifient la barre repliée à l'ouverture et l'aller-retour avec Ctrl+Maj+B ; C18 la vérifie
+  aussi en mode développement.
+
 ## [0.1.4.0] - 2026-11-01
 
 ### Corrigé
