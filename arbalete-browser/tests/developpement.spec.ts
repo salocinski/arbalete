@@ -41,6 +41,9 @@ test.beforeAll(async () => {
   const estInterface = (url: string) => url.startsWith(origineDev) && !url.includes('vue=barre')
   ui = app.windows().find((page) => estInterface(page.url()))
     ?? await app.waitForEvent('window', { predicate: (page) => estInterface(page.url()) })
+  // L'onglet n'a d'URL http(s) qu'une fois sa navigation validée, plus tard que la fenêtre : dansOnglet le cherche par
+  // cette URL (ARB-111). Le premier onglet charge google.com, d'où un délai réseau.
+  await expect.poll(() => dansOnglet<boolean>('() => true').catch(() => false), { timeout: 15_000 }).toBe(true)
 })
 
 // Les DevTools de l'interface restent fermés entre deux tests : un échec en cours de test ne fait pas échouer les suivants.
