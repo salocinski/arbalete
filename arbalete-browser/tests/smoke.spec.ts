@@ -597,3 +597,26 @@ test('C26 : toutes pages réunies, 20 ouvertures au plus par 10 secondes', async
     await restaurerHorloge()
   }
 })
+
+// Value: protects=plafond d'onglets ouverts par les pages (ARB-102) : à 50 onglets ouverts, window.open n'ouvre plus
+//   rien, quel que soit le rythme ; l'utilisateur peut encore ouvrir un onglet depuis l'interface;
+//   fails_when=le test tabs.size >= ONGLETS_MAX_POUR_LES_PAGES disparaît (une page entretenue remplit la mémoire), ou
+//   s'applique aussi à createTab depuis l'interface; why_new=C21-C26 ne bornent que le rythme; seam=none (Date.now
+//   avancé de 120 s pour vider les quotas de rythme, puis restauré); no_claim=ne mesure pas la mémoire.
+test('C27 : à 50 onglets ouverts, les pages n’en ouvrent plus, l’utilisateur si', async () => {
+  await avancerHorloge(120_000)
+  try {
+    while ((await etat()).tabs.length < 50) {
+      await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+    }
+    await attendreUrlActive(`${origine}/page-a.html`)
+    await dansOngletActif("window.open('/page-b.html?au-dela-du-plafond')")
+    await ui.waitForTimeout(1_000)
+    expect((await etat()).tabs.length).toBe(50)
+
+    await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-b.html`)
+    await expect.poll(async () => (await etat()).tabs.length).toBe(51)
+  } finally {
+    await restaurerHorloge()
+  }
+})

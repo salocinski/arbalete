@@ -73,8 +73,11 @@ function updateTabFromView(id: string) {
 // Une page ne peut ouvrir que OUVERTURES_MAX onglets par fenêtre glissante, contre les rafales de window.open, et
 // toutes les pages réunies OUVERTURES_MAX_TOTAL : chaque onglet ouvert ayant son propre quota, une page qui se
 // rouvre en chaîne passerait sinon de 5 à 25 puis 125 onglets.
+// Le rythme ne suffit pas : à 20 par 10 s, une page qui s'entretient remplirait la mémoire. Au-delà de
+// ONGLETS_MAX_POUR_LES_PAGES onglets ouverts, les pages n'en ouvrent plus ; l'utilisateur, lui, le peut toujours.
 const OUVERTURES_MAX = 5
 const OUVERTURES_MAX_TOTAL = 20
+const ONGLETS_MAX_POUR_LES_PAGES = 50
 const FENETRE_OUVERTURES_MS = 10_000
 const TOUTES_LES_PAGES = '*'
 const ouvertures = new Map<string, number[]>()
@@ -86,7 +89,7 @@ function ouverturesRecentes(cle: string, maintenant: number): number[] {
 }
 
 function ouvertureAutorisee(onglet: string, url: string): boolean {
-  if (!/^https?:\/\//i.test(url)) return false
+  if (!/^https?:\/\//i.test(url) || tabs.size >= ONGLETS_MAX_POUR_LES_PAGES) return false
   const maintenant = Date.now()
   const parOnglet = ouverturesRecentes(onglet, maintenant)
   const total = ouverturesRecentes(TOUTES_LES_PAGES, maintenant)
