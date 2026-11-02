@@ -7,9 +7,10 @@ import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
 
-// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
-// ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale repliée d'ARB-109
-// (C31, C32 : à l'ouverture, Ctrl+Maj+B), exécutés sur l'app construite (out/).
+// Contrat de régression d'ARB-4 (C1-C7, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
+// ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale masquée d'ARB-33
+// (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé), exécutés sur
+// l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -29,6 +30,8 @@ let serveur: Server
 let origine: string
 let app: ElectronApplication
 let ui: Page
+// Vue native de la barre latérale (ARB-33) : même interface, chargée avec ?vue=barre.
+let barreUi: Page
 
 test.describe.configure({ mode: 'serial' })
 
@@ -44,6 +47,7 @@ test.beforeAll(async () => {
 
   app = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..') })
   ui = await fenetreInterface(app)
+  barreUi = await vueBarre(app)
 })
 
 test.afterAll(async () => {
@@ -57,6 +61,13 @@ async function fenetreInterface(electronApp: ElectronApplication): Promise<Page>
   const deja = electronApp.windows().find(estInterface)
   if (deja) return deja
   return electronApp.waitForEvent('window', { predicate: estInterface })
+}
+
+async function vueBarre(electronApp: ElectronApplication): Promise<Page> {
+  const estBarre = (page: Page) => page.url().endsWith('/renderer/index.html?vue=barre')
+  const deja = electronApp.windows().find(estBarre)
+  if (deja) return deja
+  return electronApp.waitForEvent('window', { predicate: estBarre })
 }
 
 function etat(): Promise<BrowserState> {
@@ -80,23 +91,60 @@ function statutsAppelsIpc(): Promise<string[]> {
   ]).then((reponses) => reponses.map((reponse) => reponse.status)))
 }
 
-// La barre latérale s'ouvre repliée (ARB-109) : les tests qui passent par ses boutons la déploient d'abord.
-async function deployerBarreLaterale() {
-  // Attend le rendu (juste après un rechargement de l'interface) avant de lire l'état de la barre.
-  const barre = ui.locator('.sidebar')
-  await expect(barre).toBeVisible()
-  if (/is-collapsed/.test(await barre.getAttribute('class') ?? '')) {
-    await ui.locator('[title^="Déployer la barre latérale"]').click()
-  }
-  await expect(ui.locator('.new-tab-button')).toBeVisible()
-}
-
 // Après un rechargement de l'interface : mêmes onglets, interface affichée, vue alignée.
 async function verifierInterfaceIntacte(avant: BrowserState) {
+  // Attendre le rendu d'abord : juste après un rechargement piloté par le processus principal, un evaluate peut viser
+  // l'ancien contexte d'exécution (« Execution context was destroyed »).
+  await expect(ui.getByLabel('Adresse ou recherche')).toBeVisible()
   const apres = await etat()
   expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
-  await deployerBarreLaterale()
   await attendreVueAlignee()
+}
+
+function etatBarre() {
+  return ui.evaluate(() => window.arbalete.getSidebar())
+}
+
+function boundsBarre() {
+  return app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .find((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre'))?.getBounds())
+}
+
+// Événements souris natifs (sendInputEvent) envoyés à la vue de la barre : entrée dans la bande, sortie de la barre.
+function souris(type: 'mouseEnter' | 'mouseLeave', x: number) {
+  return app.evaluate(({ BrowserWindow, WebContentsView }, { type, x }) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children
+      .find((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    vue.webContents.sendInputEvent({ type, x, y: 300 })
+    if (type === 'mouseEnter') vue.webContents.sendInputEvent({ type: 'mouseMove', x, y: 300 })
+  }, { type, x })
+}
+
+// Clic natif (sendInputEvent, bouton droit : aucune action dans la page ni la barre d'outils) dans la page de l'onglet
+// actif ou dans la fenêtre d'interface, en haut à droite, hors des boutons.
+function cliquerDans(cible: 'onglet' | 'fenetre') {
+  return app.evaluate(({ BrowserWindow, WebContentsView }, cible) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    const contenu = cible === 'fenetre' ? fenetre.webContents
+      : (fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+        && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>).webContents
+    const [x, y] = cible === 'fenetre' ? [700, 4] : [400, 300]
+    contenu.sendInputEvent({ type: 'mouseDown', x, y, button: 'right', clickCount: 1 })
+    contenu.sendInputEvent({ type: 'mouseUp', x, y, button: 'right', clickCount: 1 })
+  }, cible)
+}
+
+// La dernière vue ajoutée est dessinée au-dessus des autres : la barre doit l'être, au-dessus de l'onglet.
+function barreAuPremierPlan() {
+  return app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const derniere = BrowserWindow.getAllWindows()[0].contentView.children.at(-1)
+    return derniere instanceof WebContentsView && derniere.webContents.getURL().includes('vue=barre')
+  })
+}
+
+async function epinglerBarre(voulu: boolean) {
+  if ((await etatBarre()).pinned !== voulu) await ui.locator('[title*="la barre latérale"]').click()
+  await expect.poll(etatBarre).toEqual({ open: voulu, pinned: voulu })
 }
 
 // Exécute du code dans la page de l'onglet actif, comme un geste utilisateur (navigation initiée par la page).
@@ -124,7 +172,7 @@ async function attendreUrlActive(url: string) {
 async function resultatDansOngletActif<T>(code: string): Promise<T> {
   return app.evaluate(async ({ BrowserWindow, WebContentsView }, source) => {
     const fenetre = BrowserWindow.getAllWindows()[0]
-    const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView) as InstanceType<typeof WebContentsView>
+    const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
     return vue.webContents.executeJavaScript(source, true)
   }, code) as Promise<T>
 }
@@ -139,7 +187,7 @@ function rectangleZoneContenu() {
 
 function boundsVueActive() {
   return app.evaluate(({ BrowserWindow, WebContentsView }) => {
-    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView)
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre'))
     return vue?.getBounds()
   })
 }
@@ -158,47 +206,233 @@ test('C1 : l’app démarre avec le pont window.arbalete et un onglet', async ()
   expect(state.activeTabId).toBe(state.tabs[0].id)
 })
 
-// Value: protects=barre latérale repliée à l'ouverture de la fenêtre (ARB-109) : la page web occupe la largeur
-//   libérée, et le bouton la déploie avec la vue réalignée;
-//   fails_when=l'état initial de sidebarOpen repasse à true, ou la vue web n'est pas alignée sur la zone de contenu
-//   au premier affichage replié; why_new=C9 part d'une barre déjà déployée; seam=none;
-//   no_claim=ne couvre pas Ctrl+Maj+B (raccourci de l'interface) ; laisse la barre déployée pour les tests suivants.
-test('C31 : la barre latérale est repliée à l’ouverture de la fenêtre', async () => {
-  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
-  await expect(ui.locator('.new-tab-button')).toBeHidden()
+// Value: protects=barre latérale masquée à l'ouverture (ARB-33) : la page web occupe toute la largeur, la vue de la
+//   barre n'est qu'une bande de survol de 6 px au bord gauche, au-dessus de la page;
+//   fails_when=l'état initial de la barre n'est plus masqué, placerBarre ne réduit plus la vue à la bande, la vue de
+//   la barre passe sous l'onglet, ou la zone de contenu ne part plus du bord gauche; why_new=ARB-33 remplace la
+//   barre repliée d'ARB-109 (ancien C31); seam=none; no_claim=ne vérifie pas la transparence de la bande à l'écran.
+test('C31 : la barre latérale est masquée à l’ouverture et la page occupe toute la largeur', async () => {
+  expect(await etatBarre()).toEqual({ open: false, pinned: false })
+  expect(await boundsBarre()).toMatchObject({ x: 0, y: 0, width: 6 })
+  await expect(barreUi.getByTestId('sidebar-hover-strip')).toBeAttached()
+  await expect(barreUi.locator('.sidebar')).toHaveCount(0)
+  await expect(ui.locator('.sidebar')).toHaveCount(0)
   await attendreVueAlignee()
-  const replie = await rectangleZoneContenu()
+  expect((await rectangleZoneContenu()).x).toBe(0)
+  expect(await barreAuPremierPlan()).toBe(true)
+  // Le focus clavier reste à la page (webContents.isFocused : Playwright émule document.hasFocus dans chaque page).
+  expect(await app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .some((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre')
+      && enfant.webContents.isFocused()))).toBe(false)
+})
 
-  await deployerBarreLaterale()
-  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeGreaterThan(replie.x)
+// Value: protects=apparition au survol par-dessus la page et retrait (ARB-33) : la souris entre dans la bande, la
+//   barre s'ouvre sans déplacer la page ; elle se retire quand la souris sort, même après un clic sur un onglet, sauf menu des espaces ouvert,
+//   et au clic dans la page;
+//   fails_when=onMouseEnter n'ouvre plus la barre, l'ouverture redimensionne la page, onMouseLeave ne la ferme plus ou
+//   la ferme malgré le menu ouvert, un clic sur un bouton la retient, ou un clic dans l'onglet ne la retire plus (masquerAuClic de createTab);
+//   why_new=nouveau comportement d'ARB-33; seam=none (événements souris natifs par sendInputEvent);
+//   no_claim=ne couvre pas un vrai mouvement de souris de l'utilisateur.
+test('C33 : la barre apparaît au survol par-dessus la page et se retire', async () => {
+  await attendreVueAlignee()
+  const zone = await rectangleZoneContenu()
+
+  await souris('mouseEnter', 2)
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
+  await expect(barreUi.locator('.sidebar')).toBeVisible()
+  expect(await boundsBarre()).toMatchObject({ x: 0, width: 252 })
+  // La page ne bouge pas : la barre la recouvre.
+  expect(await rectangleZoneContenu()).toEqual(zone)
+  await attendreVueAlignee()
+
+  await souris('mouseLeave', 240)
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+  await expect.poll(async () => (await boundsBarre())?.width).toBe(6)
+
+  // Geste principal : un clic sur un onglet dans la barre ne la retient pas ; elle se retire à la sortie de la souris.
+  await souris('mouseEnter', 2)
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
+  await barreUi.locator('.tab-select').first().click()
+  await souris('mouseLeave', 240)
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+
+  // Menu des espaces ouvert, la sortie de la souris ne ferme pas la barre ; un clic dans la page, si.
+  await souris('mouseEnter', 2)
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
+  await barreUi.locator('.workspace-switcher').click()
+  await expect(barreUi.locator('.workspace-menu')).toBeVisible()
+  await souris('mouseLeave', 240)
+  // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'événement de façon synchrone.
+  await ui.waitForTimeout(500)
+  expect((await etatBarre()).open).toBe(true)
+  await cliquerDans('onglet')
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+
+  // Extension (audit de couverture /ship, ARB-33).
+  // Value: protects=la barre ouverte au survol se retire au clic dans la barre d'outils (before-mouse-event de la
+  //   fenêtre) et ne rouvre pas le menu des espaces resté ouvert à sa fermeture;
+  //   fails_when=mainWindow.webContents ne branche plus masquerAuClic, ou l'effet qui ferme le menu quand la
+  //   barre se retire disparaît; why_new=le bloc précédent ne clique que dans l'onglet; seam=none;
+  //   no_claim=clic simulé par sendInputEvent (bouton droit), pas un vrai clic de souris.
+  await souris('mouseEnter', 2)
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
+  // La barre doit être redessinée avant de constater l'absence du menu (sinon le compte passerait trop tôt).
+  await expect(barreUi.locator('.sidebar')).toBeVisible()
+  await expect(barreUi.locator('.workspace-menu')).toHaveCount(0)
+  await cliquerDans('fenetre')
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+})
+
+// Value: protects=Ctrl+Maj+B intercepté par le processus principal (ARB-33, règle 5) : depuis la page d'un onglet, il
+//   épingle la barre (la page lui laisse sa place) puis la libère, et la page ne reçoit pas la combinaison;
+//   fails_when=brancherRaccourciBarre n'est plus posé sur les onglets, ne fait plus preventDefault, ou toggle-pin
+//   n'inverse plus l'épinglage; why_new=l'ancien C32 ne pressait le raccourci que dans l'interface (keydown React);
+//   seam=none (sendInputEvent atteint before-input-event, comme F12 dans C28); no_claim=appui long simulé par le
+//   modificateur isautorepeat (extension ci-dessous), pas par un vrai clavier.
+test('C32 : Ctrl+Maj+B depuis la page épingle puis libère la barre latérale', async () => {
+  await attendreVueAlignee()
+  await resultatDansOngletActif(`window.touchesB = 0
+    addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'b') window.touchesB++ }); true`)
+  const presser = () => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+      && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    vue.webContents.focus()
+    vue.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'B', modifiers: ['control', 'shift'] })
+    vue.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'B', modifiers: ['control', 'shift'] })
+  })
+
+  await presser()
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: true })
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(252)
+  await attendreVueAlignee()
+
+  await presser()
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(0)
+  await attendreVueAlignee()
+  expect(await resultatDansOngletActif<number>('window.touchesB')).toBe(0)
+
+  // Extension (audit de couverture /ship, ARB-33).
+  // Value: protects=Ctrl+Maj+B bascule une seule fois l'épinglage depuis la vue de la barre et depuis la barre
+  //   d'outils ; la répétition d'un appui long est ignorée ; épinglée, la barre résiste au focus de la page et de
+  //   la barre d'outils (masquer n'agit pas sur une barre épinglée);
+  //   fails_when=verrouillerInterface ne branche plus brancherRaccourciBarre (rien dans la barre, ou double bascule
+  //   avec le keydown React de la fenêtre), isAutoRepeat n'est plus filtré, ou hide ferme une barre épinglée;
+  //   why_new=le bloc précédent ne presse le raccourci que dans l'onglet et n'y donne jamais le focus barre épinglée;
+  //   seam=none; no_claim=modificateur isAutoRepeat simulé par sendInputEvent, pas un vrai appui long au clavier.
+  const presserDans = (cible: 'onglet' | 'barre' | 'fenetre', repetition = false) =>
+    app.evaluate(({ BrowserWindow, WebContentsView }, { cible, repetition }) => {
+      const fenetre = BrowserWindow.getAllWindows()[0]
+      const contenu = cible === 'fenetre' ? fenetre.webContents
+        : (fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+          && enfant.webContents.getURL().includes('vue=barre') === (cible === 'barre')) as InstanceType<typeof WebContentsView>).webContents
+      contenu.focus()
+      const modifiers: Array<'control' | 'shift' | 'isautorepeat'> = repetition ? ['control', 'shift', 'isautorepeat'] : ['control', 'shift']
+      contenu.sendInputEvent({ type: 'keyDown', keyCode: 'B', modifiers })
+      contenu.sendInputEvent({ type: 'keyUp', keyCode: 'B', modifiers: ['control', 'shift'] })
+    }, { cible, repetition })
+
+  await presserDans('onglet', true)
+  // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'événement de façon synchrone.
+  await ui.waitForTimeout(500)
+  expect(await etatBarre()).toEqual({ open: false, pinned: false })
+
+  await presserDans('barre')
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: true })
+  await cliquerDans('onglet')
+  await cliquerDans('fenetre')
+  // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'événement de façon synchrone.
+  await ui.waitForTimeout(500)
+  expect(await etatBarre()).toEqual({ open: true, pinned: true })
+
+  await presserDans('fenetre')
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+  // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'événement de façon synchrone.
+  await ui.waitForTimeout(500)
+  expect(await etatBarre()).toEqual({ open: false, pinned: false })
   await attendreVueAlignee()
 })
 
-// Value: protects=Ctrl+Maj+B, focus dans l'interface, replie puis déploie la barre latérale (repliée à l'ouverture
-//   depuis ARB-109, le raccourci est l'autre moyen de la déployer), vue web réalignée;
-//   fails_when=la branche Ctrl+Shift+B du keydown de App.tsx disparaît ou n'inverse plus sidebarOpen;
-//   why_new=C9 et C31 passent par le bouton, aucun test ne presse le raccourci; seam=none;
-//   no_claim=ne couvre pas le raccourci avec le focus dans une page web (géré par le keydown de l'interface seul) ;
-//   part d'une barre déployée par le bouton (deployerBarreLaterale), sans dépendre de C31.
-test('C32 : Ctrl+Maj+B replie puis déploie la barre latérale', async () => {
-  await deployerBarreLaterale()
-  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
-  // Largeur de référence prise une fois la transition CSS de la barre (.18 s) terminée et la vue réalignée.
-  await ui.locator('.sidebar').evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)))
-  await attendreVueAlignee()
-  const deploye = await rectangleZoneContenu()
+// Value: protects=verrouillage de la vue de la barre latérale (ARB-33), qui porte le preload comme la fenêtre :
+//   elle ne navigue pas et n'ouvre pas de fenêtre, et ses appels IPC sont acceptés;
+//   fails_when=verrouillerInterface n'est plus appliqué à la vue de la barre, ou emetteurAutorise ne reconnaît plus
+//   son webContents; why_new=C15 ne vise que la fenêtre d'interface; seam=none;
+//   chargée sur une autre page, elle perd l'IPC; no_claim=ne couvre pas un fichier local quasi-homonyme (C17, fenêtre seule).
+test('C34 : la vue de la barre ne navigue pas, n’ouvre pas de fenêtre et pilote l’IPC', async () => {
+  const urlBarre = barreUi.url()
+  expect(await barreUi.evaluate(() => window.arbalete.getState().then((etat) => etat.tabs.length > 0))).toBe(true)
+  expect(await barreUi.evaluate((url) => window.open(url) === null, `${origine}/page-b.html`)).toBe(true)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
+  await barreUi.evaluate((url) => { location.href = url }, `${origine}/page-b.html`)
+  // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'événement de façon synchrone.
+  await barreUi.waitForTimeout(500)
+  expect(barreUi.url()).toBe(urlBarre)
 
-  await ui.keyboard.press('Control+Shift+B')
-  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeLessThan(deploye.x)
-  await attendreVueAlignee()
+  // Chargée sur une autre page depuis le processus principal, la vue de la barre garde le preload mais perd l'IPC
+  // (contrôle d'URL d'emetteurAutorise, comme C16 pour la fenêtre).
+  const statuts = await app.evaluate(async ({ BrowserWindow, WebContentsView }, url) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+      && enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    const urlInterface = vue.webContents.getURL()
+    try {
+      await vue.webContents.loadURL(url)
+      return await vue.webContents.executeJavaScript(`Promise.allSettled([window.arbalete.getState(),
+        window.arbalete.createTab('http://127.0.0.1:1/intrus')]).then((r) => r.map((x) => x.status))`)
+    } finally {
+      await vue.webContents.loadURL(urlInterface)
+    }
+  }, `${origine}/page-a.html`)
+  expect(statuts).toEqual(['rejected', 'rejected'])
 
-  await ui.keyboard.press('Control+Shift+B')
-  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
-  await expect(ui.locator('.new-tab-button')).toBeVisible()
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(deploye.x)
-  await attendreVueAlignee()
+  // Playwright attend encore la navigation refusée : on recharge la vue depuis le processus principal pour la suite.
+  await app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+      && enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    vue.webContents.reload()
+  })
+  await expect(barreUi.getByTestId('sidebar-hover-strip')).toBeAttached()
+})
+
+// Généré par l'audit de couverture /ship (ARB-33).
+// Value: protects=thème choisi tenu par le processus principal : le bouton de la barre d'outils l'applique à la fenêtre
+//   et à la barre, le thème système (nativeTheme) aussi ; set-theme et set-sidebar refusent un argument hors liste;
+//   fails_when=browser:theme ou browser:system-theme ne part plus qu'à la fenêtre, la barre n'écoute plus onTheme, le
+//   bouton ne passe plus par setTheme, ou exigerChoix laisse passer une valeur inconnue (règle 2);
+//   why_new=aucun test ne touchait au thème (C8 manuel) ni aux arguments des nouveaux canaux; seam=none (nativeTheme.
+//   themeSource pilote le thème système); no_claim=ne vérifie ni les couleurs rendues ni le thème réel de Windows.
+test('C35 : le thème s’applique à la fenêtre et à la barre ; set-theme et set-sidebar valident leur argument', async () => {
+  const themes = async () => [
+    await ui.locator('.app-shell').getAttribute('class'),
+    await barreUi.locator('.sidebar-zone').getAttribute('class')
+  ].map((classes) => /theme-(dark|light)/.exec(classes ?? '')?.[1])
+  const choix = () => barreUi.evaluate(() => window.arbalete.getTheme())
+  const bouton = ui.getByTitle('Thème : changer le mode')
+  expect(await choix()).toBe('system')
+  try {
+    await bouton.click()
+    await expect.poll(choix).toBe('dark')
+    await expect.poll(themes).toEqual(['dark', 'dark'])
+    await bouton.click()
+    await expect.poll(choix).toBe('light')
+    await expect.poll(themes).toEqual(['light', 'light'])
+    await bouton.click()
+    await expect.poll(choix).toBe('system')
+    // Thème système : un changement de nativeTheme atteint la fenêtre et la barre.
+    await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'light' })
+    await expect.poll(themes).toEqual(['light', 'light'])
+    await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'dark' })
+    await expect.poll(themes).toEqual(['dark', 'dark'])
+  } finally {
+    await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'system' })
+  }
+
+  const statuts = await ui.evaluate(() => Promise.allSettled([
+    window.arbalete.setTheme('rouge' as never),
+    window.arbalete.setSidebar('ouvrir' as never)
+  ]).then((reponses) => reponses.map((reponse) => reponse.status)))
+  expect(statuts).toEqual(['rejected', 'rejected'])
+  expect(await choix()).toBe('system')
+  expect(await etatBarre()).toEqual({ open: false, pinned: false })
 })
 
 test('C2 : la barre d’adresse charge localhost sans schéma et une URL complète', async () => {
@@ -287,6 +521,14 @@ test('C12 : la vue de l’onglet actif couvre la zone de contenu et suit le redi
   await expect.poll(async () => (await rectangleZoneContenu()).width).not.toBe(initiale.width)
   await attendreVueAlignee()
   expect(await boundsVueActive()).toEqual(await rectangleZoneContenu())
+
+  // Extension (audit de couverture /ship, ARB-33).
+  // Value: protects=la vue de la barre latérale (bande de survol) couvre toute la hauteur de la fenêtre après un
+  //   redimensionnement; fails_when=le gestionnaire resize n'appelle plus placerBarre (bande figée à l'ancienne
+  //   hauteur, bas du bord gauche sans survol); why_new=C31 et C33 ne regardent que x et la largeur; seam=none;
+  //   no_claim=ne couvre ni la maximisation ni le facteur de zoom Windows != 100 %.
+  const hauteurFenetre = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentBounds().height)
+  await expect.poll(async () => (await boundsBarre())?.height).toBe(hauteurFenetre)
 })
 
 // Value: protects=politique de permissions restrictive (session.setPermissionRequestHandler -> callback(false))
@@ -312,22 +554,21 @@ test('C7 : les demandes de permission d’une page web sont refusées', async ()
   expect(geolocalisation).toBe('refusée')
 })
 
-// Value: protects=repli/déploiement de la barre latérale -> ResizeObserver -> setContentBounds -> setBounds :
-//   la page web reste exactement sur .web-content quand la zone s'élargit puis se rétrécit;
-//   fails_when=le renderer (React 19 + plugin-react 6) ne renvoie plus les bornes au repli, ou setBounds d'Electron 45
-//   les ignore : la vue reste à l'ancienne position et laisse un vide ou recouvre la barre latérale;
-//   why_new=C12 ne change que la taille de la fenêtre, pas la largeur de la barre latérale; seam=none;
-//   no_claim=ne couvre ni le raccourci Ctrl+Shift+B, ni le redimensionnement de la barre à la souris.
-test('C9 : replier puis déployer la barre latérale réaligne la vue web', async () => {
+// Value: protects=épinglage par les boutons (ARB-33) -> ResizeObserver -> setContentBounds -> setBounds : épinglée, la
+//   barre prend sa place à gauche et la page se décale d'autant ; libérée, la page revient au bord, vue réalignée;
+//   fails_when=le bouton de la barre d'outils ou celui de la barre n'appelle plus toggle-pin, la réserve de 252 px
+//   disparaît (la barre épinglée recouvrirait la page), ou setBounds ignore les nouvelles bornes;
+//   why_new=ARB-33 remplace le repli d'ARB-109 par l'épinglage; seam=none;
+//   no_claim=ne couvre pas Ctrl+Maj+B (C32).
+test('C9 : épingler puis libérer la barre latérale réaligne la vue web', async () => {
+  await epinglerBarre(true)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(252)
   await attendreVueAlignee()
-  const deploye = await rectangleZoneContenu()
+  expect(await boundsBarre()).toMatchObject({ x: 0, width: 252 })
 
-  await ui.locator('[title^="Replier la barre latérale"]').click()
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeLessThan(deploye.x)
-  await attendreVueAlignee()
-
-  await ui.locator('[title^="Déployer la barre latérale"]').click()
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(deploye.x)
+  await barreUi.getByTitle('Libérer la barre latérale (Ctrl+Maj+B)').click()
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(0)
   await attendreVueAlignee()
   expect(await boundsVueActive()).toEqual(await rectangleZoneContenu())
 })
@@ -335,26 +576,31 @@ test('C9 : replier puis déployer la barre latérale réaligne la vue web', asyn
 test('C4 : créer, activer et fermer des onglets ; seul l’onglet actif est affiché', async () => {
   const vuesAffichees = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].contentView.children.length)
   const vuesAvecUnOnglet = await vuesAffichees()
+  // Les onglets se gèrent dans la barre latérale : on l'épingle pour la garder ouverte pendant les clics.
+  await epinglerBarre(true)
 
   const avant = (await etat()).tabs.length
-  await ui.locator('.new-tab-button').click()
+  await barreUi.locator('.new-tab-button').click()
   await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
   expect(await vuesAffichees()).toBe(vuesAvecUnOnglet)
 
   const premier = (await etat()).tabs[0]
-  await ui.locator('.tab-select').first().click()
+  await barreUi.locator('.tab-select').first().click()
   await expect.poll(async () => (await etat()).activeTabId).toBe(premier.id)
 
   // Fermer tous les onglets : le dernier fermé est remplacé par un nouvel onglet.
   const idsInitiaux = (await etat()).tabs.map((tab) => tab.id)
   for (let restant = idsInitiaux.length; restant > 1; restant--) {
-    await ui.locator('.tab-close').first().click()
+    await barreUi.locator('.tab-close').first().click()
     await expect.poll(async () => (await etat()).tabs.length).toBe(restant - 1)
   }
-  await ui.locator('.tab-close').first().click()
+  await barreUi.locator('.tab-close').first().click()
   await expect.poll(async () => idsInitiaux.includes((await etat()).tabs[0]?.id)).toBe(false)
   expect((await etat()).tabs).toHaveLength(1)
   expect(await vuesAffichees()).toBe(vuesAvecUnOnglet)
+  // La barre reste au-dessus de l'onglet qui remplace le dernier fermé.
+  expect(await barreAuPremierPlan()).toBe(true)
+  await epinglerBarre(false)
 })
 
 // Value: protects=Content-Security-Policy stricte de l'interface construite (ARB-13) : aucun script inline ne s'exécute;
