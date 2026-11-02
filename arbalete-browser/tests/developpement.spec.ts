@@ -162,8 +162,9 @@ test('C29 : en développement, seule la touche F12 bascule les DevTools, dans l�
 })
 
 // Value: protects=en développement, F12 pressée dans un onglet est consommée par Arbalète (ARB-101) : la page ne
-//   reçoit pas la touche, les DevTools de l'interface basculent;
-//   fails_when=event.preventDefault() disparaît de brancherF12 : la page reçoit aussi F12 (raccourci du site);
+//   reçoit ni la touche, ni ses répétitions d'un appui long, ni son relâchement ; les DevTools de l'interface basculent;
+//   fails_when=event.preventDefault() disparaît de brancherF12, ou ne vaut plus que pour le premier keyDown : la page
+//   reçoit aussi F12 (raccourci du site);
 //   why_new=C25, C28 et C29 ne regardent que les DevTools, jamais ce que la page reçoit; seam=none;
 //   no_claim=page locale servie en http sur 127.0.0.1 à la place d'un vrai site ; ne couvre pas l'interface ni le build.
 test('C30 : en développement, F12 dans un onglet n’atteint pas la page', async () => {
@@ -183,7 +184,8 @@ test('C30 : en développement, F12 dans un onglet n’atteint pas la page', asyn
 
     await dansOnglet(`(onglet, url) => onglet.loadURL(url)`, urlPage)
     await dansOnglet(`(onglet) => onglet.executeJavaScript(
-      "window.__touches = []; window.addEventListener('keydown', (e) => window.__touches.push(e.key), true); true")`)
+      "window.__touches = []; window.addEventListener('keydown', (e) => window.__touches.push(e.key), true); " +
+      "window.addEventListener('keyup', (e) => window.__touches.push('haut:' + e.key), true); true")`)
     expect(await devtoolsOuverts()).toBe(false)
 
     // Témoin positif : une touche ordinaire arrive bien à la page par ce circuit.
@@ -192,9 +194,13 @@ test('C30 : en développement, F12 dans un onglet n’atteint pas la page', asyn
 
     await presser('F12')
     await expect.poll(devtoolsOuverts).toBe(true)
+    // Appui long : répétitions de F12, consommées elles aussi, sans rebasculer les DevTools.
+    await envoyerTouches([{ type: 'keyDown', keyCode: 'F12', modifiers: ['isautorepeat'] }], 'onglet')
     await presser('F2')
     await expect.poll(() => compte('F2')).toBeGreaterThan(1)
     expect(await compte('F12')).toBe(0)
+    expect(await compte('haut:F12')).toBe(0)
+    expect(await devtoolsOuverts()).toBe(true)
 
     await presser('F12')
     await expect.poll(devtoolsOuverts).toBe(false)

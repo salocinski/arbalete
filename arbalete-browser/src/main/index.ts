@@ -103,13 +103,14 @@ function ouvertureAutorisee(onglet: string, url: string): boolean {
 
 // Sans menu d'application, F12 n'ouvre plus rien : on le garde en développement seulement. La touche arrive au
 // webContents qui a le focus (l'interface ou la page d'un onglet) : on écoute les deux, et F12 ouvre toujours les
-// DevTools de l'interface (règle 5).
+// DevTools de l'interface (règle 5). Tout F12 est consommé (relâchement et répétitions d'un appui long compris) ;
+// seul le premier appui bascule les DevTools.
 function brancherF12(contenu: WebContents) {
   if (!URL_DEV) return
   contenu.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || input.isAutoRepeat || input.key !== 'F12') return
+    if (input.key !== 'F12') return
     event.preventDefault()
-    mainWindow?.webContents.toggleDevTools()
+    if (input.type === 'keyDown' && !input.isAutoRepeat) mainWindow?.webContents.toggleDevTools()
   })
 }
 
