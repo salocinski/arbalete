@@ -37,7 +37,8 @@ test.beforeAll(async () => {
     cwd: resolve(__dirname, '..'),
     env: { ...process.env, ELECTRON_RENDERER_URL: urlDev! }
   })
-  const estInterface = (url: string) => url.startsWith(origineDev)
+  // La barre latérale (ARB-33) est servie par le même serveur, avec ?vue=barre : ce n'est pas la fenêtre d'interface.
+  const estInterface = (url: string) => url.startsWith(origineDev) && !url.includes('vue=barre')
   ui = app.windows().find((page) => estInterface(page.url()))
     ?? await app.waitForEvent('window', { predicate: (page) => estInterface(page.url()) })
 })
@@ -88,8 +89,10 @@ test.afterAll(async () => {
 
 // Value: protects=branche de développement d'ARB-13/14 : l'interface servie par Vite (origine d'ELECTRON_RENDERER_URL)
 //   est acceptée par emetteurAutorise, et la CSP de développement laisse passer le préambule React Refresh et le
-//   WebSocket du rechargement à chaud ; la barre latérale y est repliée au chargement (ARB-109);
-//   fails_when=l'état initial de sidebarOpen repasse à true (la barre arrive déployée en dev), ou estUrlInterface ne reconnaît plus l'origine de dev (localhost contre 127.0.0.1, port, comparaison
+//   WebSocket du rechargement à chaud ; la vue de la barre latérale (ARB-33), servie par Vite avec ?vue=barre, pilote
+//   aussi l'IPC;
+//   fails_when=la vue de la barre n'est pas chargée depuis le serveur de dev ou n'est pas reconnue par
+//   emetteurAutorise, ou estUrlInterface ne reconnaît plus l'origine de dev (localhost contre 127.0.0.1, port, comparaison
 //   d'URL complète), ou la CSP stricte (ou une CSP de dev trop serrée) est servie en dev : React ne démarre pas,
 //   « Refused to … » dans la console ou HMR déconnecté;
 //   why_new=C1-C17 tournent sur l'app construite (file://), la branche dev n'était vérifiée qu'à la main; seam=none
@@ -102,12 +105,18 @@ test('C18 : en développement, l’interface servie par Vite pilote l’IPC sous
   await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.reload())
 
   await expect.poll(() => messages.some((texte) => texte.includes('[vite] connected'))).toBe(true)
-  await expect(ui.locator('.sidebar')).toBeVisible()
-  // Le rechargement remonte React : la barre latérale repart repliée (ARB-109), en dev comme au build.
-  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
+  await expect(ui.getByLabel('Adresse ou recherche')).toBeVisible()
   const etat = await ui.evaluate(() => window.arbalete.getState())
   expect(etat.tabs.length).toBeGreaterThan(0)
   expect(messages.filter((texte) => /Refused to/.test(texte))).toEqual([])
+
+  const estBarre = (page: Page) => page.url().startsWith(origineDev) && page.url().includes('vue=barre')
+  const barre = app!.windows().find(estBarre) ?? await app!.waitForEvent('window', { predicate: estBarre })
+  // Rendue et pilotant l'IPC, quel que soit son état : un vrai pointeur au bord gauche peut l'avoir ouverte.
+  await expect(barre.locator('.sidebar-zone')).toBeAttached()
+  const sidebar = await barre.evaluate(() => window.arbalete.getSidebar())
+  expect(typeof sidebar.open).toBe('boolean')
+  expect(sidebar.pinned).toBe(false)
 })
 
 // Value: protects=F12 en développement (ARB-101) : sans menu d'application, le before-input-event de l'interface
@@ -184,6 +193,9 @@ test('C30 : en développement, F12 dans un onglet n’atteint pas la page', asyn
       `(onglet, touche) => onglet.executeJavaScript('window.__touches.filter((t) => t === ' + JSON.stringify(touche) + ').length')`,
       touche)
 
+    // Le chargement de google.com au démarrage peut être encore en cours : l'interrompre ferait rejeter loadURL
+    // (ERR_ABORTED, -3). On attend qu'il se termine avant de changer de page.
+    await expect.poll(() => dansOnglet<boolean>('(onglet) => onglet.isLoading()'), { timeout: 30_000 }).toBe(false)
     await dansOnglet(`(onglet, url) => onglet.loadURL(url)`, urlPage)
     await dansOnglet(`(onglet) => onglet.executeJavaScript(
       "window.__touches = []; window.addEventListener('keydown', (e) => window.__touches.push(e.key), true); " +

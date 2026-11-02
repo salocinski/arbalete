@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.2.0.0] - 2026-11-02
+
+### Modifié
+- La barre latérale disparaît : à l'ouverture de la fenêtre, la page occupe toute la largeur. Approcher la souris du
+  bord gauche fait apparaître la barre par-dessus la page, sans la déplacer ; elle se retire quand la souris la quitte
+  ou au clic dans la page ou la barre d'outils. Le menu des espaces ouvert la garde affichée.
+- Le bouton de repli devient un bouton d'épingle, dans la barre et dans la barre d'outils. Épinglée, la barre reste
+  ouverte et la page lui laisse sa place. Ctrl+Maj+B épingle ou libère la barre, même quand le focus est dans une page.
+- Le thème choisi s'applique ensemble à la fenêtre et à la barre latérale.
+- Ctrl+T, Ctrl+W et Alt+flèches fonctionnent aussi quand le focus est dans la barre latérale.
+
+### Ajouté
+- Les tests C31 à C35 et C9 couvrent la barre masquée à l'ouverture, le survol, le retrait, l'épinglage, Ctrl+Maj+B, le
+  verrouillage de la vue de la barre et le thème partagé.
+
 ## [0.1.5.0] - 2026-11-01
 
 ### Modifié
