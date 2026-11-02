@@ -70,18 +70,31 @@ function updateTabFromView(id: string) {
 
 // Ouvertures demandées par les pages (window.open, target=_blank) : seules les adresses web passent (ARB-102),
 // sinon une page http ouvrirait file:// via loadURL depuis le processus principal, que Chromium ne bloque pas.
-// Une page ne peut ouvrir que OUVERTURES_MAX onglets par fenêtre glissante, contre les rafales de window.open.
+// Une page ne peut ouvrir que OUVERTURES_MAX onglets par fenêtre glissante, contre les rafales de window.open, et
+// toutes les pages réunies OUVERTURES_MAX_TOTAL : chaque onglet ouvert ayant son propre quota, une page qui se
+// rouvre en chaîne passerait sinon de 5 à 25 puis 125 onglets.
 const OUVERTURES_MAX = 5
+const OUVERTURES_MAX_TOTAL = 20
 const FENETRE_OUVERTURES_MS = 10_000
+const TOUTES_LES_PAGES = '*'
 const ouvertures = new Map<string, number[]>()
+
+function ouverturesRecentes(cle: string, maintenant: number): number[] {
+  const recentes = (ouvertures.get(cle) ?? []).filter((instant) => maintenant - instant < FENETRE_OUVERTURES_MS)
+  ouvertures.set(cle, recentes)
+  return recentes
+}
 
 function ouvertureAutorisee(onglet: string, url: string): boolean {
   if (!/^https?:\/\//i.test(url)) return false
   const maintenant = Date.now()
-  const recentes = (ouvertures.get(onglet) ?? []).filter((instant) => maintenant - instant < FENETRE_OUVERTURES_MS)
-  const autorisee = recentes.length < OUVERTURES_MAX
-  if (autorisee) recentes.push(maintenant)
-  ouvertures.set(onglet, recentes)
+  const parOnglet = ouverturesRecentes(onglet, maintenant)
+  const total = ouverturesRecentes(TOUTES_LES_PAGES, maintenant)
+  const autorisee = parOnglet.length < OUVERTURES_MAX && total.length < OUVERTURES_MAX_TOTAL
+  if (autorisee) {
+    parOnglet.push(maintenant)
+    total.push(maintenant)
+  }
   return autorisee
 }
 
