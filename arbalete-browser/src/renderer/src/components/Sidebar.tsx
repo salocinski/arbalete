@@ -27,9 +27,11 @@ export function Sidebar({ state, sidebar, theme }: { state: BrowserState; sideba
     if (!sidebar.pinned && !keepOpen()) void window.arbalete.setSidebar('hide')
   }
 
+  // Sans tester sidebar.open : juste après un retrait, cette vue peut ne pas avoir encore reçu l'état fermé, et une
+  // entrée rapide de la souris serait ignorée. Le processus principal ne fait rien si la barre est déjà ouverte.
   return (
     <div ref={zoneRef} className={`sidebar-zone theme-${theme}`}
-      onMouseEnter={() => { if (!sidebar.open) void window.arbalete.setSidebar('open') }}
+      onMouseEnter={() => void window.arbalete.setSidebar('open')}
       onMouseLeave={onMouseLeave}>
       {!sidebar.open ? <div className="sidebar-hover-strip" data-testid="sidebar-hover-strip" /> : (
         <aside className="sidebar">
