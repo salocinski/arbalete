@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.3.0.0] - 2026-11-02
+
+### Ajouté
+- Les raccourcis Ctrl+T (nouvel onglet), Ctrl+W (fermer l'onglet), Ctrl+L (barre d'adresse) et Alt+←/→
+  (précédent/suivant) fonctionnent aussi quand le clavier est dans une page web ou dans la barre latérale.
+- Après Ctrl+T, on peut taper l'adresse tout de suite ; après Ctrl+W, le clavier passe à l'onglet qui devient actif.
+- Les raccourcis marchent aussi avec une disposition de clavier non latine (russe, grec…). AltGr n'en déclenche aucun.
+
+### Modifié
+- Les raccourcis d'Arbalète sont interceptés par le processus principal : la page ne les reçoit plus et aucune action
+  n'est exécutée deux fois.
+
 ## [0.2.1.0] - 2026-11-02
 
 ### Corrigé
