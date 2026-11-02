@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.2.1.0] - 2026-11-02
+
+### Corrigé
+- Au démarrage, le clavier va bien à la page de l'onglet : on peut taper ou faire défiler tout de suite, sans que la
+  barre latérale masquée garde le focus.
+- La barre latérale se rouvre quand la souris revient vite au bord gauche juste après l'avoir quittée.
+
+### Modifié
+- L'interface est découpée en vues et composants (fenêtre, barre latérale, barre d'outils, onglets…), sans changement
+  visible. Les prochaines évolutions de la barre et des onglets s'appuieront dessus.
+- Les tests vérifient que la page de l'onglet a le focus au démarrage, et les tests de développement attendent que
+  l'onglet ait chargé son adresse avant de commencer.
+
 ## [0.2.0.0] - 2026-11-02
 
 ### Modifié
