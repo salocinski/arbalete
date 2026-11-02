@@ -107,7 +107,7 @@ function ouvertureAutorisee(onglet: string, url: string): boolean {
 function brancherF12(contenu: WebContents) {
   if (!URL_DEV) return
   contenu.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || input.key !== 'F12') return
+    if (input.type !== 'keyDown' || input.isAutoRepeat || input.key !== 'F12') return
     event.preventDefault()
     mainWindow?.webContents.toggleDevTools()
   })
