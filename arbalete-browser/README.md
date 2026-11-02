@@ -55,7 +55,9 @@ Ceci est un prototype de départ, pas encore un navigateur prêt à être utilis
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation et IPC.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
-- `src/renderer/src/App.tsx` : interface et interactions.
+- `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
+- `src/renderer/src/views/` et `src/renderer/src/components/` : interface et interactions.
+- `src/renderer/src/state.ts` et `src/renderer/src/shortcuts.ts` : état suivi depuis le processus principal et raccourcis d'onglets.
 - `src/renderer/src/styles.css` : identité visuelle.
 
 ## Prochaines étapes recommandées
