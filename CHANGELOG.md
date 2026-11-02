@@ -2,6 +2,22 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.1.3.0] - 2026-11-01
+
+### Modifié
+- Plus de menu d'application : dans l'app construite, Ctrl+Maj+I n'ouvre plus les outils de développement de
+  l'interface et Ctrl+R ne la recharge plus. En développement, F12 ouvre toujours ces outils. Le zoom au clavier et
+  F11 disparaissent avec ce menu ; ils reviendront, gérés par Arbalète (ARB-107).
+- Une page ne peut plus ouvrir que des adresses web dans un nouvel onglet : un lien ou un `window.open` vers
+  `file://`, `about:blank` ou un schéma inconnu n'ouvre rien.
+- Les pages ne peuvent plus noyer le navigateur sous les onglets : une page en ouvre au plus 5 par 10 secondes,
+  toutes les pages réunies 20, et plus aucun au-delà de 50 onglets ouverts. L'utilisateur peut toujours en ouvrir
+  depuis l'interface.
+
+### Ajouté
+- Les tests automatisés couvrent ces protections : absence de menu, F12 en build et en développement, schémas
+  refusés, quotas par onglet et global, fenêtre de 10 secondes et plafond de 50 onglets (C19 à C27).
+
 ## [0.1.2.0] - 2026-11-01
 
 ### Modifié
