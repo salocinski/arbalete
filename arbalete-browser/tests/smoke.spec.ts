@@ -79,11 +79,18 @@ function statutsAppelsIpc(): Promise<string[]> {
   ]).then((reponses) => reponses.map((reponse) => reponse.status)))
 }
 
+// La barre latérale s'ouvre repliée (ARB-109) : les tests qui passent par ses boutons la déploient d'abord.
+async function deployerBarreLaterale() {
+  const bouton = ui.locator('[title^="Déployer la barre latérale"]')
+  if (await bouton.isVisible()) await bouton.click()
+  await expect(ui.locator('.new-tab-button')).toBeVisible()
+}
+
 // Après un rechargement de l'interface : mêmes onglets, interface affichée, vue alignée.
 async function verifierInterfaceIntacte(avant: BrowserState) {
   const apres = await etat()
   expect(apres.tabs.map((tab) => tab.id)).toEqual(avant.tabs.map((tab) => tab.id))
-  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await deployerBarreLaterale()
   await attendreVueAlignee()
 }
 
@@ -144,6 +151,23 @@ test('C1 : l’app démarre avec le pont window.arbalete et un onglet', async ()
   const state = await etat()
   expect(state.tabs).toHaveLength(1)
   expect(state.activeTabId).toBe(state.tabs[0].id)
+})
+
+// Value: protects=barre latérale repliée à l'ouverture de la fenêtre (ARB-109) : la page web occupe la largeur
+//   libérée, et le bouton la déploie avec la vue réalignée;
+//   fails_when=l'état initial de sidebarOpen repasse à true, ou la vue web n'est pas alignée sur la zone de contenu
+//   au premier affichage replié; why_new=C9 part d'une barre déjà déployée; seam=none;
+//   no_claim=ne couvre pas Ctrl+Maj+B (raccourci de l'interface) ; laisse la barre déployée pour les tests suivants.
+test('C31 : la barre latérale est repliée à l’ouverture de la fenêtre', async () => {
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
+  await expect(ui.locator('.new-tab-button')).toBeHidden()
+  await attendreVueAlignee()
+  const replie = await rectangleZoneContenu()
+
+  await deployerBarreLaterale()
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeGreaterThan(replie.x)
+  await attendreVueAlignee()
 })
 
 test('C2 : la barre d’adresse charge localhost sans schéma et une URL complète', async () => {

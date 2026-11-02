@@ -102,7 +102,7 @@ test('C18 : en développement, l’interface servie par Vite pilote l’IPC sous
   await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.reload())
 
   await expect.poll(() => messages.some((texte) => texte.includes('[vite] connected'))).toBe(true)
-  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await expect(ui.locator('.sidebar')).toBeVisible()
   const etat = await ui.evaluate(() => window.arbalete.getState())
   expect(etat.tabs.length).toBeGreaterThan(0)
   expect(messages.filter((texte) => /Refused to/.test(texte))).toEqual([])

@@ -53,7 +53,7 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4 ; EP-14 l'étendra et ajoutera Vitest.
 Il couvre le contrat de régression C1-C7, C9, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, repli de la
-barre latérale, bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-12/13/14, il vérifie
+barre latérale (repliée à l'ouverture de la fenêtre depuis ARB-109, C31), bouton Recharger, alignement de la vue web au redimensionnement. Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.

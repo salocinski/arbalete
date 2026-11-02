@@ -28,7 +28,8 @@ function displayHost(url: string) {
 
 export default function App() {
   const [state, setState] = useState<BrowserState>(starterState)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Repliée à l'ouverture pour laisser la place à la page (ARB-109) ; le bouton et Ctrl+Maj+B la déploient.
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [workspace, setWorkspace] = useState('dev')
   const [address, setAddress] = useState('https://www.google.com')
   const [addressFocused, setAddressFocused] = useState(false)
