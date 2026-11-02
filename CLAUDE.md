@@ -27,7 +27,11 @@ arbalete-browser/
   src/main/index.ts        processus principal : fenêtre, onglets (WebContentsView), navigation, IPC
   src/preload/index.ts     pont IPC minimal exposé en window.arbalete
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
-  src/renderer/src/        interface React (App.tsx, styles.css)
+  src/renderer/src/        interface React : App.tsx (aiguillage fenêtre / barre), styles.css
+  src/renderer/src/views/  MainView (fenêtre) et SidebarView (vue native de la barre, ?vue=barre)
+  src/renderer/src/components/  Sidebar, TabList, Toolbar, AddressBar, WorkspaceSwitcher, StatusBar…
+  src/renderer/src/state.ts      hooks d'état suivis depuis le processus principal (onglets, barre, thème)
+  src/renderer/src/shortcuts.ts  raccourcis d'onglets communs aux deux documents
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
   vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
