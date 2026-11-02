@@ -328,6 +328,11 @@ function createWindow() {
   barreView.setBackgroundColor('#00000000')
   verrouillerInterface(barreView.webContents)
   chargerInterface(barreView.webContents, 'barre')
+  // Au démarrage, le focus clavier revient sinon à la dernière vue chargée, parfois la barre masquée (ARB-110) : on
+  // le rend à la page de l'onglet actif.
+  barreView.webContents.once('did-finish-load', () => {
+    if (!barre.open) activeRecord()?.view.webContents.focus()
+  })
   mainWindow.contentView.addChildView(barreView)
   placerBarre()
 
