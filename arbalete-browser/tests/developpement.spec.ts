@@ -90,7 +90,7 @@ test.afterAll(async () => {
 // Value: protects=branche de développement d'ARB-13/14 : l'interface servie par Vite (origine d'ELECTRON_RENDERER_URL)
 //   est acceptée par emetteurAutorise, et la CSP de développement laisse passer le préambule React Refresh et le
 //   WebSocket du rechargement à chaud ; la vue de la barre latérale (ARB-33), servie par Vite avec ?vue=barre, pilote
-//   aussi l'IPC et n'affiche que sa bande de survol;
+//   aussi l'IPC;
 //   fails_when=la vue de la barre n'est pas chargée depuis le serveur de dev ou n'est pas reconnue par
 //   emetteurAutorise, ou estUrlInterface ne reconnaît plus l'origine de dev (localhost contre 127.0.0.1, port, comparaison
 //   d'URL complète), ou la CSP stricte (ou une CSP de dev trop serrée) est servie en dev : React ne démarre pas,
@@ -112,8 +112,11 @@ test('C18 : en développement, l’interface servie par Vite pilote l’IPC sous
 
   const estBarre = (page: Page) => page.url().startsWith(origineDev) && page.url().includes('vue=barre')
   const barre = app!.windows().find(estBarre) ?? await app!.waitForEvent('window', { predicate: estBarre })
-  await expect(barre.getByTestId('sidebar-hover-strip')).toBeAttached()
-  expect(await barre.evaluate(() => window.arbalete.getSidebar())).toEqual({ open: false, pinned: false })
+  // Rendue et pilotant l'IPC, quel que soit son état : un vrai pointeur au bord gauche peut l'avoir ouverte.
+  await expect(barre.locator('.sidebar-zone')).toBeAttached()
+  const sidebar = await barre.evaluate(() => window.arbalete.getSidebar())
+  expect(typeof sidebar.open).toBe('boolean')
+  expect(sidebar.pinned).toBe(false)
 })
 
 // Value: protects=F12 en développement (ARB-101) : sans menu d'application, le before-input-event de l'interface
