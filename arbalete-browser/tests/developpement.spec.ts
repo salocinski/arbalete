@@ -89,3 +89,28 @@ test('C25 : en développement, F12 ouvre et ferme les DevTools de l’interface'
   await presserF12()
   await expect.poll(devtoolsOuverts).toBe(false)
 })
+
+// Value: protects=F12 en développement quand le focus est dans la page d'un onglet (ARB-101), cas du démarrage :
+//   la touche arrive au webContents de l'onglet, pas à celui de l'interface;
+//   fails_when=le gestionnaire F12 n'est posé que sur l'interface (régression signalée en relecture de la PR #8);
+//   why_new=C25 envoie la touche à l'interface seulement; seam=none;
+//   no_claim=ne couvre pas un onglet ouvert après coup (même createTab) ni le build (C24).
+test('C28 : en développement, F12 dans un onglet ouvre et ferme les DevTools de l’interface', async () => {
+  const devtoolsOuverts = () => app!.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened())
+  const presserF12DansOnglet = () => app!.evaluate(({ BrowserWindow, webContents }) => {
+    const interfaceUi = BrowserWindow.getAllWindows()[0].webContents
+    const onglet = webContents.getAllWebContents()
+      .find((contenu) => contenu !== interfaceUi && /^https?:/.test(contenu.getURL())
+        && !contenu.getURL().startsWith(new URL(interfaceUi.getURL()).origin))
+    if (!onglet) throw new Error('aucun onglet trouvé')
+    onglet.sendInputEvent({ type: 'keyDown', keyCode: 'F12' })
+    onglet.sendInputEvent({ type: 'keyUp', keyCode: 'F12' })
+  })
+  expect(await devtoolsOuverts()).toBe(false)
+
+  await presserF12DansOnglet()
+  await expect.poll(devtoolsOuverts).toBe(true)
+  await presserF12DansOnglet()
+  await expect.poll(devtoolsOuverts).toBe(false)
+})

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab } from '../shared/types'
@@ -101,6 +101,18 @@ function ouvertureAutorisee(onglet: string, url: string): boolean {
   return autorisee
 }
 
+// Sans menu d'application, F12 n'ouvre plus rien : on le garde en développement seulement. La touche arrive au
+// webContents qui a le focus (l'interface ou la page d'un onglet) : on écoute les deux, et F12 ouvre toujours les
+// DevTools de l'interface (règle 5).
+function brancherF12(contenu: WebContents) {
+  if (!URL_DEV) return
+  contenu.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.key !== 'F12') return
+    event.preventDefault()
+    mainWindow?.webContents.toggleDevTools()
+  })
+}
+
 function createTab(initialUrl = 'https://www.google.com'): string {
   const id = `tab-${nextTabNumber++}`
   const view = new WebContentsView({
@@ -138,6 +150,7 @@ function createTab(initialUrl = 'https://www.google.com'): string {
   view.webContents.on('will-navigate', (event, url) => {
     if (!/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) event.preventDefault()
   })
+  brancherF12(view.webContents)
 
   activeTabId = id
   setActiveView()
@@ -230,14 +243,7 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
 
-  // Sans menu d'application, F12 n'ouvre plus rien : on le garde en développement seulement.
-  if (URL_DEV) {
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown' || input.key !== 'F12') return
-      event.preventDefault()
-      mainWindow?.webContents.toggleDevTools()
-    })
-  }
+  brancherF12(mainWindow.webContents)
 
   if (URL_DEV) {
     void mainWindow.loadURL(URL_DEV)
