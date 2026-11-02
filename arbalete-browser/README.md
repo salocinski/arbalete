@@ -29,7 +29,7 @@ npm run dev:web   # http://localhost:5180
 
 ## Interactions incluses
 
-- Barre latérale repliable : `Ctrl+Shift+B`
+- Barre latérale repliable, repliée à l'ouverture de la fenêtre : `Ctrl+Shift+B` ou le bouton en haut de la barre
 - Nouvel onglet : `Ctrl+T`
 - Fermer l'onglet actif : `Ctrl+W`
 - Focus sur la barre d'adresse : `Ctrl+L`
