@@ -329,9 +329,9 @@ function createWindow() {
   verrouillerInterface(barreView.webContents)
   chargerInterface(barreView.webContents, 'barre')
   // Au démarrage, le focus clavier revient sinon à la dernière vue chargée, parfois la barre masquée (ARB-110) : on
-  // le rend à la page de l'onglet actif.
+  // le rend à la page de l'onglet actif, sauf si l'utilisateur l'a déjà mis dans l'interface (Ctrl+L, barre d'adresse).
   barreView.webContents.once('did-finish-load', () => {
-    if (!barre.open) activeRecord()?.view.webContents.focus()
+    if (!barre.open && !mainWindow?.webContents.isFocused()) activeRecord()?.view.webContents.focus()
   })
   mainWindow.contentView.addChildView(barreView)
   placerBarre()

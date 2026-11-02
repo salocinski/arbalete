@@ -225,6 +225,15 @@ test('C31 : la barre latérale est masquée à l’ouverture et la page occupe t
   expect(await app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
     .some((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre')
       && enfant.webContents.isFocused()))).toBe(false)
+  // Extension (audit de couverture /ship, ARB-110).
+  // Value: protects=au démarrage, barre masquée, le focus clavier va à la page de l'onglet actif;
+  //   fails_when=le focus rendu à l'onglet au did-finish-load de la barre disparaît ou vise une autre vue;
+  //   why_new=la vérification précédente ne prouve que l'absence de focus sur la barre; seam=none;
+  //   no_claim=focus des webContents, pas le focus réel du système ; passe aussi sans le correctif, la course
+  //   d'ARB-110 étant intermittente (contrôle positif, pas une preuve de régression).
+  await expect.poll(() => app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .some((enfant) => enfant instanceof WebContentsView && /^https?:/.test(enfant.webContents.getURL())
+      && enfant.webContents.isFocused()))).toBe(true)
 })
 
 // Value: protects=apparition au survol par-dessus la page et retrait (ARB-33) : la souris entre dans la bande, la
