@@ -81,8 +81,12 @@ function statutsAppelsIpc(): Promise<string[]> {
 
 // La barre latérale s'ouvre repliée (ARB-109) : les tests qui passent par ses boutons la déploient d'abord.
 async function deployerBarreLaterale() {
-  const bouton = ui.locator('[title^="Déployer la barre latérale"]')
-  if (await bouton.isVisible()) await bouton.click()
+  // Attend le rendu (juste après un rechargement de l'interface) avant de lire l'état de la barre.
+  const barre = ui.locator('.sidebar')
+  await expect(barre).toBeVisible()
+  if (/is-collapsed/.test(await barre.getAttribute('class') ?? '')) {
+    await ui.locator('[title^="Déployer la barre latérale"]').click()
+  }
   await expect(ui.locator('.new-tab-button')).toBeVisible()
 }
 
@@ -167,6 +171,32 @@ test('C31 : la barre latérale est repliée à l’ouverture de la fenêtre', as
   await deployerBarreLaterale()
   await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
   await expect.poll(async () => (await rectangleZoneContenu()).x).toBeGreaterThan(replie.x)
+  await attendreVueAlignee()
+})
+
+// Value: protects=Ctrl+Maj+B, focus dans l'interface, replie puis déploie la barre latérale (repliée à l'ouverture
+//   depuis ARB-109, le raccourci est l'autre moyen de la déployer), vue web réalignée;
+//   fails_when=la branche Ctrl+Shift+B du keydown de App.tsx disparaît ou n'inverse plus sidebarOpen;
+//   why_new=C9 et C31 passent par le bouton, aucun test ne presse le raccourci; seam=none;
+//   no_claim=ne couvre pas le raccourci avec le focus dans une page web (géré par le keydown de l'interface seul) ;
+//   part d'une barre déployée par le bouton (deployerBarreLaterale), sans dépendre de C31.
+test('C32 : Ctrl+Maj+B replie puis déploie la barre latérale', async () => {
+  await deployerBarreLaterale()
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
+  // Largeur de référence prise une fois la transition CSS de la barre (.18 s) terminée et la vue réalignée.
+  await ui.locator('.sidebar').evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)))
+  await attendreVueAlignee()
+  const deploye = await rectangleZoneContenu()
+
+  await ui.keyboard.press('Control+Shift+B')
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-collapsed/)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBeLessThan(deploye.x)
+  await attendreVueAlignee()
+
+  await ui.keyboard.press('Control+Shift+B')
+  await expect(ui.locator('.sidebar')).toHaveClass(/is-open/)
+  await expect(ui.locator('.new-tab-button')).toBeVisible()
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(deploye.x)
   await attendreVueAlignee()
 })
 
