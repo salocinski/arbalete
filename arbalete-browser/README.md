@@ -34,6 +34,7 @@ npm run dev:web   # http://localhost:5180
 - Fermer l'onglet actif : `Ctrl+W`
 - Focus sur la barre d'adresse : `Ctrl+L`
 - Précédent / suivant : `Alt+←` / `Alt+→`
+- Ces raccourcis agissent aussi depuis une page web ou la barre latérale (interceptés par le processus principal)
 - Navigation Chromium réelle via `WebContentsView`
 - Onglets créés, sélectionnés et fermés
 - Espaces de travail visuels
@@ -53,11 +54,11 @@ Ceci est un prototype de départ, pas encore un navigateur prêt à être utilis
 
 ## Architecture
 
-- `src/main/index.ts` : fenêtre, gestion des vues web, navigation et IPC.
+- `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
 - `src/renderer/src/views/` et `src/renderer/src/components/` : interface et interactions.
-- `src/renderer/src/state.ts` et `src/renderer/src/shortcuts.ts` : état suivi depuis le processus principal et raccourcis d'onglets.
+- `src/renderer/src/state.ts` et `src/renderer/src/shortcuts.ts` : état suivi depuis le processus principal et raccourcis d'onglets de l'aperçu web.
 - `src/renderer/src/styles.css` : identité visuelle.
 
 ## Prochaines étapes recommandées

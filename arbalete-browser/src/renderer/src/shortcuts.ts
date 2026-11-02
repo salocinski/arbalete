@@ -1,5 +1,5 @@
-// Raccourcis d'onglets communs à la fenêtre et à la barre latérale : chacune est un document distinct, qui ne
-// reçoit les touches que lorsqu'il a le focus. Renvoie true si la touche a été traitée.
+// Raccourcis d'onglets de l'aperçu web (npm run dev:web). Dans Electron, le processus principal les intercepte avant
+// l'interface, où que soit le focus (ARB-18), et ce code ne les reçoit pas. Renvoie true si la touche a été traitée.
 export function handleTabShortcut(event: KeyboardEvent, activeTabId: string | null): boolean {
   const mod = event.ctrlKey || event.metaKey
   if (mod && event.key.toLowerCase() === 't') {
