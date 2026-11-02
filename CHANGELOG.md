@@ -2,6 +2,12 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.3.0.1] - 2026-11-02
+
+### Documentation
+- Décision 0001 (`docs/decisions/0001-stockage.md`) : les données d'Arbalète (session, favoris, historique, espaces)
+  seront stockées dans SQLite intégré à Electron (`node:sqlite`), derrière un module du processus principal.
+
 ## [0.3.0.0] - 2026-11-02
 
 ### Ajouté
