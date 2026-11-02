@@ -112,7 +112,7 @@ test('C18 : en développement, l’interface servie par Vite pilote l’IPC sous
 //   ouvre puis ferme les DevTools ; c'est aussi la preuve que la touche simulée atteint before-input-event (C24);
 //   fails_when=le gestionnaire F12 disparaît ou n'est posé que hors développement; why_new=C18 ne presse aucune
 //   touche, C19 ne regarde que le menu; seam=none;
-//   no_claim=ne couvre ni F12 quand le focus est dans une page web (gestionnaire posé sur l'interface seulement),
+//   no_claim=ne couvre ni F12 quand le focus est dans la page d'un onglet (C28 à C30 s'en chargent),
 //   ni le filtrage keyDown/keyUp (sans ce filtre, le test passe encore : mutation vérifiée).
 test('C25 : en développement, F12 ouvre et ferme les DevTools de l’interface', async () => {
   expect(await devtoolsOuverts()).toBe(false)

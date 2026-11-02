@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.1.4.0] - 2026-11-01
+
+### Corrigé
+- En développement (`npm run dev`), F12 ouvre et ferme les outils de développement de l'interface où que soit le
+  focus : dans la page de l'onglet comme dans l'interface. Jusqu'ici, F12 ne faisait rien au démarrage, quand le
+  focus est dans la page. La page ne reçoit plus F12, même maintenue, et un appui long ne fait plus clignoter les
+  outils de développement.
+
+### Ajouté
+- Les tests C28 à C30 couvrent F12 depuis un onglet, les autres touches et la répétition automatique, et vérifient
+  que la page ne reçoit pas F12.
+
 ## [0.1.3.0] - 2026-11-01
 
 ### Modifié
