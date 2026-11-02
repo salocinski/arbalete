@@ -31,7 +31,7 @@ arbalete-browser/
   src/renderer/src/views/  MainView (fenêtre) et SidebarView (vue native de la barre, ?vue=barre)
   src/renderer/src/components/  Sidebar, TabList, Toolbar, AddressBar, WorkspaceSwitcher, StatusBar…
   src/renderer/src/state.ts      hooks d'état suivis depuis le processus principal (onglets, barre, thème)
-  src/renderer/src/shortcuts.ts  raccourcis d'onglets communs aux deux documents
+  src/renderer/src/shortcuts.ts  raccourcis d'onglets de l'aperçu web (dans Electron, le processus principal les intercepte)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
   vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
@@ -62,7 +62,9 @@ masquée à l'ouverture (C31), elle apparaît au survol du bord gauche par-dessu
 souris ou au clic dans la page (C33) ; épinglée par le bouton (C9) ou Ctrl+Maj+B depuis la page (C32), la page lui laisse
 sa place ; sa vue ne navigue pas, n'ouvre pas de fenêtre et pilote l'IPC, qu'elle perd une fois chargée sur une autre
 page (C34) ; le thème choisi s'applique à la fenêtre et à la barre, et `set-theme` comme `set-sidebar` refusent un
-argument hors liste (C35). Depuis ARB-12/13/14, il vérifie
+argument hors liste (C35). Depuis ARB-18, Ctrl+L, Alt+←/→, Ctrl+T et Ctrl+W agissent depuis la page, la barre et la
+fenêtre, interceptés par le processus principal sans atteindre la page ni doubler l'action ; Ctrl+T donne le clavier
+à la barre d'adresse, Ctrl+W à l'onglet redevenu actif, et AltGr n'en déclenche aucun (C36). Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.

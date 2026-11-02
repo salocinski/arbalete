@@ -47,6 +47,13 @@ export function MainView() {
     }
   }, [syncBounds, sidebar.pinned])
 
+  // Ctrl+L : le processus principal intercepte la touche où que soit le focus et demande la barre d'adresse (ARB-18).
+  useEffect(() => window.arbalete.onFocusAddress(() => {
+    addressRef.current?.focus()
+    addressRef.current?.select()
+  }), [])
+
+  // Aperçu web seulement : dans Electron, le processus principal intercepte ces raccourcis avant la page (ARB-18).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (handleTabShortcut(event, state.activeTabId)) return
@@ -56,7 +63,6 @@ export function MainView() {
         addressRef.current?.focus()
         addressRef.current?.select()
       } else if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
-        // Aperçu web seulement : dans Electron, le processus principal intercepte Ctrl+Maj+B avant la page.
         event.preventDefault()
         void window.arbalete.setSidebar('toggle-pin')
       }

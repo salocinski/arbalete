@@ -26,7 +26,8 @@ const api: BrowserAPI = {
   onSidebar: (callback) => ecouter('browser:sidebar', callback),
   getTheme: () => ipcRenderer.invoke('browser:get-theme'),
   setTheme: (choice) => ipcRenderer.invoke('browser:set-theme', choice),
-  onTheme: (callback) => ecouter('browser:theme', callback)
+  onTheme: (callback) => ecouter('browser:theme', callback),
+  onFocusAddress: (callback) => ecouter('browser:focus-address', callback)
 }
 
 contextBridge.exposeInMainWorld('arbalete', api)

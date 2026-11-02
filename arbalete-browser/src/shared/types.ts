@@ -43,4 +43,6 @@ export type BrowserAPI = {
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void
+  // Ctrl+L pressé hors de la fenêtre (page, barre latérale) : la fenêtre sélectionne sa barre d'adresse.
+  onFocusAddress: (callback: () => void) => () => void
 }

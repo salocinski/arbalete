@@ -10,7 +10,7 @@ import type { BrowserState } from '../src/shared/types'
 // Contrat de régression d'ARB-4 (C1-C7, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
 // ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale masquée d'ARB-33
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
-// arguments validés de set-theme et set-sidebar), exécutés sur
+// arguments validés de set-theme et set-sidebar) et raccourcis du processus principal d'ARB-18 (C36), exécutés sur
 // l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
@@ -468,6 +468,83 @@ test('C3 : précédent et suivant suivent l’historique', async () => {
 
   await ui.getByTitle('Suivant (Alt+→)').click()
   await attendreUrlActive(`${origine}/page-b.html`)
+})
+
+// Value: protects=raccourcis d'Arbalète où que soit le focus (ARB-18) : depuis la page, Ctrl+L met le focus dans la
+//   barre d'adresse, Alt+←/→ suivent l'historique, Ctrl+T ouvre un onglet et Ctrl+W le ferme ; la page ne reçoit pas
+//   ces touches ; depuis la barre latérale et la fenêtre, Ctrl+T n'ouvre qu'un onglet;
+//   fails_when=brancherRaccourcis n'est plus branché sur une vue, une combinaison n'est plus reconnue, ou le keydown
+//   React de l'interface double l'action du processus principal; why_new=ces raccourcis n'existaient que dans le
+//   keydown React de l'interface, sourd quand le focus est dans la page; seam=none (sendInputEvent atteint
+//   before-input-event, comme C32); no_claim=pas de vrai clavier ni de disposition AZERTY.
+test('C36 : Ctrl+L, Alt+←/→, Ctrl+T et Ctrl+W fonctionnent depuis la page, la barre et la fenêtre', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await dansOngletActif("document.getElementById('suivante').click()")
+  await attendreUrlActive(`${origine}/page-b.html`)
+  await resultatDansOngletActif(`window.touches = []
+    addEventListener('keydown', (e) => window.touches.push(e.key)); true`)
+  const presser = (cible: 'onglet' | 'barre' | 'fenetre', keyCode: string, modifiers: Array<'control' | 'alt'>) =>
+    app.evaluate(({ BrowserWindow, WebContentsView }, { cible, keyCode, modifiers }) => {
+      const fenetre = BrowserWindow.getAllWindows()[0]
+      const contenu = cible === 'fenetre' ? fenetre.webContents
+        : (fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+          && enfant.webContents.getURL().includes('vue=barre') === (cible === 'barre')) as InstanceType<typeof WebContentsView>).webContents
+      contenu.focus()
+      contenu.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+      contenu.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+    }, { cible, keyCode, modifiers })
+  const nombreOnglets = async () => (await etat()).tabs.length
+
+  await presser('onglet', 'L', ['control'])
+  await expect(ui.getByLabel('Adresse ou recherche')).toBeFocused()
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isFocused())).toBe(true)
+  expect(await resultatDansOngletActif<string[]>('window.touches')).toEqual([])
+
+  await presser('onglet', 'Left', ['alt'])
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await presser('onglet', 'Right', ['alt'])
+  await attendreUrlActive(`${origine}/page-b.html`)
+
+  const avant = await nombreOnglets()
+  const ongletInitial = (await etat()).activeTabId
+  await presser('onglet', 'T', ['control'])
+  await expect.poll(nombreOnglets).toBe(avant + 1)
+  await expect.poll(async () => (await etat()).activeTabId).not.toBe(ongletInitial)
+  // Le nouvel onglet donne le focus à la barre d'adresse, sans refocalisation par le test.
+  await expect(ui.getByLabel('Adresse ou recherche')).toBeFocused()
+  await expect.poll(() => app.evaluate(({ BrowserWindow, webContents }) =>
+    webContents.getFocusedWebContents() === BrowserWindow.getAllWindows()[0].webContents)).toBe(true)
+  await presser('onglet', 'W', ['control'])
+  await expect.poll(nombreOnglets).toBe(avant)
+  // Après la fermeture, l'onglet redevenu actif reçoit le clavier.
+  await expect.poll(() => app.evaluate(({ webContents }) => webContents.getFocusedWebContents()?.getURL() ?? '')).toBe(`${origine}/page-b.html`)
+
+  for (const cible of ['barre', 'fenetre'] as const) {
+    await presser(cible, 'T', ['control'])
+    await expect.poll(nombreOnglets).toBe(avant + 1)
+    // Le keydown React de l'interface ne reçoit pas la touche : pas de second onglet.
+    await new Promise((attente) => setTimeout(attente, 500))
+    expect(await nombreOnglets()).toBe(avant + 1)
+    await presser('onglet', 'W', ['control'])
+    await expect.poll(nombreOnglets).toBe(avant)
+  }
+
+  // Extension (audit de couverture /ship, ARB-18).
+  // Value: protects=AltGr (Ctrl+Alt) n'est pas un raccourci : Ctrl+Alt+L (ł en polonais) et Ctrl+Alt+T arrivent à la
+  //   page, sans onglet ouvert ni focus déplacé vers la barre d'adresse;
+  //   fails_when=actionDuRaccourci ne vérifie plus !input.alt, ou brancherRaccourcis fait preventDefault sur toute
+  //   touche; why_new=le bloc précédent ne presse que des combinaisons reconnues, jamais une touche qui doit passer;
+  //   seam=none; no_claim=AltGr simulé par les modificateurs control+alt de sendInputEvent, pas une disposition réelle.
+  // Alt+←/→ ont rechargé page-b : nouveau document, l'écouteur du début n'y est plus.
+  await resultatDansOngletActif(`window.touches = []
+    addEventListener('keydown', (e) => window.touches.push(e.key)); true`)
+  await presser('onglet', 'L', ['control', 'alt'])
+  await presser('onglet', 'T', ['control', 'alt'])
+  await expect.poll(() => resultatDansOngletActif<string[]>(
+    "window.touches.filter((t) => t.length === 1).map((t) => t.toLowerCase())")).toEqual(['l', 't'])
+  expect(await nombreOnglets()).toBe(avant)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isFocused())).toBe(false)
 })
 
 test('C5 : un lien target=_blank ouvre un onglet, pas une fenêtre', async () => {

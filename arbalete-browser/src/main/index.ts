@@ -162,13 +162,55 @@ function brancherF12(contenu: WebContents) {
   })
 }
 
-// Ctrl+Maj+B épingle ou libère la barre latérale, quel que soit le webContents qui a le focus (règle 5) ;
-// la page ne reçoit pas la combinaison.
-function brancherRaccourciBarre(contenu: WebContents) {
+function reculer() {
+  const wc = activeRecord()?.view.webContents
+  if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack()
+}
+
+function avancer() {
+  const wc = activeRecord()?.view.webContents
+  if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
+}
+
+// Ctrl+L depuis une page ou la barre latérale : le focus clavier passe à la fenêtre, puis l'interface sélectionne la
+// barre d'adresse.
+function focaliserAdresse() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.focus()
+  mainWindow.webContents.send('browser:focus-address')
+}
+
+// Action du raccourci d'Arbalète que forme la touche, ou undefined. AltGr arrive comme Ctrl+Alt : il est écarté.
+function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
+  // Disposition non latine (russe, grec…) : key est une lettre d'un autre alphabet, la touche physique (code) prend le
+  // relais. Une lettre latine accentuée (é, è du BÉPO) garde son sens : Ctrl+é ne ferme pas l'onglet.
+  const nonLatine = /^\p{L}$/u.test(input.key) && !/\p{Script=Latin}/u.test(input.key)
+  const touche = nonLatine ? input.code.replace(/^Key/, '').toLowerCase() : input.key.toLowerCase()
+  if (input.control && !input.alt && !input.meta) {
+    if (input.shift) return touche === 'b' ? () => agirSurBarre('toggle-pin') : undefined
+    // Comme Chrome : le nouvel onglet donne la main à la barre d'adresse, la fermeture à l'onglet qui devient actif.
+    if (touche === 't') return () => { createTab(); focaliserAdresse() }
+    if (touche === 'w') return () => {
+      if (activeTabId) closeTab(activeTabId)
+      activeRecord()?.view.webContents.focus()
+    }
+    if (touche === 'l') return focaliserAdresse
+  } else if (input.alt && !input.control && !input.shift && !input.meta) {
+    if (input.key === 'ArrowLeft') return reculer
+    if (input.key === 'ArrowRight') return avancer
+  }
+  return undefined
+}
+
+// Raccourcis d'Arbalète (ARB-18) : Ctrl+T, Ctrl+W, Ctrl+L, Alt+←/→ et Ctrl+Maj+B agissent quel que soit le
+// webContents qui a le focus, la fenêtre, la barre latérale ou la page d'un onglet (règle 5). Le webContents ne reçoit
+// pas la combinaison (relâchement et répétitions compris) ; seul le premier appui agit.
+function brancherRaccourcis(contenu: WebContents) {
   contenu.on('before-input-event', (event, input) => {
-    if (!input.control || !input.shift || input.alt || input.key.toLowerCase() !== 'b') return
+    const action = actionDuRaccourci(input)
+    if (!action) return
     event.preventDefault()
-    if (input.type === 'keyDown' && !input.isAutoRepeat) agirSurBarre('toggle-pin')
+    if (input.type === 'keyDown' && !input.isAutoRepeat) action()
   })
 }
 
@@ -210,7 +252,7 @@ function createTab(initialUrl = 'https://www.google.com'): string {
     if (!/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) event.preventDefault()
   })
   brancherF12(view.webContents)
-  brancherRaccourciBarre(view.webContents)
+  brancherRaccourcis(view.webContents)
   masquerAuClic(view.webContents)
 
   activeTabId = id
@@ -295,7 +337,7 @@ function verrouillerInterface(contenu: WebContents) {
   contenu.setWindowOpenHandler(() => ({ action: 'deny' }))
   contenu.on('will-attach-webview', (event) => event.preventDefault())
   brancherF12(contenu)
-  brancherRaccourciBarre(contenu)
+  brancherRaccourcis(contenu)
 }
 
 // Même page que la fenêtre, avec ?vue=barre : le renderer n'y affiche que la barre latérale.
@@ -394,14 +436,8 @@ app.whenReady().then(() => {
     void record.view.webContents.loadURL(normalized).catch(console.error)
     broadcastState()
   })
-  traiter('browser:back', () => {
-    const wc = activeRecord()?.view.webContents
-    if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack()
-  })
-  traiter('browser:forward', () => {
-    const wc = activeRecord()?.view.webContents
-    if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
-  })
+  traiter('browser:back', reculer)
+  traiter('browser:forward', avancer)
   traiter('browser:reload', () => activeRecord()?.view.webContents.reload())
   ipcMain.on('browser:set-content-bounds', (event, bounds) => {
     if (!emetteurAutorise(event)) return

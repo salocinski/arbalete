@@ -154,7 +154,9 @@ export function installPreviewApi(): boolean {
     onTheme: (callback) => {
       themeChoiceListeners.add(callback)
       return () => themeChoiceListeners.delete(callback)
-    }
+    },
+    // Dans l'aperçu, Ctrl+L est traité par la page elle-même (MainView) : rien ne l'émet.
+    onFocusAddress: () => () => undefined
   }
 
   createTab('https://www.google.com')
