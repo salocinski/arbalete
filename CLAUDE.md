@@ -57,9 +57,13 @@ barre latérale, bouton Recharger, alignement de la vue web au redimensionnement
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.
-Pages de test servies en http sur 127.0.0.1. `tests/developpement.spec.ts` (C18) vérifie qu'en développement
-l'interface servie par le serveur Vite garde l'IPC sous sa CSP assouplie. Restent manuels : C8 (thème système)
-et C10 (aperçu web).
+Depuis ARB-101/102, il vérifie aussi les ouvertures : pas de menu d'application (C19), F12 sans effet dans l'app
+construite (C24), `window.open` d'une page limité aux adresses web (C20), au plus 5 ouvertures par onglet source
+(C21, C22) et 20 toutes pages réunies (C26) par fenêtre de 10 secondes (C23), plus aucune ouverture par les pages
+au-delà de 50 onglets ouverts, l'utilisateur gardant la main (C27).
+Pages de test servies en http sur 127.0.0.1. `tests/developpement.spec.ts` vérifie qu'en développement
+l'interface servie par le serveur Vite garde l'IPC sous sa CSP assouplie (C18) et que F12 ouvre puis ferme ses
+DevTools (C25). Restent manuels : C8 (thème système) et C10 (aperçu web).
 
 La CSP de l'interface est injectée par `vite-csp.ts` : stricte au build, assouplie pour le serveur de dev
 (`'unsafe-inline'`, WebSocket du HMR). L'avertissement Electron « Insecure Content-Security-Policy » en `npm run dev`

@@ -7,8 +7,9 @@ import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
 
-// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12) et verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
-// exécutés sur l'app construite (out/). C18 (mode développement) est dans developpement.spec.ts.
+// Contrat de régression d'ARB-4 (C1-C7, C9, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17) et
+// ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open), exécutés sur l'app construite (out/).
+// C18 et C25 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
 
@@ -434,4 +435,189 @@ test('C17 : une page locale hors de out/renderer chargée dans l’interface ne 
 
   expect(resultats).toEqual({ étrangère: ['rejected', 'rejected'], homonyme: ['rejected', 'rejected'] })
   await verifierInterfaceIntacte(avant)
+})
+
+// Value: protects=absence de menu d'application dans le build (ARB-101) : le menu par défaut d'Electron ouvre les
+//   DevTools de l'interface (Ctrl+Maj+I) avec window.arbalete dans la console;
+//   fails_when=Menu.setApplicationMenu(null) disparaît ou un menu avec le rôle toggleDevTools revient;
+//   why_new=aucun test ne regardait le menu; seam=none;
+//   no_claim=ne presse pas Ctrl+Maj+I (les accélérateurs natifs ne reçoivent pas les touches simulées par Playwright).
+test('C19 : l’app construite n’a pas de menu d’application (pas de DevTools par raccourci)', async () => {
+  expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened()))
+    .toBe(false)
+})
+
+// Value: protects=filtre de schéma de setWindowOpenHandler des onglets (ARB-102) : une page http ne peut pas ouvrir
+//   file:// ni un schéma inconnu dans un nouvel onglet chargé par le processus principal;
+//   fails_when=ouvertureAutorisee ne teste plus le schéma (window.open passe tout à createTab);
+//   why_new=C5 ne couvre qu'un target=_blank vers http, C6 que will-navigate; seam=none (l'ouverture http finale
+//   sert de repère : les demandes sont traitées dans l'ordre, donc les refus sont acquis quand elle arrive);
+//   no_claim=ne couvre pas about:blank (refusé aussi, même filtre).
+test('C20 : window.open d’une page n’ouvre que des adresses web', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+
+  await dansOngletActif(
+    "window.open('file:///C:/Windows/win.ini'); window.open('arbalete-test:ouverte'); window.open('/page-b.html')"
+  )
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+  await attendreUrlActive(`${origine}/page-b.html`)
+  expect((await etat()).tabs.filter((tab) => !/^https?:\/\//.test(tab.url))).toEqual([])
+})
+
+// Value: protects=limite d'ouvertures par page (ARB-102) : une rafale de window.open n'ouvre que 5 onglets;
+//   fails_when=la limite disparaît, ou le compte n'est plus tenu par onglet source;
+//   why_new=aucun test n'ouvrait plusieurs fenêtres d'un coup; seam=none (onglet neuf : son compteur part de zéro);
+//   no_claim=ne vérifie pas la remise à zéro après 10 s (attente trop longue pour le smoke test).
+test('C21 : une rafale de window.open n’ouvre que 5 onglets', async () => {
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+
+  await dansOngletActif("for (let n = 0; n < 12; n++) window.open('/page-b.html?n=' + n)")
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 5)
+  await ui.waitForTimeout(1_000)
+  expect((await etat()).tabs.length).toBe(avant + 5)
+})
+
+// Ouvre un onglet source sur page-a, y lance n window.open et attend les n onglets ouverts. Chaque ouverture
+// devient l'onglet actif : on renvoie l'identifiant de la source pour pouvoir y revenir.
+async function rafaleDepuisNouvelOnglet(n: number, marque: string): Promise<{ source: string, apres: number }> {
+  const source = await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await expect.poll(async () => (await etat()).activeTabId).toBe(source)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+  await dansOngletActif(`for (let n = 0; n < ${n}; n++) window.open('/page-b.html?${marque}=' + n)`)
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + n)
+  return { source, apres: avant + n }
+}
+
+// Avance Date.now du processus principal (limite d'ouvertures) sans attendre ; restaurerHorloge le remet à l'heure.
+function avancerHorloge(ms: number) {
+  return app.evaluate((_electron, decalage) => {
+    const global = globalThis as { dateNowOrigine?: () => number }
+    global.dateNowOrigine ??= Date.now
+    Date.now = () => global.dateNowOrigine!() + decalage
+  }, ms)
+}
+
+function restaurerHorloge() {
+  return app.evaluate(() => {
+    const global = globalThis as { dateNowOrigine?: () => number }
+    if (global.dateNowOrigine) Date.now = global.dateNowOrigine
+    delete global.dateNowOrigine
+  })
+}
+
+async function activerOnglet(id: string, url: string) {
+  await ui.evaluate((onglet) => window.arbalete.activateTab(onglet), id)
+  await expect.poll(async () => (await etat()).activeTabId).toBe(id)
+  await attendreUrlActive(url)
+}
+
+// Value: protects=limite d'ouvertures tenue par onglet source (ARB-102) : un onglet ouvert par une rafale peut encore
+//   ouvrir ses propres liens target=_blank, tandis que la source saturée reste bloquée;
+//   fails_when=ouvertures est indexé par une clé commune (fenêtre, constante) au lieu de l'onglet source : l'enfant
+//   est refusé; why_new=C21 n'ouvre que depuis un seul onglet et ne distingue pas compte global et compte par source;
+//   seam=none; no_claim=ne couvre pas la remise à zéro dans le temps (C23), ni la fermeture de la source.
+test('C22 : la limite d’ouvertures est comptée par onglet source', async () => {
+  const { source, apres } = await rafaleDepuisNouvelOnglet(5, 'source')
+  // L'onglet actif est désormais le dernier ouvert par la rafale : son propre compteur part de zéro.
+  await dansOngletActif("window.open('/page-b.html?enfant')")
+  await expect.poll(async () => (await etat()).tabs.length).toBe(apres + 1)
+  await attendreUrlActive(`${origine}/page-b.html?enfant`)
+
+  await activerOnglet(source, `${origine}/page-a.html`)
+  await dansOngletActif("window.open('/page-b.html?source-saturee')")
+  await ui.waitForTimeout(1_000)
+  expect((await etat()).tabs.length).toBe(apres + 1)
+})
+
+// Value: protects=fenêtre glissante de 10 s de la limite d'ouvertures (ARB-102) : une page qui a ouvert 5 onglets
+//   peut de nouveau en ouvrir une fois la fenêtre passée (un utilisateur qui clique des liens target=_blank);
+//   fails_when=les instants anciens ne sont plus retirés (filtre supprimé ou inversé, durée mal comparée) : la page
+//   reste bloquée pour toujours après 5 ouvertures; why_new=C21 ne regarde que la rafale, pas la suite (no_claim);
+//   seam=none (Date.now du processus principal avancé de 11 s par le test, puis restauré);
+//   no_claim=n'attend pas 10 s réelles ; ne couvre pas la frontière exacte des 10 000 ms.
+test('C23 : la limite d’ouvertures se libère après 10 secondes', async () => {
+  const { source, apres } = await rafaleDepuisNouvelOnglet(5, 'fenetre')
+  await activerOnglet(source, `${origine}/page-a.html`)
+  await dansOngletActif("window.open('/page-b.html?avant-delai')")
+  await ui.waitForTimeout(1_000)
+  expect((await etat()).tabs.length).toBe(apres)
+
+  await avancerHorloge(11_000)
+  try {
+    await dansOngletActif("window.open('/page-b.html?apres-delai')")
+    await expect.poll(async () => (await etat()).tabs.length).toBe(apres + 1)
+    await attendreUrlActive(`${origine}/page-b.html?apres-delai`)
+  } finally {
+    await restaurerHorloge()
+  }
+})
+
+// Value: protects=F12 réservé au développement (ARB-101) : dans l'app construite, F12 sur l'interface n'ouvre pas les
+//   DevTools (qui exposeraient window.arbalete dans la console);
+//   fails_when=le garde if (URL_DEV) autour du before-input-event F12 disparaît, ou un menu avec un accélérateur F12
+//   revient; why_new=C19 vérifie l'absence de menu, pas le gestionnaire F12 ; C25 (developpement.spec.ts) prouve
+//   que la touche simulée atteint before-input-event; seam=none;
+//   no_claim=ne couvre ni Ctrl+Maj+I ni F12 dans une page web (ses DevTools restent possibles par d'autres voies).
+test('C24 : F12 n’ouvre pas les DevTools de l’interface dans l’app construite', async () => {
+  const devtoolsOuverts = () => app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened())
+  // sendInputEvent passe par le circuit d'entrée natif (before-input-event) ; ui.keyboard (CDP) ne l'atteint pas.
+  const presserF12 = () => app.evaluate(({ BrowserWindow }) => {
+    const contenu = BrowserWindow.getAllWindows()[0].webContents
+    contenu.sendInputEvent({ type: 'keyDown', keyCode: 'F12' })
+    contenu.sendInputEvent({ type: 'keyUp', keyCode: 'F12' })
+  })
+  await presserF12()
+  await ui.waitForTimeout(1_000)
+  expect(await devtoolsOuverts()).toBe(false)
+})
+
+// Value: protects=plafond global des ouvertures (ARB-102) : toutes pages réunies, au plus 20 onglets ouverts par
+//   window.open en 10 s, même si chaque page reste sous son quota de 5 (chaîne de pages qui se rouvrent);
+//   fails_when=le compte TOUTES_LES_PAGES disparaît ou n'est plus incrémenté : la 21e ouverture passe;
+//   why_new=C21-C23 ne regardent que le quota par onglet source; seam=none (Date.now avancé de 60 s pour partir d'une
+//   fenêtre vide, puis restauré); no_claim=sources créées par l'interface, pas une vraie chaîne d'onglets enfants.
+test('C26 : toutes pages réunies, 20 ouvertures au plus par 10 secondes', async () => {
+  await avancerHorloge(60_000)
+  try {
+    for (let source = 0; source < 4; source++) await rafaleDepuisNouvelOnglet(5, `total${source}`)
+    const nouvelleSource = await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+    await expect.poll(async () => (await etat()).activeTabId).toBe(nouvelleSource)
+    await attendreUrlActive(`${origine}/page-a.html`)
+    const avant = (await etat()).tabs.length
+    await dansOngletActif("window.open('/page-b.html?au-dela-du-total')")
+    await ui.waitForTimeout(1_000)
+    expect((await etat()).tabs.length).toBe(avant)
+  } finally {
+    await restaurerHorloge()
+  }
+})
+
+// Value: protects=plafond d'onglets ouverts par les pages (ARB-102) : à 50 onglets ouverts, window.open n'ouvre plus
+//   rien, quel que soit le rythme ; l'utilisateur peut encore ouvrir un onglet depuis l'interface;
+//   fails_when=le test tabs.size >= ONGLETS_MAX_POUR_LES_PAGES disparaît (une page entretenue remplit la mémoire), ou
+//   s'applique aussi à createTab depuis l'interface; why_new=C21-C26 ne bornent que le rythme; seam=none (Date.now
+//   avancé de 120 s pour vider les quotas de rythme, puis restauré); no_claim=ne mesure pas la mémoire.
+test('C27 : à 50 onglets ouverts, les pages n’en ouvrent plus, l’utilisateur si', async () => {
+  await avancerHorloge(120_000)
+  try {
+    while ((await etat()).tabs.length < 50) {
+      await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+    }
+    await attendreUrlActive(`${origine}/page-a.html`)
+    await dansOngletActif("window.open('/page-b.html?au-dela-du-plafond')")
+    await ui.waitForTimeout(1_000)
+    expect((await etat()).tabs.length).toBe(50)
+
+    await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-b.html`)
+    await expect.poll(async () => (await etat()).tabs.length).toBe(51)
+  } finally {
+    await restaurerHorloge()
+  }
 })
