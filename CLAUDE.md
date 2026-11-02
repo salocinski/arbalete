@@ -13,6 +13,7 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Vision et stratégie | Document « Synthèse du projet » du projet Claude *Arbalete* |
 | Backlog, epics, statuts | **Arbalète Suivi** : https://claude.ai/artifact/FpicMw6k8toB6GKWEp6BhW (tickets `ARB-n`, epics `EP-nn`) |
 | Design | `DESIGN.md` (racine) |
+| Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
 | Licence | **GPL-3.0-or-later** (`LICENSE`) : tout code ajouté doit être compatible (pas de dépendance sous licence propriétaire ou incompatible GPL) |
 | Contribution externe | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` |
