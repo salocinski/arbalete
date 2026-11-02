@@ -9,7 +9,8 @@ import type { BrowserState } from '../src/shared/types'
 
 // Contrat de régression d'ARB-4 (C1-C7, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
 // ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale masquée d'ARB-33
-// (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé), exécutés sur
+// (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
+// arguments validés de set-theme et set-sidebar), exécutés sur
 // l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
@@ -354,10 +355,10 @@ test('C32 : Ctrl+Maj+B depuis la page épingle puis libère la barre latérale',
 })
 
 // Value: protects=verrouillage de la vue de la barre latérale (ARB-33), qui porte le preload comme la fenêtre :
-//   elle ne navigue pas et n'ouvre pas de fenêtre, et ses appels IPC sont acceptés;
+//   elle ne navigue pas et n'ouvre pas de fenêtre, et ses appels IPC sont acceptés ; chargée sur une autre page,
+//   elle perd l'IPC;
 //   fails_when=verrouillerInterface n'est plus appliqué à la vue de la barre, ou emetteurAutorise ne reconnaît plus
-//   son webContents; why_new=C15 ne vise que la fenêtre d'interface; seam=none;
-//   chargée sur une autre page, elle perd l'IPC; no_claim=ne couvre pas un fichier local quasi-homonyme (C17, fenêtre seule).
+//   son webContents; why_new=C15 ne vise que la fenêtre d'interface; seam=none; no_claim=ne couvre pas un fichier local quasi-homonyme (C17, fenêtre seule).
 test('C34 : la vue de la barre ne navigue pas, n’ouvre pas de fenêtre et pilote l’IPC', async () => {
   const urlBarre = barreUi.url()
   expect(await barreUi.evaluate(() => window.arbalete.getState().then((etat) => etat.tabs.length > 0))).toBe(true)

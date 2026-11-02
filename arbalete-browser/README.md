@@ -49,7 +49,7 @@ Ceci est un prototype de départ, pas encore un navigateur prêt à être utilis
 - La gestion des permissions distantes est volontairement restrictive.
 - Les extensions Chrome ne sont pas encore intégrées. Electron ne garantit pas la compatibilité avec toutes les extensions du Chrome Web Store.
 - Les onglets utilisent actuellement la session par défaut commune.
-- L'interface React se superpose au contenu Chromium via `WebContentsView`; le processus principal synchronise la zone visible à partir de la géométrie envoyée par le renderer.
+- L'interface React se superpose au contenu Chromium via `WebContentsView`; le processus principal synchronise la zone visible à partir de la géométrie envoyée par le renderer. La barre latérale est une seconde vue native de la même interface (`?vue=barre`), posée au-dessus de la page.
 
 ## Architecture
 

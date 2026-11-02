@@ -56,7 +56,9 @@ précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refus�
 alignement de la vue web au redimensionnement. Depuis ARB-33, la barre latérale est une vue native au-dessus de la page :
 masquée à l'ouverture (C31), elle apparaît au survol du bord gauche par-dessus la page et se retire à la sortie de la
 souris ou au clic dans la page (C33) ; épinglée par le bouton (C9) ou Ctrl+Maj+B depuis la page (C32), la page lui laisse
-sa place ; sa vue ne navigue pas et pilote l'IPC (C34). Depuis ARB-12/13/14, il vérifie
+sa place ; sa vue ne navigue pas, n'ouvre pas de fenêtre et pilote l'IPC, qu'elle perd une fois chargée sur une autre
+page (C34) ; le thème choisi s'applique à la fenêtre et à la barre, et `set-theme` comme `set-sidebar` refusent un
+argument hors liste (C35). Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.
