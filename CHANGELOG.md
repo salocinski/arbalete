@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.8.0.0] - 2026-11-03
+
+### Ajouté
+- Après un arrêt forcé (plantage, fin de tâche, coupure de courant), Arbalète ne rouvre plus d'office la session
+  interrompue : un bandeau au-dessus de la page propose de la restaurer. « Restaurer » rouvre ses onglets à la place
+  de l'onglet de démarrage s'il n'a pas servi ; « Ignorer » garde la session en cours. Tant que l'invite attend, la
+  session interrompue reste intacte sur disque, et fermer Arbalète sans répondre la rouvre au démarrage suivant.
+
 ## [0.7.0.0] - 2026-11-03
 
 ### Ajouté
