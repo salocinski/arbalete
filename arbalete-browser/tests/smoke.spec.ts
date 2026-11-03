@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
@@ -14,7 +14,8 @@ import type { BrowserState } from '../src/shared/types'
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
 // arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
 // d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39) et
-// sauvegarde et restauration de la session d'ARB-44/45 (C40, C41) et invite après un arrêt forcé d'ARB-46 (C42),
+// sauvegarde et restauration de la session d'ARB-44/45 (C40, C41), invite après un arrêt forcé d'ARB-46 (C42) et
+// incidents de la base d'ARB-119 (C43, C44),
 // exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
@@ -1099,13 +1100,17 @@ test('C39 : une instance lancée sur un autre profil démarre au lieu de se ferm
   }
 })
 
-// Session des onglets telle qu'écrite sur disque (ARB-44), lue hors de l'app : une base absente ou vide donne [].
+// Session des onglets telle qu'écrite sur disque (ARB-44), lue hors de l'app : une base absente, vide ou pas encore
+// migrée (l'app vient de créer le fichier) donne [], pour que expect.poll réessaie au lieu d'échouer.
 function sessionSurDisque(dossier: string): Array<{ url: string, titre: string, actif: number }> {
   const chemin = join(dossier, 'arbalete.db')
   if (!existsSync(chemin)) return []
   const db = new DatabaseSync(chemin, { readOnly: true })
   try {
     return db.prepare('SELECT url, titre, actif FROM onglet ORDER BY position').all() as Array<{ url: string, titre: string, actif: number }>
+  } catch (erreur) {
+    if (/no such table/.test(String(erreur))) return []
+    throw erreur
   } finally {
     db.close()
   }
@@ -1260,6 +1265,62 @@ test('C42 : après un arrêt forcé, une invite propose de restaurer la session 
     await expect(fenetre.getByTestId('restore-banner')).toHaveCount(0)
   } finally {
     await autreApp.close().catch(() => {})
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// Value: protects=ARB-119 : une base illisible est mise de côté sous un nom daté, intacte, remplacée par une base neuve
+//   où la session s'écrit, et l'utilisateur en est prévenu jusqu'à ce qu'il ferme l'avertissement;
+//   fails_when=l'app démarre sans persistance ni avertissement, la base illisible est écrasée ou supprimée, ou la base
+//   neuve n'est pas créée;
+//   why_new=seule la console signalait une base illisible; seam=fichier arbalete.db non SQLite déposé dans un profil
+//   temporaire avant le lancement; no_claim=les pages abîmées d'une base lisible sont couvertes par les tests unitaires.
+test('C43 : une base illisible est mise de côté, remplacée, et l’utilisateur est prévenu', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const contenu = Buffer.from('pas une base SQLite '.repeat(10))
+  writeFileSync(join(autreProfil, 'arbalete.db'), contenu)
+  const autreApp = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  try {
+    const fenetre = await fenetreInterface(autreApp)
+    const incident = await fenetre.evaluate(() => window.arbalete.getDataIncident())
+    expect(incident).toMatchObject({ kind: 'corrupted', backup: expect.stringMatching(/^arbalete\.db\.corrompue-[\dT.Z-]+$/) })
+    const copie = (incident as { backup: string }).backup
+    expect(readFileSync(join(autreProfil, copie))).toEqual(contenu)
+    await expect(fenetre.getByTestId('data-incident-banner')).toContainText(copie)
+    // La base neuve reçoit la session.
+    await expect.poll(() => sessionSurDisque(autreProfil).length, { timeout: 10_000 }).toBe(1)
+
+    await fenetre.getByTestId('data-incident-banner').getByRole('button', { name: 'Fermer' }).click()
+    await expect(fenetre.getByTestId('data-incident-banner')).toHaveCount(0)
+    expect(await fenetre.evaluate(() => window.arbalete.getDataIncident())).toBeNull()
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// Value: protects=ARB-119 : une base d'une version plus récente n'est ni renommée ni modifiée, et l'utilisateur est
+//   prévenu que rien ne sera conservé;
+//   fails_when=une base plus récente est prise pour illisible et mise de côté, modifiée, ou ignorée sans avertissement;
+//   why_new=C43 couvre la base illisible, pas la base plus récente qu'il ne faut pas toucher; seam=base au user_version
+//   futur créée dans un profil temporaire avant le lancement; no_claim=ne couvre pas une base verrouillée.
+test('C44 : une base plus récente reste intacte et l’utilisateur est prévenu', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const chemin = join(autreProfil, 'arbalete.db')
+  const future = new DatabaseSync(chemin)
+  future.exec('PRAGMA user_version = 999')
+  future.close()
+  const avant = readFileSync(chemin)
+  const autreApp = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  try {
+    const fenetre = await fenetreInterface(autreApp)
+    expect(await fenetre.evaluate(() => window.arbalete.getDataIncident())).toEqual({ kind: 'newer' })
+    await expect(fenetre.getByTestId('data-incident-banner')).toContainText('plus récente')
+    await autreApp.close()
+    expect(readFileSync(chemin)).toEqual(avant)
+    expect(readdirSync(autreProfil).filter((nom) => nom.startsWith('arbalete.db'))).toEqual(['arbalete.db'])
+  } finally {
+    await autreApp.close()
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })

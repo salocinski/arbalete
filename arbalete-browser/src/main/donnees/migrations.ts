@@ -23,10 +23,12 @@ export function versionDuSchema(db: DatabaseSync): number {
 }
 
 // Une base créée par une version plus récente d'Arbalète est refusée plutôt que lue avec un schéma inconnu.
+export class BasePlusRecente extends Error {}
+
 export function refuserBasePlusRecente(db: DatabaseSync, migrations: readonly string[] = MIGRATIONS): void {
   const version = versionDuSchema(db)
   if (version > migrations.length) {
-    throw new Error(`Base au schéma ${version}, plus récente que cette version d'Arbalète (schéma ${migrations.length})`)
+    throw new BasePlusRecente(`Base au schéma ${version}, plus récente que cette version d'Arbalète (schéma ${migrations.length})`)
   }
 }
 

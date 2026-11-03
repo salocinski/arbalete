@@ -2,8 +2,8 @@ import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeThem
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
-import type { BrowserState, BrowserTab, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
-import { ouvrirBase } from './donnees/base.ts'
+import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
+import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
@@ -20,6 +20,8 @@ type TabRecord = {
 let mainWindow: BrowserWindow | null = null
 // Base de données (ARB-43, décision 0001). null si elle n'a pas pu s'ouvrir : le navigateur marche sans persistance.
 let base: DatabaseSync | null = null
+// Ce que l'ouverture de la base a dû faire (ARB-119), affiché dans la fenêtre jusqu'à ce que l'utilisateur le ferme.
+let incidentBase: DataIncident | null = null
 // Barre latérale (ARB-33) : vue native au-dessus de l'onglet, car une WebContentsView masque tout HTML de la fenêtre
 // (règle 4). Masquée, elle n'est qu'une bande transparente au bord gauche qui détecte le survol.
 let barreView: WebContentsView | null = null
@@ -521,6 +523,14 @@ function createWindow(adresses: readonly string[] = []) {
   else if (!restauree) ongletDeDemarrage = createTab()
 }
 
+function versIncident(incident: IncidentBase): DataIncident {
+  switch (incident.type) {
+    case 'corrompue': return { kind: 'corrupted', backup: incident.copie }
+    case 'plus-recente': return { kind: 'newer' }
+    case 'indisponible': return { kind: 'unavailable' }
+  }
+}
+
 function exigerChoix<T extends string>(valeur: unknown, choix: readonly T[]): T {
   if (!choix.includes(valeur as T)) throw new Error(`Argument IPC invalide : ${choix.join(', ')} attendu`)
   return valeur as T
@@ -533,11 +543,9 @@ app.whenReady().then(() => {
   // d'Arbalète passent par l'interface ou le processus principal, pas par ce menu.
   Menu.setApplicationMenu(null)
 
-  try {
-    base = ouvrirBase(join(app.getPath('userData'), 'arbalete.db'))
-  } catch (erreur) {
-    console.error('Base de données indisponible, aucune donnée ne sera conservée :', erreur)
-  }
+  const ouverture = ouvrirBaseOuRecuperer(join(app.getPath('userData'), 'arbalete.db'))
+  base = ouverture.db
+  incidentBase = ouverture.incident && versIncident(ouverture.incident)
   if (base) {
     try {
       precedenteInterrompue = noterOuverture(base)
@@ -586,6 +594,11 @@ app.whenReady().then(() => {
   traiter('browser:forward', avancer)
   traiter('browser:reload', () => activeRecord()?.view.webContents.reload())
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
+  traiter('browser:get-data-incident', () => incidentBase)
+  traiter('browser:dismiss-data-incident', () => {
+    incidentBase = null
+    envoyerAuxInterfaces('browser:data-incident', null)
+  })
   traiter('browser:answer-restore-offer', (valeur) => repondreRestauration(exigerChoix(valeur, ['restore', 'dismiss'] as const)))
   ipcMain.on('browser:set-content-bounds', (event, bounds) => {
     if (!emetteurAutorise(event)) return

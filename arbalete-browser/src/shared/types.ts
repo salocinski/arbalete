@@ -27,6 +27,10 @@ export type ThemeChoice = 'system' | 'dark' | 'light'
 // Réponse à l'invite de restauration qui suit un arrêt forcé (ARB-46).
 export type RestoreAnswer = 'restore' | 'dismiss'
 
+// Incident de la base à l'ouverture (ARB-119) : illisible et mise de côté sous le nom backup, plus récente que cette
+// version d'Arbalète, ou indisponible. Dans les deux derniers cas, rien n'est conservé pendant la session.
+export type DataIncident = { kind: 'corrupted', backup: string } | { kind: 'newer' } | { kind: 'unavailable' }
+
 export type BrowserAPI = {
   getState: () => Promise<BrowserState>
   createTab: (url?: string) => Promise<string>
@@ -52,4 +56,8 @@ export type BrowserAPI = {
   getRestoreOffer: () => Promise<boolean>
   onRestoreOffer: (callback: (offer: boolean) => void) => () => void
   answerRestoreOffer: (answer: RestoreAnswer) => Promise<void>
+  // Incident de la base (ARB-119) : null une fois l'avertissement fermé, ou s'il n'y en a pas.
+  getDataIncident: () => Promise<DataIncident | null>
+  onDataIncident: (callback: (incident: DataIncident | null) => void) => () => void
+  dismissDataIncident: () => Promise<void>
 }

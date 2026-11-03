@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.9.0.0] - 2026-11-03
+
+### Ajouté
+- Une base de données illisible (fichier abîmé ou qui n'est pas une base SQLite) est mise de côté sous
+  `arbalete.db.corrompue-<date>`, intacte, et remplacée par une base neuve : Arbalète conserve de nouveau la session.
+- Une base créée par une version plus récente d'Arbalète n'est jamais modifiée ni renommée.
+- Dans ces deux cas, comme quand la base ne s'ouvre pas, un bandeau prévient l'utilisateur de ce qui s'est passé.
+
 ## [0.8.0.0] - 2026-11-03
 
 ### Ajouté
