@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
@@ -12,7 +12,7 @@ import type { BrowserState } from '../src/shared/types'
 // ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale masquée d'ARB-33
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
 // arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
-// d'ARB-117 (C37), exécutés sur l'app construite (out/).
+// d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39), exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -30,6 +30,8 @@ const requetes: Record<string, number> = {}
 
 let serveur: Server
 let origine: string
+// Dossier userData temporaire de l'app lancée par les tests (ARB-118), supprimé à la fin.
+let profil: string
 let app: ElectronApplication
 let ui: Page
 // Vue native de la barre latérale (ARB-33) : même interface, chargée avec ?vue=barre.
@@ -47,7 +49,8 @@ test.beforeAll(async () => {
   await new Promise<void>((done) => serveur.listen(0, '127.0.0.1', done))
   origine = `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`
 
-  app = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..') })
+  profil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  app = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest() })
   ui = await fenetreInterface(app)
   barreUi = await vueBarre(app)
 })
@@ -55,7 +58,16 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await app?.close()
   await new Promise((done) => serveur?.close(done))
+  if (profil) rmSync(profil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 })
+
+// Profil de données propre aux tests (ARB-118) : jamais l'arbalete.db de l'utilisateur, et un verrou d'instance
+// unique distinct du sien.
+function envTest(dossier = profil): Record<string, string> {
+  const env = { ...process.env, ARBALETE_PROFIL_TEST: dossier } as Record<string, string>
+  delete env.ELECTRON_RUN_AS_NODE
+  return env
+}
 
 // Les WebContentsView des onglets apparaissent aussi comme pages : on choisit l'interface par son URL.
 async function fenetreInterface(electronApp: ElectronApplication): Promise<Page> {
@@ -1016,10 +1028,8 @@ test('C27 : à 50 onglets ouverts, les pages n’en ouvrent plus, l’utilisateu
 // par un lien, CVE-2018-1000006).
 function lancerSecondeInstance(args: string[]): Promise<number | null> {
   const cheminElectron = require('electron') as string
-  const env = { ...process.env }
-  delete env.ELECTRON_RUN_AS_NODE
   return new Promise((termine, echoue) => {
-    const seconde = spawn(cheminElectron, ['.', '--', ...args], { cwd: resolve(__dirname, '..'), env, stdio: 'ignore' })
+    const seconde = spawn(cheminElectron, ['.', '--', ...args], { cwd: resolve(__dirname, '..'), env: envTest(), stdio: 'ignore' })
     const delai = setTimeout(() => { seconde.kill(); echoue(new Error('La seconde instance ne s’est pas fermée')) }, 20_000)
     seconde.on('error', echoue)
     seconde.on('exit', (code) => { clearTimeout(delai); termine(code) })
@@ -1047,4 +1057,41 @@ test('C37 : un second lancement se ferme et ouvre ses adresses dans la première
   const fenetres = await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().map((fenetre) => ({ reduite: fenetre.isMinimized(), visible: fenetre.isVisible() })))
   expect(fenetres).toEqual([{ reduite: false, visible: true }])
+})
+
+// Value: protects=profil de données séparé des tests (ARB-118) : l'app lancée par Playwright écrit sa base dans un
+//   dossier temporaire, jamais dans le profil de l'utilisateur, et son verrou d'instance unique ne bute pas sur un
+//   Arbalète déjà ouvert;
+//   fails_when=ARBALETE_PROFIL_TEST n'est plus lu, ou l'est après requestSingleInstanceLock ou l'ouverture de la base;
+//   why_new=les tests ouvraient la vraie arbalete.db, qu'ARB-44/45 vont lire et écrire; seam=chemin userData lu dans
+//   le processus principal et fichier de base sur disque; no_claim=ne vérifie pas que l'app empaquetée ignore la
+//   variable (pas d'empaquetage avant EP-14).
+test('C38 : l’app des tests utilise son propre profil de données', async () => {
+  const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
+  expect(resolve(userData)).toBe(resolve(profil))
+  expect(existsSync(join(profil, 'arbalete.db'))).toBe(true)
+})
+
+// Value: protects=verrou d'instance unique propre au profil (ARB-118) : test:smoke tourne même si Arbalète est déjà
+//   ouvert sur le profil de l'utilisateur;
+//   fails_when=app.setPath('userData') passe après requestSingleInstanceLock : le verrou reste celui du profil par
+//   défaut, partagé par toutes les instances, et la seconde se ferme aussitôt;
+//   why_new=C38 voit le bon dossier userData même quand le verrou est pris sur l'ancien; seam=seconde instance lancée
+//   par child_process avec un autre profil temporaire; no_claim=ne lance pas l'Arbalète de l'utilisateur.
+test('C39 : une instance lancée sur un autre profil démarre au lieu de se fermer', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const cheminElectron = require('electron') as string
+  const autre = spawn(cheminElectron, ['.'], { cwd: resolve(__dirname, '..'), env: envTest(autreProfil), stdio: 'ignore' })
+  try {
+    // Une instance qui n'obtient pas le verrou se ferme en quelques centaines de millisecondes (C37).
+    await expect.poll(() => existsSync(join(autreProfil, 'arbalete.db')), { timeout: 15_000 }).toBe(true)
+    expect(autre.exitCode).toBeNull()
+  } finally {
+    if (autre.exitCode === null) {
+      const fermee = new Promise((done) => autre.once('exit', done))
+      autre.kill()
+      await fermee
+    }
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
 })

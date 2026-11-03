@@ -1,6 +1,8 @@
 import { createServer as createHttpServer } from 'node:http'
+import { mkdtempSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
-import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { createServer, type InlineConfig, type ViteDevServer } from 'vite'
 import { _electron as electron, expect, test, type ConsoleMessage, type ElectronApplication, type Page } from '@playwright/test'
 import configElectron from '../electron.vite.config'
@@ -11,6 +13,8 @@ import configElectron from '../electron.vite.config'
 
 let serveur: ViteDevServer | undefined
 let app: ElectronApplication | undefined
+// Dossier userData temporaire de l'app lancée par les tests (ARB-118), supprimé à la fin.
+let profil: string | undefined
 let ui: Page
 let origineDev: string
 
@@ -32,10 +36,11 @@ test.beforeAll(async () => {
   expect(urlDev).toBeTruthy()
   origineDev = new URL(urlDev!).origin
 
+  profil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
   app = await electron.launch({
     args: ['.'],
     cwd: resolve(__dirname, '..'),
-    env: { ...process.env, ELECTRON_RENDERER_URL: urlDev! }
+    env: { ...process.env, ELECTRON_RENDERER_URL: urlDev!, ARBALETE_PROFIL_TEST: profil }
   })
   // La barre latérale (ARB-33) est servie par le même serveur, avec ?vue=barre : ce n'est pas la fenêtre d'interface.
   const estInterface = (url: string) => url.startsWith(origineDev) && !url.includes('vue=barre')
@@ -88,6 +93,7 @@ function envoyerTouches(evenements: Touche[], cible: 'interface' | 'onglet'): Pr
 test.afterAll(async () => {
   await app?.close()
   await serveur?.close()
+  if (profil) rmSync(profil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 })
 
 // Value: protects=branche de développement d'ARB-13/14 : l'interface servie par Vite (origine d'ELECTRON_RENDERER_URL)

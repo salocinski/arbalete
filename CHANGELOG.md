@@ -2,6 +2,13 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.5.0.1] - 2026-11-02
+
+### Tests
+- Les tests Playwright lancent Arbalète sur un profil de données temporaire (`ARBALETE_PROFIL_TEST`), supprimé à la
+  fin : ils ne lisent ni n'écrivent plus l'`arbalete.db` de l'utilisateur, et `npm run test:smoke` tourne même si
+  Arbalète est déjà ouvert. La variable est ignorée dans l'app empaquetée et si le chemin n'est pas absolu.
+
 ## [0.5.0.0] - 2026-11-02
 
 ### Ajouté

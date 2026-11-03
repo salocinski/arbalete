@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
@@ -42,6 +42,13 @@ function adressesLancees(valeurs: unknown): string[] {
     .filter((valeur): valeur is string => typeof valeur === 'string' && /^https?:\/\/\S+$/i.test(valeur) && URL.canParse(valeur))
     .slice(0, ADRESSES_MAX_PAR_LANCEMENT)
 }
+
+// Profil de données des tests (ARB-118) : les tests Playwright lancent l'app avec ARBALETE_PROFIL_TEST pointant vers
+// un dossier temporaire, pour ne jamais lire ni écrire l'arbalete.db de l'utilisateur. Lu avant le verrou d'instance
+// unique, qui dépend du dossier userData : l'app des tests ne bute donc pas sur un Arbalète déjà ouvert. Ignoré dans
+// l'app empaquetée.
+const profilTest = app.isPackaged ? undefined : process.env.ARBALETE_PROFIL_TEST
+if (profilTest && isAbsolute(profilTest)) app.setPath('userData', profilTest)
 
 const adressesAuLancement = adressesLancees(process.argv.slice(1))
 // Les adresses passent par additionalData : Windows peut réordonner ou compléter l'argv reçu par second-instance.
