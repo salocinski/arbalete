@@ -30,7 +30,7 @@ Besoins :
 Banc Electron 45.1.0 sur le poste de développement (Windows 10), fenêtre de 1280 × 800 avec, en dessous, une page
 de 3 000 lignes dans une `WebContentsView`. Le temps va de l'ordre d'affichage jusqu'à deux images rendues par
 l'overlay (`requestAnimationFrame` deux fois), menu de 8 entrées rempli à chaque ouverture. 20 ouvertures par option,
-deux séries concordantes.
+deux séries concordantes (une seule pour A2 et pour la fenêtre enfant qui prend le clavier).
 
 | Option | Ouverture (médiane / p95) | Mémoire en plus | Clavier de la fenêtre |
 |---|---|---|---|
@@ -38,7 +38,7 @@ deux séries concordantes.
 | A. Même vue créée à chaque ouverture | 77 ms / 78–94 ms | +76 Mo pendant l'affichage | Gardé |
 | **A2. Vue toujours affichée, agrandie de 6 px à la fenêtre** | **25 ms / 30 ms** | **0 si c'est la vue de la barre** | **Gardé** |
 | B. Page remplacée par sa capture (`capturePage`) | 27–28 ms / 40–43 ms | ~0 (image PNG de 51 Ko) | Gardé |
-| C. Fenêtre enfant transparente préchargée, `showInactive` | 25–26 ms / 28–32 ms | +73 Mo (un processus de rendu) | Gardé sans saisie ; **perdu** dès que l'overlay prend le clavier |
+| C. Fenêtre enfant transparente préchargée, `showInactive` | 25–26 ms / 28–32 ms | +72–73 Mo (un processus de rendu) | Gardé sans saisie ; **perdu** dès que l'overlay prend le clavier |
 
 À 60 Hz, deux images font au moins 17 ms : toutes les options préchargées s'affichent en une à deux images. La
 latence ne départage pas les options. Les écarts portent sur la mémoire, le clavier et le comportement.
@@ -98,7 +98,7 @@ l'overlay. Aucune vue de plus, mais :
 Une `BrowserWindow` sans cadre, transparente, rattachée à la fenêtre. Aussi rapide qu'une vue, et seule option qui
 peut déborder de la fenêtre. Mais :
 
-- un processus de rendu de plus (+73 Mo) ;
+- un processus de rendu de plus (+72–73 Mo) ;
 - dès qu'elle prend le clavier (palette, champ de recherche), la fenêtre principale est désactivée (mesuré :
   `isFocused()` faux) : barre de titre grisée, `blur` dans la page et l'interface ;
 - elle doit suivre la fenêtre (déplacement, redimensionnement, réduction, agrandissement, ancrage Windows,
