@@ -1100,13 +1100,17 @@ test('C39 : une instance lancée sur un autre profil démarre au lieu de se ferm
   }
 })
 
-// Session des onglets telle qu'écrite sur disque (ARB-44), lue hors de l'app : une base absente ou vide donne [].
+// Session des onglets telle qu'écrite sur disque (ARB-44), lue hors de l'app : une base absente, vide ou pas encore
+// migrée (l'app vient de créer le fichier) donne [], pour que expect.poll réessaie au lieu d'échouer.
 function sessionSurDisque(dossier: string): Array<{ url: string, titre: string, actif: number }> {
   const chemin = join(dossier, 'arbalete.db')
   if (!existsSync(chemin)) return []
   const db = new DatabaseSync(chemin, { readOnly: true })
   try {
     return db.prepare('SELECT url, titre, actif FROM onglet ORDER BY position').all() as Array<{ url: string, titre: string, actif: number }>
+  } catch (erreur) {
+    if (/no such table/.test(String(erreur))) return []
+    throw erreur
   } finally {
     db.close()
   }
