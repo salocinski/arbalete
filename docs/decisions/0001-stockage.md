@@ -80,6 +80,8 @@ pas encore « stable ». Une évolution d'API reste possible, mais peu probable,
 - ARB-43 crée le module, la première migration et les tests de lecture/écriture.
 - L'API est synchrone et s'exécute dans le processus principal : les écritures restent petites et groupées
   (anti-rebond pour la session, transaction par lot pour l'historique). Une requête lente bloquerait l'interface.
+- Historique (ARB-51) : finalement une transaction par visite, sans lot. En WAL avec `synchronous=NORMAL`, une
+  transaction n'attend pas le disque, et une visite écrite tout de suite survit à un arrêt forcé.
 - Chaque mise à jour d'Electron doit garder le test du module de données au vert : c'est lui qui détecte un
   changement d'API de `node:sqlite`.
 - Les tests unitaires du module (Vitest, prévu en EP-14) devront tourner sous le Node d'Electron

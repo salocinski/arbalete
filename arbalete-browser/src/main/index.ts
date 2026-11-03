@@ -6,6 +6,7 @@ import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarActi
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
+import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historique.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
@@ -15,6 +16,8 @@ type TabRecord = {
   view: WebContentsView
   // Page demandée à la vue. Un onglet restauré en arrière-plan (ARB-45) attend d'être affiché pour charger.
   chargee: boolean
+  // Adresse de la dernière visite enregistrée dans l'historique (ARB-51), null sur une page qui n'y entre pas.
+  adresseVisitee: string | null
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -185,6 +188,30 @@ function updateTabFromView(id: string) {
   broadcastState()
 }
 
+// Historique (ARB-51) : une navigation du cadre principal est une visite si elle mène à une autre adresse que la
+// dernière visite de l'onglet. Un rechargement ou un changement de fragment n'en est pas une ; revenir en arrière vers
+// une autre page, si.
+function noterVisite(record: TabRecord, url: string) {
+  const adresse = adresseHistorique(url)
+  if (adresse === record.adresseVisitee) return
+  record.adresseVisitee = adresse
+  if (!base || !adresse) return
+  try {
+    ajouterVisite(base, adresse)
+  } catch (erreur) {
+    console.error('Visite non enregistrée :', erreur)
+  }
+}
+
+function nommerVisite(record: TabRecord, titre: string) {
+  if (!base || !record.adresseVisitee) return
+  try {
+    nommerPage(base, record.adresseVisitee, titre)
+  } catch (erreur) {
+    console.error('Titre de la visite non enregistré :', erreur)
+  }
+}
+
 // Ouvertures demandées par les pages (window.open, target=_blank) : seules les adresses web passent (ARB-102),
 // sinon une page http ouvrirait file:// via loadURL depuis le processus principal, que Chromium ne bloque pas.
 // Une page ne peut ouvrir que OUVERTURES_MAX onglets par fenêtre glissante, contre les rafales de window.open, et
@@ -315,13 +342,25 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
       canGoForward: false
     },
     view,
-    chargee: false
+    chargee: false,
+    // Rouvrir un onglet restauré n'est pas une visite.
+    adresseVisitee: restaure ? adresseHistorique(normalizeUrl(initialUrl)) : null
   }
   tabs.set(id, record)
 
-  view.webContents.on('page-title-updated', () => updateTabFromView(id))
-  view.webContents.on('did-navigate', () => updateTabFromView(id))
-  view.webContents.on('did-navigate-in-page', () => updateTabFromView(id))
+  view.webContents.on('page-title-updated', (_event, titre, explicite) => {
+    // Sans <title>, Chromium donne l'adresse comme titre : l'historique garde alors le titre déjà connu.
+    if (explicite) nommerVisite(record, titre)
+    updateTabFromView(id)
+  })
+  view.webContents.on('did-navigate', (_event, url) => {
+    noterVisite(record, url)
+    updateTabFromView(id)
+  })
+  view.webContents.on('did-navigate-in-page', (_event, url, cadrePrincipal) => {
+    if (cadrePrincipal) noterVisite(record, url)
+    updateTabFromView(id)
+  })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
   view.webContents.setWindowOpenHandler(({ url }) => {
