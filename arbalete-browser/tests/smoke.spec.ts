@@ -15,7 +15,8 @@ import type { BrowserState } from '../src/shared/types'
 // arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
 // d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39) et
 // sauvegarde et restauration de la session d'ARB-44/45 (C40, C41), invite après un arrêt forcé d'ARB-46 (C42) et
-// incidents de la base d'ARB-119 (C43, C44),
+// incidents de la base d'ARB-119 (C43, C44), refus des permissions d'ARB-120 (C45) et historique des visites
+// d'ARB-51 (C46),
 // exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
@@ -1207,6 +1208,7 @@ async function ongletsDe(fenetre: Page) {
 //   why_new=C40 prouve l'écriture, pas la relecture; seam=deux lancements successifs sur un même profil temporaire,
 //   requêtes comptées par le serveur de test; no_claim=ne couvre pas la proposition de restaurer après un plantage
 //   (ARB-46).
+// Rouvrir les onglets restaurés n'ajoute pas de visite à l'historique (ARB-51).
 test('C41 : au redémarrage, les onglets reviennent et un onglet inactif ne charge qu’une fois affiché', async () => {
   const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
   const pageA = `${origine}/page-a.html`
@@ -1221,6 +1223,8 @@ test('C41 : au redémarrage, les onglets reviennent et un onglet inactif ne char
     const premier = await fenetre.evaluate(() => window.arbalete.getState())
     await fenetre.evaluate((id) => window.arbalete.activateTab(id), premier.tabs[0].id)
     await autreApp.close()
+    expect(pageDeLHistorique(autreProfil, pageA)?.visites).toBe(1)
+    expect(pageDeLHistorique(autreProfil, pageB)?.visites).toBe(1)
 
     const requetesA = requetes['/page-a.html'] ?? 0
     const requetesB = requetes['/page-b.html'] ?? 0
@@ -1237,6 +1241,9 @@ test('C41 : au redémarrage, les onglets reviennent et un onglet inactif ne char
     const restaure = await fenetre.evaluate(() => window.arbalete.getState())
     await fenetre.evaluate((id) => window.arbalete.activateTab(id), restaure.tabs[1].id)
     await expect.poll(() => requetes['/page-b.html'] ?? 0).toBe(requetesB + 1)
+    await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs[1].isLoading).toBe(false)
+    expect(pageDeLHistorique(autreProfil, pageA)?.visites).toBe(1)
+    expect(pageDeLHistorique(autreProfil, pageB)?.visites).toBe(1)
   } finally {
     await autreApp.close()
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
@@ -1371,4 +1378,66 @@ test('C44 : une base plus récente reste intacte et l’utilisateur est prévenu
     await autreApp.close()
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
+})
+
+// Page de l'historique (ARB-51) telle qu'écrite sur disque, lue hors de l'app ; undefined si elle n'y est pas encore.
+function pageDeLHistorique(dossier: string, url: string): { titre: string, visites: number, dates: number } | undefined {
+  const db = new DatabaseSync(join(dossier, 'arbalete.db'), { readOnly: true })
+  try {
+    return db.prepare(`SELECT titre, visites, (SELECT count(*) FROM visite WHERE visite.page = page.id) AS dates
+      FROM page WHERE url = ?`).get(url) as { titre: string, visites: number, dates: number } | undefined
+  } finally {
+    db.close()
+  }
+}
+
+// Value: protects=ARB-51 : chaque navigation de l'onglet vers une autre page est enregistrée dans l'historique, avec son
+//   titre et une visite datée, que la page la quitte par un lien, par history.pushState ou l'utilisateur par la barre
+//   d'adresse;
+//   fails_when=did-navigate n'enregistre plus de visite, le titre reste vide, ou un rechargement, un changement de
+//   fragment, une adresse injoignable compte comme une visite;
+//   why_new=aucun test ne lisait l'historique; seam=fichier arbalete.db du profil de test lu par node:sqlite hors de
+//   l'app, en lecture seule pendant qu'elle tourne; no_claim=ne vérifie pas la restauration d'un onglet (tests
+//   unitaires et revue), ni les redirections.
+test('C46 : chaque navigation est enregistrée dans l’historique, un rechargement ou une ancre non', async () => {
+  const pageA = `${origine}/page-a.html`
+  const pageB = `${origine}/page-b.html`
+  const visitesAvant = (url: string) => pageDeLHistorique(profil, url)?.visites ?? 0
+  const avantA = visitesAvant(pageA)
+  const avantB = visitesAvant(pageB)
+
+  await ui.evaluate((url) => window.arbalete.createTab(url), pageA)
+  await expect.poll(() => pageDeLHistorique(profil, pageA)).toEqual({ titre: 'Page A', visites: avantA + 1, dates: avantA + 1 })
+
+  // Lien suivi par la page, puis rechargement et ancre dans la même page : une seule visite de page-b.
+  await dansOngletActif("document.getElementById('suivante').click()")
+  await attendreUrlActive(pageB)
+  await expect.poll(() => pageDeLHistorique(profil, pageB)).toEqual({ titre: 'Page B', visites: avantB + 1, dates: avantB + 1 })
+  const requetesB = requetes['/page-b.html'] ?? 0
+  await ui.evaluate(() => window.arbalete.reload())
+  await expect.poll(() => requetes['/page-b.html'] ?? 0).toBeGreaterThan(requetesB)
+  await dansOngletActif("location.hash = 'ancre'")
+  await attendreUrlActive(`${pageB}#ancre`)
+  // Une autre adresse dans le même document (application d'une seule page) est une visite.
+  const pageC = `${origine}/page-c.html`
+  const avantC = visitesAvant(pageC)
+  await dansOngletActif("history.pushState(null, '', '/page-c.html')")
+  await attendreUrlActive(pageC)
+  await expect.poll(() => visitesAvant(pageC)).toBe(avantC + 1)
+
+  // Retour sur page-a par la barre d'adresse : deuxième visite de page-a.
+  await saisirAdresse(pageA)
+  await expect.poll(() => visitesAvant(pageA)).toBe(avantA + 2)
+  expect(pageDeLHistorique(profil, pageB)?.visites).toBe(avantB + 1)
+  expect(pageDeLHistorique(profil, `${pageB}#ancre`)).toBeUndefined()
+
+  // Une adresse injoignable n'est pas une visite : le chargement échoue sans navigation, et le titre de la page
+  // précédente reste le sien.
+  const titreA = pageDeLHistorique(profil, pageA)?.titre
+  expect(titreA).toBeTruthy()
+  await saisirAdresse('http://127.0.0.1:1/')
+  await attendreUrlActive('http://127.0.0.1:1/')
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+  expect(pageDeLHistorique(profil, 'http://127.0.0.1:1/')).toBeUndefined()
+  expect(pageDeLHistorique(profil, pageA)?.titre).toBe(titreA)
 })

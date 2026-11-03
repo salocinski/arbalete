@@ -15,7 +15,24 @@ export const MIGRATIONS: readonly string[] = [
   `CREATE TABLE etat (
     cle TEXT PRIMARY KEY,
     valeur TEXT NOT NULL
-  )`
+  )`,
+  // 3 — Historique (ARB-51) : une page par adresse, avec son titre, son nombre de visites et sa dernière visite ; une
+  // visite datée par navigation, pour le regroupement par jour (ARB-52) et l'effacement par période (ARB-54). Dates en
+  // millisecondes depuis 1970.
+  `CREATE TABLE page (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    titre TEXT NOT NULL DEFAULT '',
+    visites INTEGER NOT NULL DEFAULT 0,
+    derniere_visite INTEGER NOT NULL
+  );
+  CREATE TABLE visite (
+    id INTEGER PRIMARY KEY,
+    page INTEGER NOT NULL REFERENCES page (id) ON DELETE CASCADE,
+    date INTEGER NOT NULL
+  );
+  CREATE INDEX visite_date ON visite (date);
+  CREATE INDEX visite_page ON visite (page)`
 ]
 
 export function versionDuSchema(db: DatabaseSync): number {
