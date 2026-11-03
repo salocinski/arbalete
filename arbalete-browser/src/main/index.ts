@@ -4,6 +4,8 @@ import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBase } from './donnees/base.ts'
+import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
+import { sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 
@@ -82,8 +84,33 @@ function envoyerAuxInterfaces(canal: string, valeur: unknown) {
   for (const contenu of contenusInterface()) contenu.send(canal, valeur)
 }
 
+// Session des onglets (ARB-44) : écrite une seconde après le dernier changement, au plus tard 5 secondes après le
+// premier, et à la fermeture. Les chargements changent l'état sans changer la session : une session identique à la
+// dernière écrite n'est pas réécrite.
+let derniereSessionEcrite = ''
+
+function ecrireSession() {
+  if (!base) return
+  const onglets: OngletSauve[] = [...tabs.values()].map(({ data }) => ({
+    url: data.url,
+    titre: data.title,
+    actif: data.id === activeTabId
+  }))
+  const serialisee = JSON.stringify(onglets)
+  if (serialisee === derniereSessionEcrite) return
+  try {
+    sauverSession(base, onglets)
+    derniereSessionEcrite = serialisee
+  } catch (erreur) {
+    console.error('Session des onglets non enregistrée :', erreur)
+  }
+}
+
+const sauvegardeSession = creerEcritureDifferee(ecrireSession, 1000, 5000)
+
 function broadcastState() {
   envoyerAuxInterfaces('browser:state', stateSnapshot())
+  sauvegardeSession.demander()
 }
 
 function setActiveView() {
@@ -411,6 +438,8 @@ function createWindow(adresses: readonly string[] = []) {
     activeRecord()?.view.setBounds(contentBounds)
     placerBarre()
   })
+  // Avant que les vues des onglets disparaissent : la session écrite est celle que l'utilisateur ferme.
+  mainWindow.on('close', () => sauvegardeSession.vider())
   mainWindow.on('closed', () => {
     mainWindow = null
     barreView = null
@@ -506,6 +535,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  sauvegardeSession.vider()
   base?.close()
   base = null
 })
