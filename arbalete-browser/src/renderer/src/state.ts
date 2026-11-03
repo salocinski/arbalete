@@ -27,6 +27,16 @@ export function useBrowserState(): BrowserState {
   return state
 }
 
+// Invite de restauration après un arrêt forcé (ARB-46).
+export function useRestoreOffer(): boolean {
+  const [offer, setOffer] = useState(false)
+  useEffect(() => {
+    void window.arbalete.getRestoreOffer().then(setOffer).catch(() => {})
+    return window.arbalete.onRestoreOffer(setOffer)
+  }, [])
+  return offer
+}
+
 export function useSidebar(): SidebarState {
   const [sidebar, setSidebar] = useState<SidebarState>({ open: false, pinned: false })
   useEffect(() => {
