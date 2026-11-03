@@ -2,6 +2,13 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.6.0.0] - 2026-11-03
+
+### Ajouté
+- La session des onglets est enregistrée dans `arbalete.db` : les onglets ouverts, leur ordre, leurs titres et l'onglet
+  actif. L'écriture se fait une seconde après le dernier changement (au plus tard 5 secondes après le premier) et à la
+  fermeture d'Arbalète. La restauration au démarrage viendra avec ARB-45.
+
 ## [0.5.0.1] - 2026-11-02
 
 ### Tests
