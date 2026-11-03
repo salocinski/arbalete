@@ -69,7 +69,8 @@ sa place ; sa vue ne navigue pas, n'ouvre pas de fenêtre et pilote l'IPC, qu'el
 page (C34) ; le thème choisi s'applique à la fenêtre et à la barre, et `set-theme` comme `set-sidebar` refusent un
 argument hors liste (C35). Depuis ARB-18, Ctrl+L, Alt+←/→, Ctrl+T et Ctrl+W agissent depuis la page, la barre et la
 fenêtre, interceptés par le processus principal sans atteindre la page ni doubler l'action ; Ctrl+T donne le clavier
-à la barre d'adresse, Ctrl+W à l'onglet redevenu actif, et AltGr n'en déclenche aucun (C36). Depuis ARB-12/13/14, il vérifie
+à la barre d'adresse, Ctrl+W à l'onglet redevenu actif, et AltGr n'en déclenche aucun (C36). Depuis ARB-117, un second
+lancement d'Arbalète se ferme et ouvre ses adresses web dans la première instance, restaurée si elle était réduite (C37). Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.
@@ -93,6 +94,8 @@ cd arbalete-browser && npm run typecheck && npm run test:unit && npm run test:sm
 
 `test:smoke` ouvre des fenêtres Arbalète pendant quelques secondes. Le premier onglet charge google.com :
 le démarrage demande le réseau, pas les assertions.
+Fermer Arbalète (`npm run dev` compris) avant `test:smoke` : une seule instance tourne par profil (ARB-117), l'app
+lancée par les tests se fermerait aussitôt. ARB-118 donnera aux tests leur propre profil.
 
 Pour tester l'interface avec `/qa`, `/qa-only`, `/design-review` ou `/browse` : lancer `npm run dev:web`
 et viser **http://localhost:5180**. L'aperçu remplace les pages web par un cadre « Aperçu navigateur » :
