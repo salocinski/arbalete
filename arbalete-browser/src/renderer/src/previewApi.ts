@@ -160,7 +160,11 @@ export function installPreviewApi(): boolean {
     // L'aperçu ne garde pas de session : jamais d'invite de restauration.
     getRestoreOffer: async () => false,
     onRestoreOffer: () => () => undefined,
-    answerRestoreOffer: async () => undefined
+    answerRestoreOffer: async () => undefined,
+    // Ni base ni incident dans l'aperçu.
+    getDataIncident: async () => null,
+    onDataIncident: () => () => undefined,
+    dismissDataIncident: async () => undefined
   }
 
   createTab('https://www.google.com')

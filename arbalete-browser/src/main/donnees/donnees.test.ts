@@ -1,10 +1,10 @@
 import { deepStrictEqual, strictEqual, throws } from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { after, test } from 'node:test'
-import { ouvrirBase } from './base.ts'
+import { ouvrirBase, ouvrirBaseOuRecuperer } from './base.ts'
 import { noterFermetureNormale, noterOuverture } from './fermeture.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './session.ts'
@@ -144,4 +144,61 @@ test('une base au schéma 1 (avant ARB-46) passe au schéma 2 sans perdre sa ses
   deepStrictEqual(lireSession(db), onglets)
   strictEqual(noterOuverture(db), false)
   db.close()
+})
+
+const DATE_INCIDENT = new Date('2026-11-03T10:20:30.400Z')
+
+test('une base illisible est mise de côté et remplacée par une base neuve', () => {
+  const sous = mkdtempSync(join(dossier, 'illisible-'))
+  const chemin = join(sous, 'arbalete.db')
+  const contenu = Buffer.from('pas une base SQLite '.repeat(10))
+  writeFileSync(chemin, contenu)
+
+  const { db, incident } = ouvrirBaseOuRecuperer(chemin, DATE_INCIDENT)
+  const copie = 'arbalete.db.corrompue-2026-11-03T10-20-30.400Z'
+  deepStrictEqual(incident, { type: 'corrompue', copie })
+  deepStrictEqual(readFileSync(join(sous, copie)), contenu)
+  // La base neuve est utilisable et au dernier schéma.
+  strictEqual(versionDuSchema(db!), MIGRATIONS.length)
+  sauverSession(db!, onglets)
+  deepStrictEqual(lireSession(db!), onglets)
+  db!.close()
+})
+
+test('une base aux pages abîmées est mise de côté, même si son en-tête se lit', () => {
+  const sous = mkdtempSync(join(dossier, 'abimee-'))
+  const chemin = join(sous, 'arbalete.db')
+  const base = new DatabaseSync(chemin)
+  base.exec('CREATE TABLE remplissage (texte TEXT)')
+  const inserer = base.prepare('INSERT INTO remplissage VALUES (?)')
+  for (let i = 0; i < 200; i++) inserer.run('x'.repeat(200))
+  base.close()
+  // Page 2 écrasée : l'en-tête (page 1) reste lisible.
+  const octets = readFileSync(chemin)
+  octets.fill(0xa5, 4096, 8192)
+  writeFileSync(chemin, octets)
+
+  const { db, incident } = ouvrirBaseOuRecuperer(chemin, DATE_INCIDENT)
+  strictEqual(incident?.type, 'corrompue')
+  strictEqual(versionDuSchema(db!), MIGRATIONS.length)
+  db!.close()
+})
+
+test('une base plus récente n’est ni renommée ni modifiée ; une base saine ne signale rien', () => {
+  const sous = mkdtempSync(join(dossier, 'recente-'))
+  const chemin = join(sous, 'arbalete.db')
+  const future = new DatabaseSync(chemin)
+  future.exec(`PRAGMA user_version = ${MIGRATIONS.length + 1}`)
+  future.close()
+  const avant = readFileSync(chemin)
+
+  deepStrictEqual(ouvrirBaseOuRecuperer(chemin), { db: null, incident: { type: 'plus-recente' } })
+  deepStrictEqual(readdirSync(sous), ['arbalete.db'])
+  deepStrictEqual(readFileSync(chemin), avant)
+
+  const saine = join(sous, 'saine.db')
+  const { db, incident } = ouvrirBaseOuRecuperer(saine)
+  strictEqual(incident, null)
+  strictEqual(existsSync(saine), true)
+  db!.close()
 })

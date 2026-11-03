@@ -87,12 +87,12 @@ kbd { color: #6e7080; font: 10px 'Segoe UI',sans-serif; border: 1px solid #34354
 .address-action { border: 0; background: transparent; color: #77798a; display: grid; place-items: center; padding: 2px; }
 .address-action:hover { color: #f6d78c; }
 .toolbar-action { border: 1px solid var(--border); background: #191a22; }
-.restore-banner { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 20px; background: #1c1a26; border-bottom: 1px solid var(--border); color: var(--text); font-size: 11px; position: relative; z-index: 2; }
-.restore-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.restore-actions button { height: 26px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 11px; }
-.restore-actions button:hover { background: var(--panel-hover); }
-.restore-actions .restore-primary { border-color: #7761b8; background: #5b469c; color: #fff; }
-.restore-actions .restore-primary:hover { background: #6a54ad; }
+.app-banner { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 20px; background: #1c1a26; border-bottom: 1px solid var(--border); color: var(--text); font-size: 11px; position: relative; z-index: 2; }
+.app-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.app-banner-actions button { height: 26px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 11px; }
+.app-banner-actions button:hover { background: var(--panel-hover); }
+.app-banner-actions .app-banner-primary { border-color: #7761b8; background: #5b469c; color: #fff; }
+.app-banner-actions .app-banner-primary:hover { background: #6a54ad; }
 .page-stage { position: relative; flex: 1; min-height: 0; background: #111218; overflow: hidden; }
 .web-content { position: absolute; inset: 0; overflow: hidden; background: #111218; }
 .demo-placeholder { background: radial-gradient(ellipse at 50% 44%, #242035 0%, #171720 35%, #111218 72%); }
@@ -124,7 +124,7 @@ kbd { color: #6e7080; font: 10px 'Segoe UI',sans-serif; border: 1px solid #34354
 .theme-light { --app-bg: #f5f5f9; --sidebar-bg: #ededf4; --panel: #fff; --panel-hover: #e5e5ee; --border: rgba(30,30,50,.1); --text: #242431; --muted: #6e7080; }
 .theme-light .sidebar, .theme-light .toolbar, .theme-light .statusbar { background: #f0f0f6; }
 .theme-light .page-stage, .theme-light .web-content { background: #f8f8fc; }
-.theme-light .restore-banner { background: #ece7fa; }
+.theme-light .app-banner { background: #ece7fa; }
 .theme-light .demo-placeholder { background: radial-gradient(ellipse at 50% 44%, #e8e1fb 0%, #f2f0f8 45%, #f8f8fc 78%); }
 .theme-light .welcome-card h1 { color: #252333; }
 .theme-light .welcome-description, .theme-light .prototype-note, .theme-light .stage-footer { color: #737387; }

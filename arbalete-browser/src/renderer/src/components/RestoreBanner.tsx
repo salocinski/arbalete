@@ -2,10 +2,10 @@
 // l'onglet masquerait tout HTML posé sur elle (règle 4).
 export function RestoreBanner() {
   return (
-    <div className="restore-banner" role="alert" data-testid="restore-banner">
+    <div className="app-banner" role="alert" data-testid="restore-banner">
       <span>Arbalète ne s'est pas fermé correctement. Restaurer les onglets de la session précédente ?</span>
-      <div className="restore-actions">
-        <button type="button" className="restore-primary" onClick={() => void window.arbalete.answerRestoreOffer('restore')}>Restaurer</button>
+      <div className="app-banner-actions">
+        <button type="button" className="app-banner-primary" onClick={() => void window.arbalete.answerRestoreOffer('restore')}>Restaurer</button>
         <button type="button" onClick={() => void window.arbalete.answerRestoreOffer('dismiss')}>Ignorer</button>
       </div>
     </div>

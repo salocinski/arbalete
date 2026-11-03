@@ -30,7 +30,10 @@ const api: BrowserAPI = {
   onFocusAddress: (callback) => ecouter('browser:focus-address', callback),
   getRestoreOffer: () => ipcRenderer.invoke('browser:get-restore-offer'),
   onRestoreOffer: (callback) => ecouter('browser:restore-offer', callback),
-  answerRestoreOffer: (answer) => ipcRenderer.invoke('browser:answer-restore-offer', answer)
+  answerRestoreOffer: (answer) => ipcRenderer.invoke('browser:answer-restore-offer', answer),
+  getDataIncident: () => ipcRenderer.invoke('browser:get-data-incident'),
+  onDataIncident: (callback) => ecouter('browser:data-incident', callback),
+  dismissDataIncident: () => ipcRenderer.invoke('browser:dismiss-data-incident')
 }
 
 contextBridge.exposeInMainWorld('arbalete', api)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { BrowserState, SidebarState, ThemeChoice } from '../../shared/types'
+import type { BrowserState, DataIncident, SidebarState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
 // puis suit ses mises à jour. La fenêtre et la vue de la barre latérale sont deux documents distincts : chacune
@@ -35,6 +35,16 @@ export function useRestoreOffer(): boolean {
     return window.arbalete.onRestoreOffer(setOffer)
   }, [])
   return offer
+}
+
+// Incident de la base à l'ouverture (ARB-119).
+export function useDataIncident(): DataIncident | null {
+  const [incident, setIncident] = useState<DataIncident | null>(null)
+  useEffect(() => {
+    void window.arbalete.getDataIncident().then(setIncident).catch(() => {})
+    return window.arbalete.onDataIncident(setIncident)
+  }, [])
+  return incident
 }
 
 export function useSidebar(): SidebarState {
