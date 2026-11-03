@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.9.1.0] - 2026-11-03
+
+### Sécurité
+- Les pages web ne se voient plus accorder de permissions qu'elles n'ont pas demandées : interrogées, la
+  géolocalisation, les notifications, la caméra, le micro et le presse-papiers sont annoncés refusés.
+- Une page web ne peut plus accéder aux périphériques USB, série ou HID (manettes, clés de sécurité, cartes
+  électroniques) : chaque demande est annulée.
+
 ## [0.9.0.0] - 2026-11-03
 
 ### Ajouté
