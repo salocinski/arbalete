@@ -14,7 +14,7 @@ import type { BrowserState } from '../src/shared/types'
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
 // arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
 // d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39) et
-// sauvegarde de la session d'ARB-44 (C40), exécutés sur l'app construite (out/).
+// sauvegarde et restauration de la session d'ARB-44/45 (C40, C41), exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -1134,6 +1134,55 @@ test('C40 : la session des onglets est écrite après chaque changement et à la
     await fenetre.evaluate((id) => window.arbalete.activateTab(id), tabs[0].id)
     await autreApp.close()
     expect(sessionSurDisque(autreProfil).map((onglet) => onglet.actif)).toEqual([1, 0])
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// État des onglets d'une fenêtre d'interface, réduit à ce que la session conserve.
+async function ongletsDe(fenetre: Page) {
+  const etatFenetre = await fenetre.evaluate(() => window.arbalete.getState())
+  return etatFenetre.tabs.map((tab) => ({ url: tab.url, title: tab.title, actif: tab.id === etatFenetre.activeTabId }))
+}
+
+// Value: protects=restauration de la session d'ARB-45 : au redémarrage, les mêmes onglets reviennent dans le même
+//   ordre, avec le même onglet actif et le titre enregistré, et un onglet inactif ne charge sa page qu'une fois affiché;
+//   fails_when=la session n'est plus relue au démarrage, l'onglet actif n'est pas rétabli, ou tous les onglets
+//   chargent leur page au démarrage;
+//   why_new=C40 prouve l'écriture, pas la relecture; seam=deux lancements successifs sur un même profil temporaire,
+//   requêtes comptées par le serveur de test; no_claim=ne couvre pas la proposition de restaurer après un plantage
+//   (ARB-46).
+test('C41 : au redémarrage, les onglets reviennent et un onglet inactif ne charge qu’une fois affiché', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const pageA = `${origine}/page-a.html`
+  const pageB = `${origine}/page-b.html`
+  const lancer = (args: string[] = []) =>
+    electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer(['--', pageA, pageB])
+  try {
+    let fenetre = await fenetreInterface(autreApp)
+    await expect.poll(async () => (await ongletsDe(fenetre)).map((onglet) => onglet.title), { timeout: 10_000 })
+      .toEqual(['Page A', 'Page B'])
+    const premier = await fenetre.evaluate(() => window.arbalete.getState())
+    await fenetre.evaluate((id) => window.arbalete.activateTab(id), premier.tabs[0].id)
+    await autreApp.close()
+
+    const requetesA = requetes['/page-a.html'] ?? 0
+    const requetesB = requetes['/page-b.html'] ?? 0
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    await expect.poll(() => ongletsDe(fenetre), { timeout: 10_000 }).toEqual([
+      { url: pageA, title: 'Page A', actif: true },
+      { url: pageB, title: 'Page B', actif: false }
+    ])
+    // L'onglet actif a rechargé sa page ; l'onglet inactif, jamais affiché, pas encore.
+    await expect.poll(() => requetes['/page-a.html'] ?? 0).toBe(requetesA + 1)
+    expect(requetes['/page-b.html'] ?? 0).toBe(requetesB)
+
+    const restaure = await fenetre.evaluate(() => window.arbalete.getState())
+    await fenetre.evaluate((id) => window.arbalete.activateTab(id), restaure.tabs[1].id)
+    await expect.poll(() => requetes['/page-b.html'] ?? 0).toBe(requetesB + 1)
   } finally {
     await autreApp.close()
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
