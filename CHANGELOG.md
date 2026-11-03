@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.10.0.0] - 2026-11-03
+
+### Ajouté
+- Arbalète tient l'historique des pages visitées : chaque navigation d'un onglet vers une autre page web enregistre
+  son adresse, son titre et la date de la visite, et compte les visites de chaque page. Un rechargement, un saut vers
+  une ancre de la même page, une adresse injoignable ou un onglet rouvert à la restauration de la session ne comptent
+  pas comme des visites. L'historique est conservé dans la base locale ; le panneau pour le consulter viendra ensuite.
+- Le nom d'utilisateur et le mot de passe qu'une adresse peut contenir ne sont jamais enregistrés dans l'historique.
+
 ## [0.9.1.0] - 2026-11-03
 
 ### Sécurité
