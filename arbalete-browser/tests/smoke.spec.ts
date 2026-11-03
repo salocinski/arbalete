@@ -661,9 +661,9 @@ test('C7 : les demandes de permission d’une page web sont refusées', async ()
 // Value: protects=refus par défaut étendu aux vérifications (setPermissionCheckHandler) et aux périphériques
 //   (setDevicePermissionHandler, select-hid-device/select-serial-port/select-usb-device) (ARB-120);
 //   fails_when=un gestionnaire manque : navigator.permissions rapporte 'granted' ou 'prompt', ou une demande de
-//   périphérique reste sans réponse de l'app; why_new=C7 ne couvre que les demandes; seam=listenerCount pour les
-//   sélections de périphérique, la machine de test n'en ayant aucun à proposer;
-//   no_claim=ne branche aucun périphérique réel.
+//   périphérique reste sans réponse de l'app; why_new=C7 ne couvre que les demandes; seam=événements select-* émis depuis
+//   le processus principal avec un périphérique fictif, la machine de test n'en ayant aucun à proposer;
+//   no_claim=ne branche aucun périphérique réel ; setDevicePermissionHandler n'est pas observable sans périphérique.
 test('C45 : les vérifications de permission et l’accès aux périphériques sont refusés', async () => {
   await saisirAdresse(`${origine}/page-a.html`)
   await attendreUrlActive(`${origine}/page-a.html`)
@@ -683,10 +683,27 @@ test('C45 : les vérifications de permission et l’accès aux périphériques s
   ])`)
   expect(peripheriques).toEqual(['hid 0', 'serie refus', 'usb refus'])
 
-  const selections = await app.evaluate(({ session }) =>
-    ['select-hid-device', 'select-serial-port', 'select-usb-device'].map((evenement) =>
-      session.defaultSession.listenerCount(evenement)))
-  expect(selections.every((nombre) => nombre > 0)).toBe(true)
+  // Un périphérique proposé à la sélection n'est jamais choisi : l'app annule elle-même chaque demande.
+  const selections = await app.evaluate(({ session }) => {
+    const ses = session.defaultSession
+    const reponse = (evenement: string, ...args: unknown[]) => {
+      let choix: unknown = 'sans réponse'
+      let empeche = false
+      const evt = { preventDefault: () => { empeche = true } }
+      ses.emit(evenement, evt, ...args, (valeur?: unknown) => { choix = valeur || 'annulé' })
+      return `${evenement} ${empeche ? 'gérée' : 'non gérée'} ${String(choix)}`
+    }
+    return [
+      reponse('select-hid-device', { deviceList: [{ deviceId: 'hid-1' }], frame: null }),
+      reponse('select-serial-port', [{ portId: 'port-1' }], null),
+      reponse('select-usb-device', { deviceList: [{ deviceId: 'usb-1' }], frame: null })
+    ]
+  })
+  expect(selections).toEqual([
+    'select-hid-device gérée annulé',
+    'select-serial-port gérée annulé',
+    'select-usb-device gérée annulé'
+  ])
 })
 
 // Value: protects=épinglage par les boutons (ARB-33) -> ResizeObserver -> setContentBounds -> setBounds : épinglée, la
