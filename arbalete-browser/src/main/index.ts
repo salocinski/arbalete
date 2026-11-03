@@ -558,6 +558,22 @@ app.whenReady().then(() => {
     // Politique de départ restrictive : aucune permission distante n'est accordée automatiquement.
     callback(false)
   })
+  // Le refus vaut aussi pour les vérifications (navigator.permissions, accès sans demande) et les périphériques
+  // (ARB-120) : sans ces gestionnaires, Electron les accorde et les pages se voient tout permis.
+  session.defaultSession.setPermissionCheckHandler(() => false)
+  session.defaultSession.setDevicePermissionHandler(() => false)
+  session.defaultSession.on('select-hid-device', (event, _details, callback) => {
+    event.preventDefault()
+    callback()
+  })
+  session.defaultSession.on('select-serial-port', (event, _portList, _webContents, callback) => {
+    event.preventDefault()
+    callback('')
+  })
+  session.defaultSession.on('select-usb-device', (event, _details, callback) => {
+    event.preventDefault()
+    callback()
+  })
 
   traiter('browser:get-state', () => stateSnapshot())
   traiter('browser:get-system-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')

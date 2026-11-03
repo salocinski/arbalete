@@ -658,6 +658,37 @@ test('C7 : les demandes de permission d’une page web sont refusées', async ()
   expect(geolocalisation).toBe('refusée')
 })
 
+// Value: protects=refus par défaut étendu aux vérifications (setPermissionCheckHandler) et aux périphériques
+//   (setDevicePermissionHandler, select-hid-device/select-serial-port/select-usb-device) (ARB-120);
+//   fails_when=un gestionnaire manque : navigator.permissions rapporte 'granted' ou 'prompt', ou une demande de
+//   périphérique reste sans réponse de l'app; why_new=C7 ne couvre que les demandes; seam=listenerCount pour les
+//   sélections de périphérique, la machine de test n'en ayant aucun à proposer;
+//   no_claim=ne branche aucun périphérique réel.
+test('C45 : les vérifications de permission et l’accès aux périphériques sont refusés', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+
+  const etats = await resultatDansOngletActif<string[]>(`Promise.all(
+    ['geolocation', 'notifications', 'camera', 'microphone', 'clipboard-read'].map((name) =>
+      navigator.permissions.query({ name }).then((statut) => name + '=' + statut.state, () => name + '=erreur'))
+  )`)
+  expect(etats).toEqual(['geolocation=denied', 'notifications=denied', 'camera=denied', 'microphone=denied', 'clipboard-read=denied'])
+
+  // Avec le geste utilisateur d'executeJavaScript : aucune demande n'aboutit à un périphérique.
+  const peripheriques = await resultatDansOngletActif<string[]>(`Promise.all([
+    navigator.hid.requestDevice({ filters: [] }).then((liste) => 'hid ' + liste.length, () => 'hid refus'),
+    navigator.serial.requestPort().then(() => 'serie accordé', () => 'serie refus'),
+    navigator.usb.requestDevice({ filters: [] }).then(() => 'usb accordé', () => 'usb refus')
+  ])`)
+  expect(peripheriques).toEqual(['hid 0', 'serie refus', 'usb refus'])
+
+  const selections = await app.evaluate(({ session }) =>
+    ['select-hid-device', 'select-serial-port', 'select-usb-device'].map((evenement) =>
+      session.defaultSession.listenerCount(evenement)))
+  expect(selections.every((nombre) => nombre > 0)).toBe(true)
+})
+
 // Value: protects=épinglage par les boutons (ARB-33) -> ResizeObserver -> setContentBounds -> setBounds : épinglée, la
 //   barre prend sa place à gauche et la page se décale d'autant ; libérée, la page revient au bord, vue réalignée;
 //   fails_when=le bouton de la barre d'outils ou celui de la barre n'appelle plus toggle-pin, la réserve de 252 px
