@@ -16,7 +16,7 @@ import type { BrowserState } from '../src/shared/types'
 // d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39) et
 // sauvegarde et restauration de la session d'ARB-44/45 (C40, C41), invite après un arrêt forcé d'ARB-46 (C42) et
 // incidents de la base d'ARB-119 (C43, C44), refus des permissions d'ARB-120 (C45) et historique des visites
-// d'ARB-51 (C46),
+// d'ARB-51 (C46), couche d'overlays d'ARB-39 (C47),
 // exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
@@ -461,6 +461,129 @@ test('C35 : le thème s’applique à la fenêtre et à la barre ; set-theme et 
   expect(statuts).toEqual(['rejected', 'rejected'])
   expect(await choix()).toBe('system')
   expect(await etatBarre()).toEqual({ open: false, pinned: false })
+})
+
+// Value: protects=couche d'overlays (ARB-39, décision 0002) : le menu d'un onglet s'affiche dans la vue de la barre,
+//   agrandie à toute la fenêtre et au premier plan, se ferme par Échap (depuis la page, que la page ne reçoit pas),
+//   par un clic hors du menu ou par une entrée, rend à la barre sa taille, suit le redimensionnement, suspend le
+//   retrait de la barre, et seule la vue de la barre ouvre ou ferme un overlay;
+//   fails_when=placerBarre ignore overlayOuvert, Échap n'est plus intercepté par brancherRaccourcis, agirSurBarre
+//   retire la barre pendant l'overlay, ou set-overlay accepte la fenêtre, une page intruse ou un non-booléen;
+//   why_new=aucun test n'agrandissait la vue de la barre; seam=none;
+//   no_claim=clics simulés (Playwright, sendInputEvent) adressés à la vue de la barre : l'ordre natif des vues, qui
+//   empêche la page de recevoir le clic, est vérifié par barreAuPremierPlan, pas par un vrai pointeur.
+test('C47 : le menu d’un onglet s’ouvre en overlay sur toute la fenêtre et se ferme par Échap, clic ou entrée', async () => {
+  const fenetre = () => app.evaluate(({ BrowserWindow }) => {
+    const { width, height } = BrowserWindow.getAllWindows()[0].getContentBounds()
+    return { x: 0, y: 0, width, height }
+  })
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const menu = barreUi.getByRole('menu')
+  const ouvrirMenu = async (titre: string) => {
+    await barreUi.locator('.tab-item').filter({ hasText: titre }).click({ button: 'right' })
+    await expect(menu).toBeVisible()
+    await expect.poll(boundsBarre).toEqual(await fenetre())
+  }
+  // Touche native envoyée à la page de l'onglet actif, focus compris : before-input-event la voit comme un vrai clavier.
+  const toucheDansOnglet = (keyCode: string) => app.evaluate(({ BrowserWindow, WebContentsView }, keyCode) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+      && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    vue.webContents.focus()
+    vue.webContents.sendInputEvent({ type: 'keyDown', keyCode })
+    vue.webContents.sendInputEvent({ type: 'keyUp', keyCode })
+  }, keyCode)
+
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await expect.poll(async () => ongletActif(await etat())?.title).toBe('Page A')
+  await resultatDansOngletActif(`window.recus = { mousedown: 0, escape: 0 }
+    addEventListener('mousedown', () => window.recus.mousedown++, true)
+    addEventListener('keydown', (e) => { if (e.key === 'Escape') window.recus.escape++ }, true); true`)
+  await epinglerBarre(true)
+  try {
+    expect(await overlay()).toBe(false)
+
+    // Clic droit sur l'onglet : la vue de la barre couvre la fenêtre, au premier plan, menu visible.
+    await ouvrirMenu('Page A')
+    expect(await overlay()).toBe(true)
+    expect(await ui.evaluate(() => window.arbalete.getOverlay())).toBe(true)
+    expect(await barreAuPremierPlan()).toBe(true)
+
+    // Redimensionner la fenêtre pendant l'overlay : la vue suit la nouvelle taille.
+    const taille = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
+    try {
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1000, 700))
+      await expect.poll(boundsBarre).toEqual({ x: 0, y: 0, width: 1000, height: 700 })
+    } finally {
+      await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), taille)
+    }
+    await expect.poll(boundsBarre).toEqual(await fenetre())
+
+    // Échap depuis la page ferme l'overlay sans atteindre la page ; la barre épinglée reprend sa largeur.
+    await toucheDansOnglet('Escape')
+    await expect.poll(overlay).toBe(false)
+    await expect(menu).toHaveCount(0)
+    await expect.poll(async () => (await boundsBarre())?.width).toBe(252)
+    await attendreVueAlignee()
+
+    // Clic hors du menu : l'overlay se ferme, la page ne reçoit rien.
+    await ouvrirMenu('Page A')
+    const { width, height } = await fenetre()
+    await barreUi.mouse.click(width - 40, height - 40)
+    await expect.poll(overlay).toBe(false)
+    await expect.poll(async () => (await boundsBarre())?.width).toBe(252)
+    expect(await resultatDansOngletActif('window.recus')).toEqual({ mousedown: 0, escape: 0 })
+
+    // Entrée « Fermer l'onglet » : l'onglet visé est fermé, l'overlay aussi.
+    const vise = ongletActif(await etat())!
+    await ouvrirMenu('Page A')
+    await menu.getByRole('menuitem', { name: 'Fermer l’onglet' }).click()
+    await expect.poll(async () => (await etat()).tabs.some((tab) => tab.id === vise.id)).toBe(false)
+    await expect.poll(overlay).toBe(false)
+    await expect.poll(async () => (await boundsBarre())?.width).toBe(252)
+    await attendreVueAlignee()
+  } finally {
+    await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+    await epinglerBarre(false)
+  }
+
+  // Barre ouverte au survol : pendant l'overlay, ni la sortie de la souris ni set-sidebar 'hide' ne la retirent.
+  await souris('mouseEnter', 2)
+  await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
+  await barreUi.locator('.tab-item').first().click({ button: 'right' })
+  await expect.poll(overlay).toBe(true)
+  await souris('mouseLeave', 240)
+  await ui.evaluate(() => window.arbalete.setSidebar('hide'))
+  // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'appel de façon synchrone.
+  await ui.waitForTimeout(300)
+  expect(await etatBarre()).toEqual({ open: true, pinned: false })
+  await expect.poll(boundsBarre).toEqual(await fenetre())
+  await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+  await expect.poll(overlay).toBe(false)
+  // Après la fermeture, le retrait dépend du vrai pointeur (hors test) : on retire la barre explicitement.
+  await ui.evaluate(() => window.arbalete.setSidebar('hide'))
+  await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
+  await expect.poll(async () => (await boundsBarre())?.width).toBe(6)
+
+  // set-overlay : refusé depuis la fenêtre d'interface, avec un argument non booléen et depuis une page intruse.
+  const refus = await Promise.all([
+    ui.evaluate(() => window.arbalete.setOverlay(true).then(() => 'fulfilled', () => 'rejected')),
+    barreUi.evaluate(() => window.arbalete.setOverlay('oui' as never).then(() => 'fulfilled', () => 'rejected'))
+  ])
+  expect(refus).toEqual(['rejected', 'rejected'])
+  const intrus = await app.evaluate(async ({ BrowserWindow }, { preload, url }) => {
+    const intruse = new BrowserWindow({ show: false, webPreferences: { preload, contextIsolation: true, sandbox: true } })
+    try {
+      await intruse.loadURL(url)
+      return await intruse.webContents.executeJavaScript(`Promise.allSettled([window.arbalete.setOverlay(true),
+        window.arbalete.getOverlay()]).then((r) => r.map((x) => x.status))`)
+    } finally {
+      intruse.destroy()
+    }
+  }, { preload: resolve(__dirname, '../out/preload/index.js'), url: `${origine}/page-a.html` })
+  expect(intrus).toEqual(['rejected', 'rejected'])
+  expect(await overlay()).toBe(false)
+  expect((await boundsBarre())?.width).toBe(6)
 })
 
 test('C2 : la barre d’adresse charge localhost sans schéma et une URL complète', async () => {

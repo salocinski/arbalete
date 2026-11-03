@@ -47,6 +47,12 @@ html.vue-barre .sidebar-zone { right: 0; }
 .workspace-menu { position: absolute; z-index: 10; top: 111px; left: 12px; right: 12px; padding: 5px; border: 1px solid var(--border); background: #20212b; box-shadow: 0 12px 30px #0005; border-radius: 10px; }
 .workspace-menu button { display: flex; gap: 9px; align-items: center; width: 100%; padding: 9px; border: 0; background: transparent; border-radius: 7px; font-size: 12px; text-align: left; }
 .workspace-menu button:hover { background: #30313d; }
+/* Couche d'overlays (ARB-39) : la couche couvre la vue de la barre, agrandie à la fenêtre ; seul le contenu se voit. */
+.overlay-layer { position: fixed; inset: 0; z-index: 100; }
+.overlay-content { position: fixed; }
+.overlay-menu { min-width: 200px; padding: 5px; border: 1px solid var(--border); background: var(--panel); box-shadow: 0 12px 30px #0005; border-radius: 10px; color: var(--text); }
+.overlay-menu button { display: flex; align-items: center; width: 100%; padding: 8px 10px; border: 0; background: transparent; border-radius: 6px; font-size: 12px; text-align: left; }
+.overlay-menu button:hover, .overlay-menu button:focus-visible { background: var(--panel-hover); outline: none; }
 .sidebar-nav { display: grid; gap: 2px; margin: 17px 0 23px; }
 .nav-item { width: 100%; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 9px; border: 0; background: transparent; color: #a5a6b5; border-radius: 8px; font-size: 12px; text-align: left; white-space: nowrap; }
 .nav-item:hover { background: #20212a; color: var(--text); }
