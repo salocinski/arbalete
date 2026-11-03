@@ -2,6 +2,13 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.10.1.0] - 2026-11-03
+
+### Documentation
+- Décision 0002 : les menus, palettes et dialogues qui passent au-dessus de la page s'afficheront dans la vue de la
+  barre latérale, agrandie à toute la fenêtre le temps de leur affichage. Les autres options (vue dédiée, capture de
+  la page, fenêtres enfants) ont été mesurées et écartées.
+
 ## [0.10.0.0] - 2026-11-03
 
 ### Ajouté
