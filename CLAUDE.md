@@ -26,7 +26,7 @@ propose de créer `TODOS.md`, répondre **Skip** et signaler les éléments à a
 ```
 arbalete-browser/
   src/main/index.ts        processus principal : fenêtre, onglets (WebContentsView), navigation, IPC
-  src/main/donnees/        base SQLite (node:sqlite, décision 0001) : ouverture, migrations, dépôts ; tests *.test.ts
+  src/main/donnees/        base SQLite (node:sqlite, décision 0001) : ouverture, migrations, dépôts, écriture différée ; tests *.test.ts
   src/preload/index.ts     pont IPC minimal exposé en window.arbalete
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
   src/renderer/src/        interface React : App.tsx (aiguillage fenêtre / barre), styles.css
@@ -70,7 +70,7 @@ page (C34) ; le thème choisi s'applique à la fenêtre et à la barre, et `set-
 argument hors liste (C35). Depuis ARB-18, Ctrl+L, Alt+←/→, Ctrl+T et Ctrl+W agissent depuis la page, la barre et la
 fenêtre, interceptés par le processus principal sans atteindre la page ni doubler l'action ; Ctrl+T donne le clavier
 à la barre d'adresse, Ctrl+W à l'onglet redevenu actif, et AltGr n'en déclenche aucun (C36). Depuis ARB-117, un second
-lancement d'Arbalète se ferme et ouvre ses adresses web dans la première instance, restaurée si elle était réduite (C37). Depuis ARB-118, l'app des tests a son propre profil de données (C38), et une instance lancée sur un autre profil démarre au lieu de se fermer (C39). Depuis ARB-12/13/14, il vérifie
+lancement d'Arbalète se ferme et ouvre ses adresses web dans la première instance, restaurée si elle était réduite (C37). Depuis ARB-118, l'app des tests a son propre profil de données (C38), et une instance lancée sur un autre profil démarre au lieu de se fermer (C39). Depuis ARB-44, la session des onglets (ordre, onglet actif) est écrite sur disque une seconde après chaque changement et à la fermeture (C40). Depuis ARB-12/13/14, il vérifie
 aussi le verrouillage de l'interface : CSP stricte au build (C13), appels IPC d'une autre page refusés (C14),
 fenêtre d'interface qui ne navigue pas et n'ouvre pas de fenêtre (C15), fenêtre d'interface chargée sur une autre
 page http (C16) ou sur un fichier local hors de `out/renderer`, quasi-homonyme compris (C17), qui perd l'IPC.

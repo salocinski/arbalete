@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { BrowserState } from '../src/shared/types'
@@ -12,7 +13,8 @@ import type { BrowserState } from '../src/shared/types'
 // ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale masquée d'ARB-33
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
 // arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
-// d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39), exécutés sur l'app construite (out/).
+// d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39) et
+// sauvegarde de la session d'ARB-44 (C40), exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -1092,6 +1094,48 @@ test('C39 : une instance lancée sur un autre profil démarre au lieu de se ferm
       autre.kill()
       await fermee
     }
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// Session des onglets telle qu'écrite sur disque (ARB-44), lue hors de l'app : une base absente ou vide donne [].
+function sessionSurDisque(dossier: string): Array<{ url: string, titre: string, actif: number }> {
+  const chemin = join(dossier, 'arbalete.db')
+  if (!existsSync(chemin)) return []
+  const db = new DatabaseSync(chemin, { readOnly: true })
+  try {
+    return db.prepare('SELECT url, titre, actif FROM onglet ORDER BY position').all() as Array<{ url: string, titre: string, actif: number }>
+  } finally {
+    db.close()
+  }
+}
+
+// Value: protects=sauvegarde de la session d'ARB-44 : les onglets ouverts, leur ordre et l'onglet actif sont écrits sur
+//   disque peu après chaque changement, l'app restant ouverte, et le dernier état l'est à la fermeture;
+//   fails_when=broadcastState ne demande plus l'écriture, l'écriture n'est jamais déclenchée, ou la fermeture n'écrit
+//   pas un changement fait moins d'une seconde avant;
+//   why_new=ARB-45 restaurera ce que cette sauvegarde écrit; seam=fichier arbalete.db lu par node:sqlite hors de l'app,
+//   app lancée sur son propre profil pour pouvoir la fermer; no_claim=ne vérifie pas la restauration (ARB-45) ni
+//   l'écriture après un arrêt forcé (ARB-46).
+test('C40 : la session des onglets est écrite après chaque changement et à la fermeture', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const autreApp = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  try {
+    const fenetre = await fenetreInterface(autreApp)
+    const pageA = `${origine}/page-a.html`
+    await fenetre.evaluate((url) => window.arbalete.createTab(url), pageA)
+    // Écriture différée : la session arrive sur disque, titre compris, sans fermer l'app.
+    await expect.poll(() => sessionSurDisque(autreProfil).at(-1), { timeout: 10_000 })
+      .toEqual({ url: pageA, titre: 'Page A', actif: 1 })
+    expect(sessionSurDisque(autreProfil)).toHaveLength(2)
+
+    // Changement juste avant la fermeture, bien avant la fin du délai d'une seconde : seule la fermeture l'écrit.
+    const { tabs } = await fenetre.evaluate(() => window.arbalete.getState())
+    await fenetre.evaluate((id) => window.arbalete.activateTab(id), tabs[0].id)
+    await autreApp.close()
+    expect(sessionSurDisque(autreProfil).map((onglet) => onglet.actif)).toEqual([1, 0])
+  } finally {
+    await autreApp.close()
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })
