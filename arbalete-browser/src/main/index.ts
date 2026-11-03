@@ -2,9 +2,10 @@ import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeThem
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
-import type { BrowserState, BrowserTab, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
+import type { BrowserState, BrowserTab, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBase } from './donnees/base.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
+import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
@@ -90,9 +91,16 @@ function envoyerAuxInterfaces(canal: string, valeur: unknown) {
 // premier, et à la fermeture. Les chargements changent l'état sans changer la session : une session identique à la
 // dernière écrite n'est pas réécrite.
 let derniereSessionEcrite = ''
+// Arrêt forcé (ARB-46) : la session interrompue n'est pas rouverte d'office, une invite propose de la restaurer. Tant
+// qu'elle attend sa réponse, la session n'est pas réécrite : la base garde celle qui a été interrompue. Fermer
+// Arbalète sans répondre la laisse donc à la restauration du démarrage suivant.
+let precedenteInterrompue = false
+let sessionProposee: OngletSauve[] | null = null
+// Onglet ouvert d'office au démarrage, faute de session : la restauration le remplace s'il n'a pas servi.
+let ongletDeDemarrage: string | null = null
 
 function ecrireSession() {
-  if (!base) return
+  if (!base || sessionProposee) return
   const onglets: OngletSauve[] = [...tabs.values()].map(({ data }) => ({
     url: data.url,
     titre: data.title,
@@ -333,17 +341,19 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   return id
 }
 
-// Rouvre les onglets de la dernière session (ARB-45), dans leur ordre ; seul l'onglet actif charge sa page. Renvoie
-// false si rien n'a été rouvert : pas de base, session vide ou illisible.
-function restaurerSession(): boolean {
-  if (!base || tabs.size) return false
-  let session: OngletSauve[]
+function lireSessionSauvee(): OngletSauve[] {
+  if (!base) return []
   try {
-    session = lireSession(base)
+    return lireSession(base)
   } catch (erreur) {
     console.error('Session des onglets illisible, rien n’est restauré :', erreur)
-    return false
+    return []
   }
+}
+
+// Rouvre les onglets d'une session (ARB-45), dans leur ordre, après ceux déjà ouverts ; seul l'onglet actif de la
+// session charge sa page. Renvoie false si rien n'a été rouvert.
+function rouvrirSession(session: OngletSauve[]): boolean {
   const { onglets, actif } = ongletsARestaurer(session)
   const ids = onglets.map((onglet) => createTab(onglet.url, { titre: onglet.titre }))
   if (!ids.length) return false
@@ -351,6 +361,34 @@ function restaurerSession(): boolean {
   setActiveView()
   broadcastState()
   return true
+}
+
+// Au démarrage : rouvre la dernière session, ou la garde pour l'invite si Arbalète a été arrêté de force (ARB-46).
+// Renvoie true si des onglets ont été rouverts.
+function restaurerSession(): boolean {
+  if (!base || tabs.size) return false
+  const session = lireSessionSauvee()
+  if (!precedenteInterrompue) return rouvrirSession(session)
+  if (ongletsARestaurer(session).onglets.length) sessionProposee = session
+  return false
+}
+
+function proposerRestauration() {
+  envoyerAuxInterfaces('browser:restore-offer', sessionProposee !== null)
+}
+
+function repondreRestauration(reponse: RestoreAnswer) {
+  const session = sessionProposee
+  if (!session) return
+  sessionProposee = null
+  if (reponse === 'restore') {
+    const demarrage = ongletDeDemarrage ? tabs.get(ongletDeDemarrage) : undefined
+    const inutilise = demarrage && tabs.size === 1 && !demarrage.view.webContents.canGoBack()
+    if (rouvrirSession(session) && inutilise) closeTab(demarrage.data.id)
+  }
+  proposerRestauration()
+  // La session reprend son cours : celle qui est ouverte remplace l'interrompue, restaurée ou ignorée.
+  sauvegardeSession.demander()
 }
 
 function closeTab(id: string) {
@@ -480,7 +518,7 @@ function createWindow(adresses: readonly string[] = []) {
   // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
   const restauree = restaurerSession()
   if (adresses.length) adresses.forEach((adresse) => createTab(adresse))
-  else if (!restauree) createTab()
+  else if (!restauree) ongletDeDemarrage = createTab()
 }
 
 function exigerChoix<T extends string>(valeur: unknown, choix: readonly T[]): T {
@@ -499,6 +537,13 @@ app.whenReady().then(() => {
     base = ouvrirBase(join(app.getPath('userData'), 'arbalete.db'))
   } catch (erreur) {
     console.error('Base de données indisponible, aucune donnée ne sera conservée :', erreur)
+  }
+  if (base) {
+    try {
+      precedenteInterrompue = noterOuverture(base)
+    } catch (erreur) {
+      console.error('Ouverture de la session non notée :', erreur)
+    }
   }
 
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
@@ -540,6 +585,8 @@ app.whenReady().then(() => {
   traiter('browser:back', reculer)
   traiter('browser:forward', avancer)
   traiter('browser:reload', () => activeRecord()?.view.webContents.reload())
+  traiter('browser:get-restore-offer', () => sessionProposee !== null)
+  traiter('browser:answer-restore-offer', (valeur) => repondreRestauration(exigerChoix(valeur, ['restore', 'dismiss'] as const)))
   ipcMain.on('browser:set-content-bounds', (event, bounds) => {
     if (!emetteurAutorise(event)) return
     if (![bounds?.x, bounds?.y, bounds?.width, bounds?.height].every(Number.isFinite)) return
@@ -571,6 +618,12 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   sauvegardeSession.vider()
+  // Après la dernière écriture : la note d'ouverture effacée, le prochain démarrage sait la fermeture normale (ARB-46).
+  try {
+    if (base) noterFermetureNormale(base)
+  } catch (erreur) {
+    console.error('Fermeture de la session non notée :', erreur)
+  }
   base?.close()
   base = null
 })

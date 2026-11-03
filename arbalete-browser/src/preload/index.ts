@@ -27,7 +27,10 @@ const api: BrowserAPI = {
   getTheme: () => ipcRenderer.invoke('browser:get-theme'),
   setTheme: (choice) => ipcRenderer.invoke('browser:set-theme', choice),
   onTheme: (callback) => ecouter('browser:theme', callback),
-  onFocusAddress: (callback) => ecouter('browser:focus-address', callback)
+  onFocusAddress: (callback) => ecouter('browser:focus-address', callback),
+  getRestoreOffer: () => ipcRenderer.invoke('browser:get-restore-offer'),
+  onRestoreOffer: (callback) => ecouter('browser:restore-offer', callback),
+  answerRestoreOffer: (answer) => ipcRenderer.invoke('browser:answer-restore-offer', answer)
 }
 
 contextBridge.exposeInMainWorld('arbalete', api)

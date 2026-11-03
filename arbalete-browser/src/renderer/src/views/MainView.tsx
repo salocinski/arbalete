@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { RestoreBanner } from '../components/RestoreBanner'
 import { StatusBar } from '../components/StatusBar'
 import { Sidebar } from '../components/Sidebar'
 import { Toolbar } from '../components/Toolbar'
 import { StageFooter, WelcomeCard } from '../components/WelcomeCard'
 import { isPreviewMode } from '../previewApi'
 import { handleTabShortcut } from '../shortcuts'
-import { useBrowserState, useSidebar, useTheme } from '../state'
+import { useBrowserState, useRestoreOffer, useSidebar, useTheme } from '../state'
 
 // Document de la fenêtre : barre d'outils, emplacement de la page web (vue native alignée sur contentRef) et
 // barre d'état.
@@ -13,6 +14,7 @@ export function MainView() {
   const state = useBrowserState()
   const sidebar = useSidebar()
   const theme = useTheme()
+  const restoreOffer = useRestoreOffer()
   const [address, setAddress] = useState('https://www.google.com')
   const [addressFocused, setAddressFocused] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -97,6 +99,7 @@ export function MainView() {
         <Toolbar activeTab={activeTab} sidebarPinned={sidebar.pinned} themeChoice={theme.choice}
           address={address} addressFocused={addressFocused} addressRef={addressRef}
           onAddressChange={setAddress} onAddressFocusChange={setAddressFocused} onNavigate={navigate} />
+        {restoreOffer && <RestoreBanner />}
 
         <div className="page-stage">
           <div className={`web-content ${isDemo ? 'demo-placeholder' : ''}`} ref={contentRef}>

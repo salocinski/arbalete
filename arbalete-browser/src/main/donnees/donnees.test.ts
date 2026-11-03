@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { after, test } from 'node:test'
 import { ouvrirBase } from './base.ts'
+import { noterFermetureNormale, noterOuverture } from './fermeture.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './session.ts'
 
@@ -111,4 +112,36 @@ test('sans onglet actif restauré, le dernier devient actif ; une session vide n
   deepStrictEqual(ongletsARestaurer([onglets[0], { url: 'about:blank', titre: '', actif: true }]),
     { onglets: [onglets[0]], actif: 0 })
   deepStrictEqual(ongletsARestaurer([]), { onglets: [], actif: -1 })
+})
+
+test('une ouverture non refermée est signalée au démarrage suivant, une fermeture normale l’efface', () => {
+  const chemin = join(dossier, 'fermeture.db')
+  let db = ouvrirBase(chemin)
+  // Première ouverture : rien à signaler.
+  strictEqual(noterOuverture(db), false)
+  db.close()
+
+  // Arrêt forcé : la note est restée.
+  db = ouvrirBase(chemin)
+  strictEqual(noterOuverture(db), true)
+  noterFermetureNormale(db)
+  db.close()
+
+  db = ouvrirBase(chemin)
+  strictEqual(noterOuverture(db), false)
+  db.close()
+})
+
+test('une base au schéma 1 (avant ARB-46) passe au schéma 2 sans perdre sa session', () => {
+  const chemin = join(dossier, 'schema1.db')
+  const ancienne = new DatabaseSync(chemin)
+  appliquerMigrations(ancienne, MIGRATIONS.slice(0, 1))
+  sauverSession(ancienne, onglets)
+  ancienne.close()
+
+  const db = ouvrirBase(chemin)
+  strictEqual(versionDuSchema(db), MIGRATIONS.length)
+  deepStrictEqual(lireSession(db), onglets)
+  strictEqual(noterOuverture(db), false)
+  db.close()
 })

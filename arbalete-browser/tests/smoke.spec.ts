@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -14,7 +14,8 @@ import type { BrowserState } from '../src/shared/types'
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
 // arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
 // d'ARB-117 (C37) et profil de données des tests d'ARB-118 (C38, C39) et
-// sauvegarde et restauration de la session d'ARB-44/45 (C40, C41), exécutés sur l'app construite (out/).
+// sauvegarde et restauration de la session d'ARB-44/45 (C40, C41) et invite après un arrêt forcé d'ARB-46 (C42),
+// exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -1185,6 +1186,80 @@ test('C41 : au redémarrage, les onglets reviennent et un onglet inactif ne char
     await expect.poll(() => requetes['/page-b.html'] ?? 0).toBe(requetesB + 1)
   } finally {
     await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// Value: protects=invite d'ARB-46 : après un arrêt forcé, la session interrompue n'est pas rouverte d'office ni
+//   écrasée, une invite propose de la restaurer ; Restaurer rouvre ses onglets à la place de l'onglet de démarrage,
+//   Ignorer la remplace par la session ouverte, et une fermeture normale n'appelle plus d'invite;
+//   fails_when=l'arrêt forcé n'est pas détecté, la session interrompue est écrasée avant la réponse, une réponse
+//   ne rouvre ou n'écarte rien, ou la note d'ouverture survit à la fermeture normale;
+//   why_new=C41 ne couvre que la fermeture normale; seam=processus principal tué entre deux lancements sur un même
+//   profil temporaire, bandeau cliqué dans la fenêtre; no_claim=ne simule pas une coupure de courant pendant
+//   l'écriture (SQLite en garantit l'atomicité).
+test('C42 : après un arrêt forcé, une invite propose de restaurer la session interrompue', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const pageA = `${origine}/page-a.html`
+  const pageB = `${origine}/page-b.html`
+  const lancer = (args: string[] = []) =>
+    electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  // Fin de tâche de l'arborescence, comme le Gestionnaire des tâches : les processus enfants d'Electron tenus par un
+  // processus principal tué garderaient sinon le verrou d'instance unique, et le lancement suivant se fermerait.
+  const arreterDeForce = async (electronApp: ElectronApplication) => {
+    const processus = electronApp.process()
+    const fin = new Promise((done) => processus.once('exit', done))
+    spawnSync('taskkill', ['/pid', String(processus.pid), '/t', '/f'], { stdio: 'ignore' })
+    await fin
+  }
+  const offre = (fenetre: Page) => fenetre.evaluate(() => window.arbalete.getRestoreOffer())
+  let autreApp = await lancer(['--', pageA, pageB])
+  try {
+    await expect.poll(() => sessionSurDisque(autreProfil), { timeout: 10_000 }).toEqual([
+      { url: pageA, titre: 'Page A', actif: 0 },
+      { url: pageB, titre: 'Page B', actif: 1 }
+    ])
+    await arreterDeForce(autreApp)
+
+    // Après l'arrêt forcé : un onglet de démarrage, l'invite, et la session interrompue intacte sur disque.
+    autreApp = await lancer()
+    let fenetre = await fenetreInterface(autreApp)
+    await expect.poll(() => offre(fenetre), { timeout: 10_000 }).toBe(true)
+    await expect(fenetre.getByTestId('restore-banner')).toBeVisible()
+    expect(await ongletsDe(fenetre)).toHaveLength(1)
+    // Au-delà de l'écriture différée (1 s) : rien n'a remplacé la session interrompue.
+    await fenetre.waitForTimeout(2_500)
+    expect(sessionSurDisque(autreProfil).map((onglet) => onglet.url)).toEqual([pageA, pageB])
+
+    await fenetre.getByRole('button', { name: 'Restaurer' }).click()
+    await expect.poll(() => ongletsDe(fenetre), { timeout: 10_000 }).toEqual([
+      { url: pageA, title: 'Page A', actif: false },
+      { url: pageB, title: 'Page B', actif: true }
+    ])
+    await expect(fenetre.getByTestId('restore-banner')).toHaveCount(0)
+    expect(await offre(fenetre)).toBe(false)
+    await arreterDeForce(autreApp)
+
+    // Nouvel arrêt forcé, invite ignorée : la session ouverte (l'onglet de démarrage) remplace l'interrompue.
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    await expect.poll(() => offre(fenetre), { timeout: 10_000 }).toBe(true)
+    await fenetre.getByRole('button', { name: 'Ignorer' }).click()
+    await expect(fenetre.getByTestId('restore-banner')).toHaveCount(0)
+    expect(await ongletsDe(fenetre)).toHaveLength(1)
+    await expect.poll(() => sessionSurDisque(autreProfil).filter((onglet) => onglet.url.startsWith(origine)), { timeout: 10_000 })
+      .toEqual([])
+    expect(sessionSurDisque(autreProfil)).toHaveLength(1)
+    await autreApp.close()
+
+    // Fermeture normale : pas d'invite au démarrage suivant.
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    await expect.poll(async () => (await ongletsDe(fenetre)).length, { timeout: 10_000 }).toBe(1)
+    expect(await offre(fenetre)).toBe(false)
+    await expect(fenetre.getByTestId('restore-banner')).toHaveCount(0)
+  } finally {
+    await autreApp.close().catch(() => {})
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })

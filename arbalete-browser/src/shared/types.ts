@@ -24,6 +24,9 @@ export type SidebarAction = 'open' | 'hide' | 'toggle-pin'
 
 export type ThemeChoice = 'system' | 'dark' | 'light'
 
+// Réponse à l'invite de restauration qui suit un arrêt forcé (ARB-46).
+export type RestoreAnswer = 'restore' | 'dismiss'
+
 export type BrowserAPI = {
   getState: () => Promise<BrowserState>
   createTab: (url?: string) => Promise<string>
@@ -45,4 +48,8 @@ export type BrowserAPI = {
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void
   // Ctrl+L pressé hors de la fenêtre (page, barre latérale) : la fenêtre sélectionne sa barre d'adresse.
   onFocusAddress: (callback: () => void) => () => void
+  // Invite de restauration (ARB-46) : vraie tant qu'une session interrompue par un arrêt forcé attend une réponse.
+  getRestoreOffer: () => Promise<boolean>
+  onRestoreOffer: (callback: (offer: boolean) => void) => () => void
+  answerRestoreOffer: (answer: RestoreAnswer) => Promise<void>
 }

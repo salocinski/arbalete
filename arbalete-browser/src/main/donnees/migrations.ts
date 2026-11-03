@@ -10,6 +10,11 @@ export const MIGRATIONS: readonly string[] = [
     url TEXT NOT NULL,
     titre TEXT NOT NULL DEFAULT '',
     actif INTEGER NOT NULL DEFAULT 0 CHECK (actif IN (0, 1))
+  )`,
+  // 2 — État de l'application (ARB-46) : notes clé/valeur, dont celle d'une session ouverte non refermée.
+  `CREATE TABLE etat (
+    cle TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL
   )`
 ]
 

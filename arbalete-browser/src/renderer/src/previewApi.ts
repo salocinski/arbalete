@@ -156,7 +156,11 @@ export function installPreviewApi(): boolean {
       return () => themeChoiceListeners.delete(callback)
     },
     // Dans l'aperçu, Ctrl+L est traité par la page elle-même (MainView) : rien ne l'émet.
-    onFocusAddress: () => () => undefined
+    onFocusAddress: () => () => undefined,
+    // L'aperçu ne garde pas de session : jamais d'invite de restauration.
+    getRestoreOffer: async () => false,
+    onRestoreOffer: () => () => undefined,
+    answerRestoreOffer: async () => undefined
   }
 
   createTab('https://www.google.com')
