@@ -12,7 +12,7 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 |---|---|
 | Vision et stratégie | Document « Synthèse du projet » du projet Claude *Arbalete* |
 | Backlog, epics, statuts | **Arbalète Suivi** : https://claude.ai/artifact/FpicMw6k8toB6GKWEp6BhW (tickets `ARB-n`, epics `EP-nn`) |
-| Design | `DESIGN.md` (racine) |
+| Design | `DESIGN.md` (racine) : référentiel Atmospheric Minimalism, voir « Référentiel graphique obligatoire » |
 | Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
 | Licence | **GPL-3.0-or-later** (`LICENSE`) : tout code ajouté doit être compatible (pas de dépendance sous licence propriétaire ou incompatible GPL) |
@@ -120,9 +120,24 @@ signature, mises à jour automatiques via GitHub Releases) est planifiée dans E
    sur la zone de contenu sera masqué. Passer par la couche d'overlays (EP-06), ne pas contourner en CSS.
 5. **Raccourcis clavier** : à gérer côté processus principal (`before-input-event` / menu), sinon ils ne
    fonctionnent pas quand le focus est dans une page.
-6. **Windows d'abord** : chemins, fins de ligne (LF dans le dépôt), polices Segoe UI, barre de titre Windows.
+6. **Windows d'abord** : chemins, fins de ligne (LF dans le dépôt), polices embarquées de `DESIGN.md` avec repli
+   sur Segoe UI, barre de titre Windows.
 7. **Fonctionnel avant visuel** : un bouton sans comportement réel est marqué comme tel dans le tableau
    de suivi. Chaque epic se termine par un livrable testable.
+
+## Référentiel graphique obligatoire
+
+Avant toute création ou modification d'interface, consulter `DESIGN.md` : c'est la référence officielle de
+conception graphique et UX d'Arbalète (direction **Atmospheric Minimalism**). En cas de conflit entre une
+proposition et le référentiel, signaler le conflit et son impact, proposer une solution compatible, et ne
+modifier `DESIGN.md` qu'après validation.
+
+- Respecter strictement les design tokens ; aucune valeur hexadécimale dans les composants.
+- Maintenir les thèmes Dark, Light et System.
+- Utiliser Amber comme couleur signature, réservée aux interactions et états actifs.
+- Privilégier une densité d'interface minimale.
+- Réutiliser les composants existants ; ne pas introduire de styles contradictoires.
+- Documenter toute évolution du design system dans `DESIGN.md`.
 
 ## Conventions
 
@@ -146,7 +161,7 @@ avec le tableau Arbalète Suivi :
 |---|---|---|---|
 | Réfléchir | `/office-hours`, `/spec` | Début d'une epic floue (espaces, extensions) | À faire |
 | Planifier | `/plan-eng-review` | Toute epic qui touche main/IPC/données (EP-02, 04, 06, 07, 12) | À faire |
-| Planifier | `/plan-design-review`, `/design-consultation` | EP-05 (refonte Arc), affiner `DESIGN.md` | À faire |
+| Planifier | `/plan-design-review`, `/design-consultation` | EP-05 (refonte Atmospheric Minimalism), faire évoluer `DESIGN.md` | À faire |
 | Construire | — | Implémentation sur une branche `arb-<n>` | En cours |
 | Revoir | `/review` | Avant chaque PR | En revue |
 | Tester | `/qa` sur http://localhost:5180 | Tout changement d'interface | En revue |
