@@ -150,13 +150,35 @@ avec le tableau Arbalète Suivi :
 | Construire | — | Implémentation sur une branche `arb-<n>` | En cours |
 | Revoir | `/review` | Avant chaque PR | En revue |
 | Tester | `/qa` sur http://localhost:5180 | Tout changement d'interface | En revue |
-| Sécurité | `/cso` | Fin d'EP-02, puis avant chaque version publique | En revue |
+| Sécurité (rapide) | `/cso` | Contrôle de routine : fin de chaque epic qui touche main, preload, IPC ou permissions | En revue |
+| Sécurité (audit complet) | skill `security-audit` (Cloudflare) | Jalons : fin d'EP-02, avant le passage en public (ARB-91), avant d'activer les extensions (EP-04), avant chaque version distribuée (EP-14) | En revue |
 | Déboguer | `/investigate` | Bug dont la cause n'est pas évidente | En cours |
 | Livrer | `/ship` | Ticket terminé : sync main, vérifs, VERSION, CHANGELOG, PR | Terminé |
 | Rétro | `/retro` | Fin de chaque epic | — |
 
 Garde-fous utiles : `/careful` avant une opération destructive, `/freeze <dossier>` pour limiter les
 modifications à une zone (ex. `arbalete-browser/src/renderer` pendant EP-05).
+
+### Audits de sécurité
+
+Deux niveaux complémentaires :
+
+- **`/cso` (gstack)** : revue rapide de la posture de sécurité, à lancer souvent.
+- **`security-audit` (Cloudflare, https://github.com/cloudflare/security-audit-skill)** : audit approfondi en six
+  phases (reconnaissance, chasse guidée par la couverture, validation adverse par un agent indépendant,
+  rapport). Coûteux en temps et en jetons : réservé aux jalons du tableau ci-dessus. Le lancer explicitement :
+  « audit de sécurité complet de ce dépôt ». Fichiers de référence les plus utiles pour Arbalète :
+  `DESKTOP-MOBILE-AND-LOCAL-IPC.md` (pont webview, IPC, preload), `CLIENT-SIDE.md`,
+  `SUPPLY-CHAIN-AND-RELEASE.md` (dépendances, mises à jour, extensions).
+
+Règles pour les résultats d'audit :
+
+1. **Jamais dans le dépôt** : la sortie reste dans `~/security-audit-skill/arbalete/run-<N>` (valeur par défaut).
+   Le dépôt deviendra public (ARB-91) : un rapport de failles non corrigées ne doit pas y être commité.
+2. Chaque faille `confirmed` devient un **avis de sécurité privé GitHub** (onglet Security), pas une issue publique,
+   et un ticket dans le tableau sans détail exploitable.
+3. Les éléments `needs_validation` sont vérifiés sous Windows dans `npm run dev` avant d'être classés.
+4. Les audits sont cumulatifs : relancer sur le même dossier de sortie pour combler les trous de couverture.
 
 Skills **non pertinents** ici : `/land-and-deploy`, `/canary`, `/setup-deploy`, `/benchmark` (Core Web Vitals
 d'un site), les skills `ios-*`, `/supabase`, `/ubicloud`.
