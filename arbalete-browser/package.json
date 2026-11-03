@@ -17,6 +17,7 @@
     "preview": "electron-vite preview",
     "preview:web": "vite preview --config vite.web.config.ts",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node scripts/test-unitaire.mjs",
     "test:smoke": "electron-vite build && playwright test"
   },
   "dependencies": {

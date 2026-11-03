@@ -26,6 +26,7 @@ propose de créer `TODOS.md`, répondre **Skip** et signaler les éléments à a
 ```
 arbalete-browser/
   src/main/index.ts        processus principal : fenêtre, onglets (WebContentsView), navigation, IPC
+  src/main/donnees/        base SQLite (node:sqlite, décision 0001) : ouverture, migrations, dépôts ; tests *.test.ts
   src/preload/index.ts     pont IPC minimal exposé en window.arbalete
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
   src/renderer/src/        interface React : App.tsx (aiguillage fenêtre / barre), styles.css
@@ -35,6 +36,7 @@ arbalete-browser/
   src/renderer/src/shortcuts.ts  raccourcis d'onglets de l'aperçu web (dans Electron, le processus principal les intercepte)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
   vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
+  scripts/test-unitaire.mjs  lance les tests unitaires sous le Node d'Electron
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
 ```
 
@@ -51,11 +53,13 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build Electron (main, preload, renderer) dans `out/` |
 | `npm run build:web` | Build de l'aperçu navigateur dans `out/web/` |
+| `npm run test:unit` | Tests unitaires `node:test` (`src/**/*.test.ts`) sous le Node d'Electron, sans build : couche de données |
 | `npm run test:smoke` | Build puis tests Playwright de l'app Electron : `tests/smoke.spec.ts` (app construite) et `tests/developpement.spec.ts` (mode développement, serveur Vite) |
 
 ## Testing
 
-Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4 ; EP-14 l'étendra et ajoutera Vitest.
+Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4, et depuis ARB-43 des tests unitaires `node:test`
+sur la couche de données (lecture/écriture de la session, migrations, refus d'une base plus récente) ; EP-14 les étendra.
 Il couvre le contrat de régression C1-C7, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, bouton Recharger,
 alignement de la vue web au redimensionnement. Depuis ARB-33, la barre latérale est une vue native au-dessus de la page :
@@ -84,7 +88,7 @@ est donc attendu ; il ne doit jamais apparaître sur l'app construite.
 La barrière minimale avant une PR :
 
 ```bash
-cd arbalete-browser && npm run typecheck && npm run test:smoke
+cd arbalete-browser && npm run typecheck && npm run test:unit && npm run test:smoke
 ```
 
 `test:smoke` ouvre des fenêtres Arbalète pendant quelques secondes. Le premier onglet charge google.com :

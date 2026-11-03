@@ -55,6 +55,7 @@ Ceci est un prototype de départ, pas encore un navigateur prêt à être utilis
 ## Architecture
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
+- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations et dépôts.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
 - `src/renderer/src/views/` et `src/renderer/src/components/` : interface et interactions.

@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.4.0.0] - 2026-11-02
+
+### Ajouté
+- Couche de données dans le processus principal (`src/main/donnees/`) : base SQLite `arbalete.db` dans le dossier de
+  données de l'utilisateur, schéma versionné avec migrations, et lecture/écriture de la session d'onglets. Elle
+  servira à restaurer les onglets au redémarrage (ARB-44/45) ; rien n'est encore enregistré pendant la navigation.
+- Une base créée par une version plus récente d'Arbalète est refusée sans être modifiée ; si la base ne s'ouvre pas,
+  le navigateur fonctionne sans conserver de données.
+- Tests unitaires (`npm run test:unit`), lancés sous le Node embarqué par Electron.
+
 ## [0.3.0.1] - 2026-11-02
 
 ### Documentation

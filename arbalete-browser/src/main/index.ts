@@ -1,7 +1,9 @@
 import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { join } from 'node:path'
+import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
+import { ouvrirBase } from './donnees/base.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 
@@ -11,6 +13,8 @@ type TabRecord = {
 }
 
 let mainWindow: BrowserWindow | null = null
+// Base de données (ARB-43, décision 0001). null si elle n'a pas pu s'ouvrir : le navigateur marche sans persistance.
+let base: DatabaseSync | null = null
 // Barre latérale (ARB-33) : vue native au-dessus de l'onglet, car une WebContentsView masque tout HTML de la fenêtre
 // (règle 4). Masquée, elle n'est qu'une bande transparente au bord gauche qui détecte le survol.
 let barreView: WebContentsView | null = null
@@ -400,6 +404,12 @@ app.whenReady().then(() => {
   // d'Arbalète passent par l'interface ou le processus principal, pas par ce menu.
   Menu.setApplicationMenu(null)
 
+  try {
+    base = ouvrirBase(join(app.getPath('userData'), 'arbalete.db'))
+  } catch (erreur) {
+    console.error('Base de données indisponible, aucune donnée ne sera conservée :', erreur)
+  }
+
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     // Politique de départ restrictive : aucune permission distante n'est accordée automatiquement.
     callback(false)
@@ -459,4 +469,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('will-quit', () => {
+  base?.close()
+  base = null
 })
