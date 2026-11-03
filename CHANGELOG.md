@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.11.0.0] - 2026-11-03
+
+### Ajouté
+- Un clic droit sur un onglet de la barre latérale ouvre son menu (Nouvel onglet, Fermer l’onglet). Le menu passe
+  au-dessus de la page sans être masqué par elle ; près d’un bord de la fenêtre, il s’ouvre de l’autre côté. Il se
+  parcourt aux flèches, Début et Fin.
+- Le menu se ferme par Échap (même quand le clavier est dans la page, qui ne reçoit pas la touche), par un clic hors
+  du menu (qui n’atteint pas la page), quand la fenêtre perd le focus, quand son onglet est fermé ailleurs ou avant
+  qu’un raccourci d’Arbalète agisse. Une barre non épinglée ne se retire pas tant que le menu est ouvert, et le
+  clavier revient à la page quand elle se retire après.
+- Ce menu inaugure la couche d’overlays (décision 0002) : les prochains menus, suggestions, palettes et dialogues qui
+  passent au-dessus de la page l’utiliseront.
+
 ## [0.10.1.0] - 2026-11-03
 
 ### Documentation

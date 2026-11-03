@@ -32,6 +32,7 @@ let barre: SidebarState = { open: false, pinned: false }
 // Couche d'overlays (ARB-39, décision 0002) : menus et palettes s'affichent dans la vue de la barre, agrandie à toute
 // la fenêtre tant qu'un overlay est ouvert. Le contenu de l'overlay ne regarde que cette vue.
 let overlayOuvert = false
+let echapAvale = false
 // Jumelles de .sidebar / .sidebar-reserve (252) et .sidebar-hover-strip (6) dans styles.css : les changer ensemble.
 const LARGEUR_BARRE = 252
 const LARGEUR_BANDE = 6
@@ -191,7 +192,10 @@ function fermerOverlay() {
   const pointeur = screen.getCursorScreenPoint()
   const zone = mainWindow.getContentBounds()
   const surLaBarre = pointeur.x >= zone.x && pointeur.x < zone.x + LARGEUR_BARRE && pointeur.y >= zone.y && pointeur.y < zone.y + zone.height
-  if (!surLaBarre) agirSurBarre('hide')
+  if (surLaBarre) return
+  agirSurBarre('hide')
+  // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page.
+  activeRecord()?.view.webContents.focus()
 }
 
 // Un clic dans la page ou dans la barre d'outils retire la barre non épinglée. Le clic, pas le focus : au démarrage le
@@ -333,10 +337,21 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
 // Pendant un overlay, Échap le ferme où que soit le focus, et un raccourci le ferme avant d'agir (ARB-39).
 function brancherRaccourcis(contenu: WebContents) {
   contenu.on('before-input-event', (event, input) => {
-    if (overlayOuvert && input.key === 'Escape' && !input.control && !input.alt && !input.meta) {
-      event.preventDefault()
-      if (input.type === 'keyDown') fermerOverlay()
-      return
+    if (input.key === 'Escape' && !input.control && !input.alt && !input.meta) {
+      // Le relâchement de l'Échap qui a fermé l'overlay n'atteint pas non plus la page.
+      if (input.type === 'keyUp' && echapAvale) {
+        echapAvale = false
+        event.preventDefault()
+        return
+      }
+      if (overlayOuvert) {
+        event.preventDefault()
+        if (input.type === 'keyDown') {
+          echapAvale = true
+          fermerOverlay()
+        }
+        return
+      }
     }
     const action = actionDuRaccourci(input)
     if (!action) return
@@ -581,6 +596,10 @@ function createWindow(adresses: readonly string[] = []) {
   barreView.webContents.once('did-finish-load', () => {
     if (!barre.open) activeRecord()?.view.webContents.focus()
   })
+  // Une vue de la barre rechargée ou plantée n'affiche plus l'overlay : il se ferme, sinon une vue transparente couvrirait
+  // la fenêtre et prendrait tous les clics.
+  barreView.webContents.on('did-start-loading', fermerOverlay)
+  barreView.webContents.on('render-process-gone', fermerOverlay)
   mainWindow.contentView.addChildView(barreView)
   placerBarre()
 

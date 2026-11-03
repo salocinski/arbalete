@@ -30,7 +30,9 @@ export function Sidebar({ state, sidebar, theme }: { state: BrowserState; sideba
 
   const ouvrirMenuOnglet = (tabId: string, x: number, y: number) => {
     setMenuOnglet({ tabId, x, y })
-    void window.arbalete.setOverlay(true)
+    // Overlay refusé ou non ouvert : le menu ne doit pas ressurgir avec le prochain overlay.
+    void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
+      .then((ouvert) => { if (!ouvert) setMenuOnglet(null) }, () => setMenuOnglet(null))
   }
   const fermerOverlay = () => void window.arbalete.setOverlay(false)
 

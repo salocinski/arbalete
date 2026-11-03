@@ -465,10 +465,12 @@ test('C35 : le thème s’applique à la fenêtre et à la barre ; set-theme et 
 
 // Value: protects=couche d'overlays (ARB-39, décision 0002) : le menu d'un onglet s'affiche dans la vue de la barre,
 //   agrandie à toute la fenêtre et au premier plan, se ferme par Échap (depuis la page, que la page ne reçoit pas),
-//   par un clic hors du menu ou par une entrée, rend à la barre sa taille, suit le redimensionnement, suspend le
-//   retrait de la barre, et seule la vue de la barre ouvre ou ferme un overlay;
-//   fails_when=placerBarre ignore overlayOuvert, Échap n'est plus intercepté par brancherRaccourcis, agirSurBarre
-//   retire la barre pendant l'overlay, ou set-overlay accepte la fenêtre, une page intruse ou un non-booléen;
+//   par un clic hors du menu, par une entrée, par la perte de focus, par un raccourci (qui agit ensuite) ou quand son
+//   onglet est fermé ailleurs, rend à la barre sa taille, suit le redimensionnement, suspend le retrait de la barre,
+//   laisse Échap à la page hors overlay, et seule la vue de la barre ouvre ou ferme un overlay;
+//   fails_when=placerBarre ignore overlayOuvert, Échap n'est plus intercepté par brancherRaccourcis ou l'est aussi hors
+//   overlay, un raccourci ou blur ne ferme plus l'overlay, la barre garde un menu sans onglet, agirSurBarre retire la
+//   barre pendant l'overlay, ou set-overlay accepte la fenêtre, une page intruse ou un non-booléen;
 //   why_new=aucun test n'agrandissait la vue de la barre; seam=none;
 //   no_claim=clics simulés (Playwright, sendInputEvent) adressés à la vue de la barre : l'ordre natif des vues, qui
 //   empêche la page de recevoir le clic, est vérifié par barreAuPremierPlan, pas par un vrai pointeur.
@@ -485,20 +487,24 @@ test('C47 : le menu d’un onglet s’ouvre en overlay sur toute la fenêtre et 
     await expect.poll(boundsBarre).toEqual(await fenetre())
   }
   // Touche native envoyée à la page de l'onglet actif, focus compris : before-input-event la voit comme un vrai clavier.
-  const toucheDansOnglet = (keyCode: string) => app.evaluate(({ BrowserWindow, WebContentsView }, keyCode) => {
-    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
-      && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
-    vue.webContents.focus()
-    vue.webContents.sendInputEvent({ type: 'keyDown', keyCode })
-    vue.webContents.sendInputEvent({ type: 'keyUp', keyCode })
-  }, keyCode)
+  const toucheDansOnglet = (keyCode: string, modifiers: Array<'control'> = []) =>
+    app.evaluate(({ BrowserWindow, WebContentsView }, { keyCode, modifiers }) => {
+      const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+        && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+      vue.webContents.focus()
+      vue.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+      vue.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+    }, { keyCode, modifiers })
+  const largeurRendue = async () => expect.poll(async () => (await boundsBarre())?.width).toBe(252)
 
   await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
   await attendreUrlActive(`${origine}/page-a.html`)
   await expect.poll(async () => ongletActif(await etat())?.title).toBe('Page A')
   await resultatDansOngletActif(`window.recus = { mousedown: 0, escape: 0 }
     addEventListener('mousedown', () => window.recus.mousedown++, true)
-    addEventListener('keydown', (e) => { if (e.key === 'Escape') window.recus.escape++ }, true); true`)
+    addEventListener('keydown', (e) => { if (e.key === 'Escape') window.recus.escape++ }, true)
+    window.relaches = 0
+    addEventListener('keyup', (e) => { if (e.key === 'Escape') window.relaches++ }, true); true`)
   await epinglerBarre(true)
   try {
     expect(await overlay()).toBe(false)
@@ -534,8 +540,38 @@ test('C47 : le menu d’un onglet s’ouvre en overlay sur toute la fenêtre et 
     await expect.poll(async () => (await boundsBarre())?.width).toBe(252)
     expect(await resultatDansOngletActif('window.recus')).toEqual({ mousedown: 0, escape: 0 })
 
+    // Sans overlay, Échap revient à la page.
+    await toucheDansOnglet('Escape')
+    await expect.poll(async () => (await resultatDansOngletActif<{ escape: number }>('window.recus')).escape).toBe(1)
+    // Seul ce relâchement atteint la page : celui de l'Échap qui fermait l'overlay est avalé avec son appui.
+    await expect.poll(() => resultatDansOngletActif('window.relaches')).toBe(1)
+
+    // La fenêtre perd le focus (Alt+Tab) : l'overlay se ferme.
+    await ouvrirMenu('Page A')
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].emit('blur') })
+    await expect.poll(overlay).toBe(false)
+    await largeurRendue()
+
+    // Un raccourci pendant l'overlay le ferme, puis agit : Ctrl+T ouvre un onglet.
+    const avant = (await etat()).tabs.length
+    await ouvrirMenu('Page A')
+    await toucheDansOnglet('T', ['control'])
+    await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+    await expect.poll(overlay).toBe(false)
+    await largeurRendue()
+
+    // L'onglet du menu fermé ailleurs : l'overlay se ferme avec lui.
+    const { tabs, activeTabId } = await etat()
+    const rang = tabs.findIndex((tab) => tab.id === activeTabId)
+    await barreUi.locator('.tab-item').nth(rang).click({ button: 'right' })
+    await expect(menu).toBeVisible()
+    await ui.evaluate((id) => window.arbalete.closeTab(id), activeTabId as string)
+    await expect.poll(overlay).toBe(false)
+    await expect(menu).toHaveCount(0)
+    await largeurRendue()
+
     // Entrée « Fermer l'onglet » : l'onglet visé est fermé, l'overlay aussi.
-    const vise = ongletActif(await etat())!
+    const vise = (await etat()).tabs.find((tab) => tab.title === 'Page A')!
     await ouvrirMenu('Page A')
     await menu.getByRole('menuitem', { name: 'Fermer l’onglet' }).click()
     await expect.poll(async () => (await etat()).tabs.some((tab) => tab.id === vise.id)).toBe(false)
@@ -548,6 +584,8 @@ test('C47 : le menu d’un onglet s’ouvre en overlay sur toute la fenêtre et 
   }
 
   // Barre ouverte au survol : pendant l'overlay, ni la sortie de la souris ni set-sidebar 'hide' ne la retirent.
+  // Le dernier clic simulé a laissé le pointeur dans la vue : on l'en fait sortir, sinon l'entrée peut être ignorée.
+  await souris('mouseLeave', 240)
   await souris('mouseEnter', 2)
   await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
   await barreUi.locator('.tab-item').first().click({ button: 'right' })
