@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, WebContentsView, ipcMain, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import { app, BrowserWindow, Menu, WebContentsView, ipcMain, screen, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
@@ -29,6 +29,10 @@ let incidentBase: DataIncident | null = null
 // (règle 4). Masquée, elle n'est qu'une bande transparente au bord gauche qui détecte le survol.
 let barreView: WebContentsView | null = null
 let barre: SidebarState = { open: false, pinned: false }
+// Couche d'overlays (ARB-39, décision 0002) : menus et palettes s'affichent dans la vue de la barre, agrandie à toute
+// la fenêtre tant qu'un overlay est ouvert. Le contenu de l'overlay ne regarde que cette vue.
+let overlayOuvert = false
+let echapAvale = false
 // Jumelles de .sidebar / .sidebar-reserve (252) et .sidebar-hover-strip (6) dans styles.css : les changer ensemble.
 const LARGEUR_BARRE = 252
 const LARGEUR_BANDE = 6
@@ -146,15 +150,18 @@ function setActiveView() {
   if (barreView) mainWindow.contentView.addChildView(barreView)
 }
 
-// Ouverte ou épinglée : pleine largeur de barre sur toute la hauteur ; masquée : la bande de survol.
+// Ouverte ou épinglée : pleine largeur de barre sur toute la hauteur ; masquée : la bande de survol. Pendant un
+// overlay : toute la fenêtre.
 function placerBarre() {
   if (!mainWindow || mainWindow.isDestroyed() || !barreView) return
-  const { height } = mainWindow.getContentBounds()
-  barreView.setBounds({ x: 0, y: 0, width: barre.open ? LARGEUR_BARRE : LARGEUR_BANDE, height })
+  const { width, height } = mainWindow.getContentBounds()
+  barreView.setBounds({ x: 0, y: 0, width: overlayOuvert ? width : barre.open ? LARGEUR_BARRE : LARGEUR_BANDE, height })
 }
 
-// Masquer n'agit pas sur une barre épinglée ; désépingler la referme.
+// Masquer n'agit pas sur une barre épinglée ni pendant un overlay (la souris peut alors quitter la zone de la barre
+// sans la quitter) ; désépingler la referme.
 function agirSurBarre(action: SidebarAction) {
+  if (action === 'hide' && overlayOuvert) return
   const suivant: SidebarState =
     action === 'open' ? { ...barre, open: true }
       : action === 'hide' ? (barre.pinned ? barre : { open: false, pinned: false })
@@ -163,6 +170,32 @@ function agirSurBarre(action: SidebarAction) {
   barre = suivant
   placerBarre()
   envoyerAuxInterfaces('browser:sidebar', barre)
+}
+
+function ouvrirOverlay() {
+  if (overlayOuvert || !mainWindow || mainWindow.isDestroyed() || !barreView) return
+  overlayOuvert = true
+  // Réajoutée, la vue repasse au-dessus de tout, page comprise.
+  mainWindow.contentView.addChildView(barreView)
+  placerBarre()
+  envoyerAuxInterfaces('browser:overlay', true)
+}
+
+// À la fermeture, la vue reprend sa taille de barre. Une barre non épinglée se retire si la souris n'est plus sur elle :
+// la vue rétrécie sous le pointeur ne reçoit pas toujours de sortie de souris.
+function fermerOverlay() {
+  if (!overlayOuvert) return
+  overlayOuvert = false
+  placerBarre()
+  envoyerAuxInterfaces('browser:overlay', false)
+  if (!mainWindow || mainWindow.isDestroyed() || barre.pinned) return
+  const pointeur = screen.getCursorScreenPoint()
+  const zone = mainWindow.getContentBounds()
+  const surLaBarre = pointeur.x >= zone.x && pointeur.x < zone.x + LARGEUR_BARRE && pointeur.y >= zone.y && pointeur.y < zone.y + zone.height
+  if (surLaBarre) return
+  agirSurBarre('hide')
+  // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page.
+  activeRecord()?.view.webContents.focus()
 }
 
 // Un clic dans la page ou dans la barre d'outils retire la barre non épinglée. Le clic, pas le focus : au démarrage le
@@ -301,12 +334,32 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
 // Raccourcis d'Arbalète (ARB-18) : Ctrl+T, Ctrl+W, Ctrl+L, Alt+←/→ et Ctrl+Maj+B agissent quel que soit le
 // webContents qui a le focus, la fenêtre, la barre latérale ou la page d'un onglet (règle 5). Le webContents ne reçoit
 // pas la combinaison (relâchement et répétitions compris) ; seul le premier appui agit.
+// Pendant un overlay, Échap le ferme où que soit le focus, et un raccourci le ferme avant d'agir (ARB-39).
 function brancherRaccourcis(contenu: WebContents) {
   contenu.on('before-input-event', (event, input) => {
+    if (input.key === 'Escape' && !input.control && !input.alt && !input.meta) {
+      // Le relâchement de l'Échap qui a fermé l'overlay n'atteint pas non plus la page.
+      if (input.type === 'keyUp' && echapAvale) {
+        echapAvale = false
+        event.preventDefault()
+        return
+      }
+      if (overlayOuvert) {
+        event.preventDefault()
+        if (input.type === 'keyDown') {
+          echapAvale = true
+          fermerOverlay()
+        }
+        return
+      }
+    }
     const action = actionDuRaccourci(input)
     if (!action) return
     event.preventDefault()
-    if (input.type === 'keyDown' && !input.isAutoRepeat) action()
+    if (input.type === 'keyDown' && !input.isAutoRepeat) {
+      fermerOverlay()
+      action()
+    }
   })
 }
 
@@ -543,6 +596,10 @@ function createWindow(adresses: readonly string[] = []) {
   barreView.webContents.once('did-finish-load', () => {
     if (!barre.open) activeRecord()?.view.webContents.focus()
   })
+  // Une vue de la barre rechargée ou plantée n'affiche plus l'overlay : il se ferme, sinon une vue transparente couvrirait
+  // la fenêtre et prendrait tous les clics.
+  barreView.webContents.on('did-start-loading', fermerOverlay)
+  barreView.webContents.on('render-process-gone', fermerOverlay)
   mainWindow.contentView.addChildView(barreView)
   placerBarre()
 
@@ -550,11 +607,14 @@ function createWindow(adresses: readonly string[] = []) {
     activeRecord()?.view.setBounds(contentBounds)
     placerBarre()
   })
+  // Comme un menu, un overlay se ferme quand la fenêtre perd le focus (Alt+Tab, clic dans une autre application).
+  mainWindow.on('blur', fermerOverlay)
   // Avant que les vues des onglets disparaissent : la session écrite est celle que l'utilisateur ferme.
   mainWindow.on('close', () => sauvegardeSession.vider())
   mainWindow.on('closed', () => {
     mainWindow = null
     barreView = null
+    overlayOuvert = false
   })
   // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
   const restauree = restaurerSession()
@@ -627,6 +687,14 @@ app.whenReady().then(() => {
   })
   traiter('browser:get-sidebar', () => ({ ...barre }))
   traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin'] as const)))
+  traiter('browser:get-overlay', () => overlayOuvert)
+  // Seule la vue de la barre rend les overlays : elle seule peut en ouvrir ou en fermer un (décision 0002).
+  ipcMain.handle('browser:set-overlay', (event, valeur) => {
+    if (!emetteurAutorise(event) || event.sender !== barreView?.webContents) throw new Error('Émetteur IPC non autorisé')
+    if (typeof valeur !== 'boolean') throw new Error('Argument IPC invalide : booléen attendu')
+    if (valeur) ouvrirOverlay()
+    else fermerOverlay()
+  })
   traiter('browser:create-tab', (url) => createTab(url === undefined ? undefined : exigerTexte(url)))
   traiter('browser:close-tab', (id) => closeTab(exigerTexte(id)))
   traiter('browser:activate-tab', (valeur) => {

@@ -47,6 +47,11 @@ export type BrowserAPI = {
   getSidebar: () => Promise<SidebarState>
   setSidebar: (action: SidebarAction) => Promise<void>
   onSidebar: (callback: (state: SidebarState) => void) => () => void
+  // Couche d'overlays (ARB-39) : vrai tant que la vue de la barre couvre la fenêtre pour un menu ou une palette. Seule
+  // la vue de la barre peut l'ouvrir ou le fermer ; le processus principal le ferme aussi (Échap, raccourci, focus perdu).
+  getOverlay: () => Promise<boolean>
+  setOverlay: (open: boolean) => Promise<void>
+  onOverlay: (callback: (open: boolean) => void) => () => void
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

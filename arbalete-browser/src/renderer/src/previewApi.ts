@@ -48,6 +48,9 @@ export function installPreviewApi(): boolean {
   const themeListeners = new Set<(theme: 'dark' | 'light') => void>()
   let sidebar: SidebarState = { open: false, pinned: false }
   const sidebarListeners = new Set<(state: SidebarState) => void>()
+  // Dans l'aperçu, la barre est dans le même document que la page simulée : l'overlay n'a rien à agrandir.
+  let overlay = false
+  const overlayListeners = new Set<(open: boolean) => void>()
   let theme: ThemeChoice = 'system'
   const themeChoiceListeners = new Set<(choice: ThemeChoice) => void>()
   const media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -145,6 +148,16 @@ export function installPreviewApi(): boolean {
     onSidebar: (callback) => {
       sidebarListeners.add(callback)
       return () => sidebarListeners.delete(callback)
+    },
+    getOverlay: async () => overlay,
+    setOverlay: async (open) => {
+      if (open === overlay) return
+      overlay = open
+      overlayListeners.forEach((fn) => fn(overlay))
+    },
+    onOverlay: (callback) => {
+      overlayListeners.add(callback)
+      return () => overlayListeners.delete(callback)
     },
     getTheme: async () => theme,
     setTheme: async (choice) => {

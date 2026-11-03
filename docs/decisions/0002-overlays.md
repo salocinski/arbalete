@@ -1,6 +1,6 @@
 # 0002 — Couche d'overlays : la vue d'interface supérieure, agrandie le temps d'un overlay
 
-- **Statut** : proposée (ARB-38, EP-06)
+- **Statut** : acceptée (proposée par ARB-38, mise en œuvre par ARB-39, EP-06)
 - **Date** : 2026-11-03
 - **Concerne** : couche d'overlays (ARB-39), menus contextuels (ARB-40, ARB-41), suggestions de la barre d'adresse
   (ARB-53), palette de commandes (ARB-67), dialogues et bandeaux à venir

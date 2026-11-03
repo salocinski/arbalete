@@ -56,6 +56,16 @@ export function useSidebar(): SidebarState {
   return sidebar
 }
 
+// Overlay ouvert (ARB-39) : la vue de la barre couvre alors la fenêtre.
+export function useOverlay(): boolean {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    void window.arbalete.getOverlay().then(setOpen).catch(() => {})
+    return window.arbalete.onOverlay(setOpen)
+  }, [])
+  return open
+}
+
 // Choix de thème tenu par le processus principal, partagé par la fenêtre et la barre latérale.
 export function useTheme(): ThemeState {
   const [choice, setChoice] = useState<ThemeChoice>('system')
