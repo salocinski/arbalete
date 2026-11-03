@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.11.2.0] - 2026-11-03
+
+### Documentation
+- `DESIGN.md` passe en version 1.1 avec des contrastes validés : dans les deux thèmes, le texte secondaire, l'accent
+  Amber et les couleurs Success, Warning et Error atteignent 4,5:1 sur tous les fonds (seuil AA). Le thème sombre
+  s'éclaircit légèrement ; le thème clair prend un Amber plus foncé. Chaque couleur d'espace a désormais une variante
+  par thème, lisible sur la barre latérale.
+- Un tableau donne le contraste minimum de chaque élément. Sur un bouton Amber, le texte est Obsidian en sombre et
+  blanc en clair. De nouvelles règles précisent l'usage des couleurs : les teintes de survol et d'appui de l'accent
+  servent de fond, l'anneau de focus reprend l'accent, et un champ ne se repère jamais par sa seule bordure.
+
 ## [0.11.1.0] - 2026-11-03
 
 ### Documentation
