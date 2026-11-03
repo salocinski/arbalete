@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.11.1.0] - 2026-11-03
+
+### Documentation
+- `DESIGN.md` devient le référentiel graphique officiel d'Arbalète, version 1.0, direction Atmospheric
+  Minimalism : palettes sombre et claire autour de l'accent Amber, couleurs des espaces, polices Inter, Manrope et
+  JetBrains Mono, espacements, dimensions, rayons, animations, composants et règles d'originalité. Il note les
+  décisions du jour (barre de contrôle en haut, barre latérale étendue, compacte ou masquée) et les contrastes du
+  thème clair encore à corriger. L'interface actuelle n'a pas encore changé : sa mise en conformité suit dans l'epic
+  EP-05.
+- `CLAUDE.md` impose de consulter ce référentiel avant toute création ou modification d'interface.
+
 ## [0.11.0.0] - 2026-11-03
 
 ### Ajouté
