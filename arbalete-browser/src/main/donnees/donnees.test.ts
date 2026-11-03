@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { after, test } from 'node:test'
 import { ouvrirBase } from './base.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
-import { lireSession, sauverSession, type OngletSauve } from './session.ts'
+import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './session.ts'
 
 // Tests unitaires de la couche de données (ARB-43), lancés sous le Node d'Electron par npm run test:unit.
 
@@ -93,4 +93,22 @@ test('une base d’une version plus récente d’Arbalète est refusée, sans ê
   // Pas passée en WAL non plus : une version plus ancienne d'Arbalète n'a rien écrit.
   strictEqual((relue.prepare('PRAGMA journal_mode').get() as { journal_mode: string }).journal_mode, 'delete')
   relue.close()
+})
+
+test('la restauration ne rouvre que les adresses web, en gardant l’onglet actif', () => {
+  const session: OngletSauve[] = [
+    { url: 'file:///C:/secret.html', titre: 'Fichier', actif: false },
+    ...onglets
+  ]
+  deepStrictEqual(ongletsARestaurer(session), { onglets: onglets.slice(0, 2), actif: 1 })
+})
+
+test('sans onglet actif restauré, le dernier devient actif ; une session vide ne rouvre rien', () => {
+  const sansActif = onglets.map((onglet) => ({ ...onglet, actif: false }))
+  // about:blank est écarté : le dernier onglet restauré est le deuxième.
+  deepStrictEqual(ongletsARestaurer(sansActif).actif, 1)
+  // L'onglet actif n'est pas une adresse web : il est écarté, le dernier restauré prend sa place.
+  deepStrictEqual(ongletsARestaurer([onglets[0], { url: 'about:blank', titre: '', actif: true }]),
+    { onglets: [onglets[0]], actif: 0 })
+  deepStrictEqual(ongletsARestaurer([]), { onglets: [], actif: -1 })
 })

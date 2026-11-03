@@ -2,6 +2,13 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.7.0.0] - 2026-11-03
+
+### Ajouté
+- Au démarrage, Arbalète rouvre les onglets de la dernière session, dans leur ordre, avec l'onglet actif et les titres
+  enregistrés. Seul l'onglet actif charge sa page ; les autres la chargent à leur premier affichage. Seules les adresses
+  web sont rouvertes. Les adresses passées au lancement s'ajoutent après la session restaurée.
+
 ## [0.6.0.0] - 2026-11-03
 
 ### Ajouté

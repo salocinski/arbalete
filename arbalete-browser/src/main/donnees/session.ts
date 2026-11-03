@@ -25,3 +25,12 @@ export function sauverSession(db: DatabaseSync, onglets: readonly OngletSauve[])
     onglets.forEach((onglet, position) => inserer.run(position, onglet.url, onglet.titre, onglet.actif ? 1 : 0))
   })
 }
+
+// Onglets à rouvrir au démarrage (ARB-45) : seules les adresses web le sont, comme les ouvertures des pages (ARB-102),
+// car la restauration charge depuis le processus principal. actif est l'indice de l'onglet actif parmi eux, le dernier
+// si aucun n'était marqué (onglet actif écarté ou base écrite à la main).
+export function ongletsARestaurer(session: readonly OngletSauve[]): { onglets: OngletSauve[], actif: number } {
+  const onglets = session.filter((onglet) => /^https?:\/\//i.test(onglet.url) && URL.canParse(onglet.url))
+  const actif = onglets.findIndex((onglet) => onglet.actif)
+  return { onglets, actif: actif >= 0 ? actif : onglets.length - 1 }
+}

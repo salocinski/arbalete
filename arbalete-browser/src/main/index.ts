@@ -5,13 +5,15 @@ import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBase } from './donnees/base.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
-import { sauverSession, type OngletSauve } from './donnees/session.ts'
+import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 
 type TabRecord = {
   data: BrowserTab
   view: WebContentsView
+  // Page demandée à la vue. Un onglet restauré en arrière-plan (ARB-45) attend d'être affiché pour charger.
+  chargee: boolean
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -124,6 +126,7 @@ function setActiveView() {
     if (id === activeTabId) {
       mainWindow.contentView.addChildView(record.view)
       record.view.setBounds(contentBounds)
+      chargerOnglet(record)
     }
   }
   // Réajouter une vue déjà présente la remet au premier plan : la barre reste au-dessus de l'onglet affiché.
@@ -270,7 +273,17 @@ function brancherRaccourcis(contenu: WebContents) {
   })
 }
 
-function createTab(initialUrl = 'https://www.google.com'): string {
+// Chargement paresseux (ARB-45) : la page d'un onglet n'est demandée qu'une fois, quand il est affiché.
+function chargerOnglet(record: TabRecord) {
+  if (record.chargee) return
+  record.chargee = true
+  void record.view.webContents.loadURL(record.data.url).catch((error) => {
+    console.error('Navigation impossible:', error)
+  })
+}
+
+// Un onglet restauré (ARB-45) s'ouvre en arrière-plan avec son titre enregistré ; sa page attend d'être affichée.
+function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: string }): string {
   const id = `tab-${nextTabNumber++}`
   const view = new WebContentsView({
     webPreferences: {
@@ -285,13 +298,14 @@ function createTab(initialUrl = 'https://www.google.com'): string {
   const record: TabRecord = {
     data: {
       id,
-      title: 'Nouvel onglet',
+      title: restaure?.titre || 'Nouvel onglet',
       url: normalizeUrl(initialUrl),
-      isLoading: true,
+      isLoading: !restaure,
       canGoBack: false,
       canGoForward: false
     },
-    view
+    view,
+    chargee: false
   }
   tabs.set(id, record)
 
@@ -311,13 +325,32 @@ function createTab(initialUrl = 'https://www.google.com'): string {
   brancherRaccourcis(view.webContents)
   masquerAuClic(view.webContents)
 
-  activeTabId = id
-  setActiveView()
-  void view.webContents.loadURL(record.data.url).catch((error) => {
-    console.error('Navigation impossible:', error)
-  })
+  if (!restaure) {
+    activeTabId = id
+    setActiveView()
+  }
   broadcastState()
   return id
+}
+
+// Rouvre les onglets de la dernière session (ARB-45), dans leur ordre ; seul l'onglet actif charge sa page. Renvoie
+// false si rien n'a été rouvert : pas de base, session vide ou illisible.
+function restaurerSession(): boolean {
+  if (!base || tabs.size) return false
+  let session: OngletSauve[]
+  try {
+    session = lireSession(base)
+  } catch (erreur) {
+    console.error('Session des onglets illisible, rien n’est restauré :', erreur)
+    return false
+  }
+  const { onglets, actif } = ongletsARestaurer(session)
+  const ids = onglets.map((onglet) => createTab(onglet.url, { titre: onglet.titre }))
+  if (!ids.length) return false
+  activeTabId = ids[actif]
+  setActiveView()
+  broadcastState()
+  return true
 }
 
 function closeTab(id: string) {
@@ -444,8 +477,10 @@ function createWindow(adresses: readonly string[] = []) {
     mainWindow = null
     barreView = null
   })
+  // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
+  const restauree = restaurerSession()
   if (adresses.length) adresses.forEach((adresse) => createTab(adresse))
-  else createTab()
+  else if (!restauree) createTab()
 }
 
 function exigerChoix<T extends string>(valeur: unknown, choix: readonly T[]): T {
