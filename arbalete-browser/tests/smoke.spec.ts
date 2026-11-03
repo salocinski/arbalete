@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -10,8 +11,8 @@ import type { BrowserState } from '../src/shared/types'
 // Contrat de régression d'ARB-4 (C1-C7, C11, C12), verrouillage de l'interface d'ARB-12/13/14 (C13-C17),
 // ouvertures d'ARB-101/102 (C19-C24, C26, C27 : menu, F12, window.open) et barre latérale masquée d'ARB-33
 // (C9, C31 à C35 : masquée à l'ouverture, survol, épinglage, Ctrl+Maj+B, verrouillage de sa vue, thème partagé et
-// arguments validés de set-theme et set-sidebar) et raccourcis du processus principal d'ARB-18 (C36), exécutés sur
-// l'app construite (out/).
+// arguments validés de set-theme et set-sidebar), raccourcis du processus principal d'ARB-18 (C36) et instance unique
+// d'ARB-117 (C37), exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
 // Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
@@ -1008,4 +1009,42 @@ test('C27 : à 50 onglets ouverts, les pages n’en ouvrent plus, l’utilisateu
   } finally {
     await restaurerHorloge()
   }
+})
+
+// Lance l'app une seconde fois, comme depuis l'Explorateur, et rend son code de sortie. Les adresses suivent « -- » :
+// sous Windows, Electron refuse de démarrer si un argument suit une adresse (protection contre l'injection d'options
+// par un lien, CVE-2018-1000006).
+function lancerSecondeInstance(args: string[]): Promise<number | null> {
+  const cheminElectron = require('electron') as string
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  return new Promise((termine, echoue) => {
+    const seconde = spawn(cheminElectron, ['.', '--', ...args], { cwd: resolve(__dirname, '..'), env, stdio: 'ignore' })
+    const delai = setTimeout(() => { seconde.kill(); echoue(new Error('La seconde instance ne s’est pas fermée')) }, 20_000)
+    seconde.on('error', echoue)
+    seconde.on('exit', (code) => { clearTimeout(delai); termine(code) })
+  })
+}
+
+// Value: protects=instance unique (ARB-117) : un second lancement se ferme, transmet ses adresses web à la première
+//   instance, qui les ouvre en onglet et revient au premier plan;
+//   fails_when=requestSingleInstanceLock disparaît (seconde fenêtre, seconde connexion à arbalete.db), second-instance
+//   n'ouvre plus l'adresse ou ne restaure plus la fenêtre réduite, ou une adresse non web (file://) est ouverte;
+//   why_new=aucun test ne lançait deux instances; seam=seconde instance lancée par child_process, la première pilotée
+//   par Playwright; no_claim=ne vérifie pas que Windows passe la fenêtre au premier plan (focus du système).
+test('C37 : un second lancement se ferme et ouvre ses adresses dans la première instance, restaurée', async () => {
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].minimize())
+  await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized())).toBe(true)
+  const avant = await etat()
+
+  const code = await lancerSecondeInstance([`${origine}/page-b.html?seconde-instance`, 'file:///C:/Windows/win.ini'])
+  expect(code).toBe(0)
+
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant.tabs.length + 1)
+  const apres = await etat()
+  expect(ongletActif(apres)?.url).toBe(`${origine}/page-b.html?seconde-instance`)
+  expect(apres.tabs.some((onglet) => onglet.url.startsWith('file:'))).toBe(false)
+  const fenetres = await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().map((fenetre) => ({ reduite: fenetre.isMinimized(), visible: fenetre.isVisible() })))
+  expect(fenetres).toEqual([{ reduite: false, visible: true }])
 })

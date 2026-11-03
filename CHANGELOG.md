@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.5.0.0] - 2026-11-02
+
+### Ajouté
+- Une seule instance d'Arbalète à la fois : relancer Arbalète ramène la fenêtre déjà ouverte au premier plan (et la
+  restaure si elle était réduite) au lieu d'en ouvrir une seconde. Les deux instances ne se disputent plus la base de
+  données.
+- Les adresses web passées au lancement (`arbalete.exe -- https://…`) s'ouvrent en onglets, dans la fenêtre déjà
+  ouverte s'il y en a une. Seules les adresses http(s) sont acceptées, 10 au plus par lancement.
+
 ## [0.4.0.0] - 2026-11-02
 
 ### Ajouté

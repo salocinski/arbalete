@@ -30,6 +30,24 @@ let nextTabNumber = 1
 // la barre latérale étant masquée à l'ouverture (ARB-33).
 let contentBounds = { x: 0, y: 64, width: 900, height: 600 }
 
+// Une seule instance d'Arbalète (ARB-117) : deux instances partageraient arbalete.db et écraseraient la session l'une
+// de l'autre. Un second lancement transmet ses adresses à la première instance, puis se ferme sans ouvrir la base.
+const ADRESSES_MAX_PAR_LANCEMENT = 10
+
+// Adresses web passées au lancement (arbalete.exe https://…) : seules les adresses http(s) sont ouvertes, les options
+// de Chromium et les chemins sont ignorés.
+function adressesLancees(valeurs: unknown): string[] {
+  if (!Array.isArray(valeurs)) return []
+  return valeurs
+    .filter((valeur): valeur is string => typeof valeur === 'string' && /^https?:\/\/\S+$/i.test(valeur) && URL.canParse(valeur))
+    .slice(0, ADRESSES_MAX_PAR_LANCEMENT)
+}
+
+const adressesAuLancement = adressesLancees(process.argv.slice(1))
+// Les adresses passent par additionalData : Windows peut réordonner ou compléter l'argv reçu par second-instance.
+const instancePrincipale = app.requestSingleInstanceLock({ adresses: adressesAuLancement })
+if (!instancePrincipale) app.quit()
+
 function normalizeUrl(input: string): string {
   const value = input.trim()
   if (!value) return 'https://www.google.com'
@@ -355,7 +373,7 @@ function chargerInterface(contenu: WebContents, vue?: string) {
   }
 }
 
-function createWindow() {
+function createWindow(adresses: readonly string[] = []) {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
@@ -390,7 +408,8 @@ function createWindow() {
     mainWindow = null
     barreView = null
   })
-  createTab()
+  if (adresses.length) adresses.forEach((adresse) => createTab(adresse))
+  else createTab()
 }
 
 function exigerChoix<T extends string>(valeur: unknown, choix: readonly T[]): T {
@@ -399,6 +418,7 @@ function exigerChoix<T extends string>(valeur: unknown, choix: readonly T[]): T 
 }
 
 app.whenReady().then(() => {
+  if (!instancePrincipale) return
   // Pas de menu d'application (ARB-101) : celui d'Electron, même masqué par autoHideMenuBar, ouvre les DevTools de
   // l'interface (Ctrl+Maj+I, avec window.arbalete dans la console) et la recharge (Ctrl+R). Les raccourcis
   // d'Arbalète passent par l'interface ou le processus principal, pas par ce menu.
@@ -461,7 +481,14 @@ app.whenReady().then(() => {
     activeRecord()?.view.setBounds(contentBounds)
   })
 
-  createWindow()
+  createWindow(adressesAuLancement)
+  app.on('second-instance', (_event, _argv, _dossier, donnees) => {
+    if (!mainWindow) return
+    adressesLancees((donnees as { adresses?: unknown } | null)?.adresses).forEach((adresse) => createTab(adresse))
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
