@@ -31,3 +31,6 @@ desktop.ini
 # Résultats Playwright (npm run test:smoke)
 test-results/
 playwright-report/
+
+# Réglages Claude Code personnels (hooks locaux)
+.claude/settings.local.json
