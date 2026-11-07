@@ -35,6 +35,7 @@ arbalete-browser/
   src/renderer/src/design-system/fonts.css   @font-face d'Inter, Manrope et JetBrains Mono (ARB-121) ; licences OFL dans licences-polices/
   src/renderer/src/views/  MainView (fenêtre) et SidebarView (vue native de la barre, ?vue=barre)
   src/renderer/src/components/  Sidebar, TabList, Toolbar, AddressBar, WorkspaceSwitcher, StatusBar…
+  src/renderer/src/components/ui/  Button, IconButton et Input (ARB-122) : seuls boutons d'action et champs de l'interface ; styles dans design-system/controls.css
   src/renderer/src/state.ts      hooks d'état suivis depuis le processus principal (onglets, barre, thème)
   src/renderer/src/shortcuts.ts  raccourcis d'onglets de l'aperçu web (dans Electron, le processus principal les intercepte)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
