@@ -13,3 +13,8 @@ ci-dessus en un seul fichier (en-tête ICO et images DIB copiées telles quelles
 Si une source change, refaire cette fusion et remplacer `icone.ico`.
 
 Les images ont été générées avec Gemini (Google), puis retenues par le mainteneur.
+
+## Droits
+
+La licence GPL-3.0-or-later du dépôt couvre le code. Le régime de droits de ces images (générées par IA) n'est pas encore
+tranché : ne pas les réutiliser hors du projet avant qu'il le soit. Décision suivie par ARB-130, à prendre avant le passage du dépôt en public (ARB-91).
