@@ -15,6 +15,7 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Design | `DESIGN.md` (racine) : référentiel Atmospheric Minimalism, voir « Référentiel graphique obligatoire » |
 | Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
+| Identité visuelle | `branding/` : sources du logo et des icônes (ARB-127), voir son README |
 | Licence | **GPL-3.0-or-later** (`LICENSE`) : tout code ajouté doit être compatible (pas de dépendance sous licence propriétaire ou incompatible GPL) |
 | Contribution externe | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` |
 
@@ -37,7 +38,7 @@ arbalete-browser/
   src/renderer/src/shortcuts.ts  raccourcis d'onglets de l'aperçu web (dans Electron, le processus principal les intercepte)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
   vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
-  resources/icone.ico      icône de l'application (fenêtre et barre des tâches), passée en `icon` à BrowserWindow
+  resources/icone.ico      icône de l'application, 4 tailles (16, 32, 48, 256), passée en `icon` à BrowserWindow
   scripts/test-unitaire.mjs  lance les tests unitaires sous le Node d'Electron
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
 ```
