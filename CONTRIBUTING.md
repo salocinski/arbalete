@@ -39,6 +39,7 @@ travailler sur l'interface sans redémarrer Electron.
    ```powershell
    npm run typecheck
    npm run build
+   npm run test:unit
    npm run test:smoke
    ```
 4. Ouvre une **pull request** vers `main` en remplissant le modèle. Mentionne l'issue (`Fixes #42`).
