@@ -69,7 +69,9 @@ export function useOverlay(): boolean {
 // Choix de thème tenu par le processus principal, partagé par la fenêtre et la barre latérale.
 export function useTheme(): ThemeState {
   const [choice, setChoice] = useState<ThemeChoice>('system')
-  const [systemTheme, setSystemTheme] = useState<'dark' | 'light'>('dark')
+  // Valeur initiale posée par main.tsx avant le premier rendu, confirmée ensuite par le processus principal.
+  const [systemTheme, setSystemTheme] = useState<'dark' | 'light'>(() =>
+    document.documentElement.dataset.theme === 'light' ? 'light' : 'dark')
   useEffect(() => {
     void window.arbalete.getTheme().then(setChoice).catch(() => {})
     void window.arbalete.getSystemTheme().then(setSystemTheme).catch(() => {})
@@ -77,5 +79,8 @@ export function useTheme(): ThemeState {
     const unsubscribeSystem = window.arbalete.onSystemTheme(setSystemTheme)
     return () => { unsubscribeChoice(); unsubscribeSystem() }
   }, [])
-  return { choice, effective: choice === 'system' ? systemTheme : choice }
+  const effective = choice === 'system' ? systemTheme : choice
+  // Les palettes de design-system/tokens.css se choisissent par data-theme sur <html> : sans rechargement (ARB-34).
+  useEffect(() => { document.documentElement.dataset.theme = effective }, [effective])
+  return { choice, effective }
 }

@@ -91,11 +91,11 @@ export function MainView() {
   const isDemo = state.activeTabId?.startsWith('demo-') ?? false
 
   return (
-    <main className={`app-shell theme-${theme.effective}`}>
+    <main className="app-shell">
       {/* Épinglée, la barre latérale (vue native au-dessus) prend cette place au lieu de recouvrir la page. */}
       {sidebar.pinned && <div className="sidebar-reserve" />}
       {/* Aperçu web : pas de vue native, la barre est rendue ici, par-dessus la page. */}
-      {isPreviewMode() && <Sidebar state={state} sidebar={sidebar} theme={theme.effective} />}
+      {isPreviewMode() && <Sidebar state={state} sidebar={sidebar} />}
 
       <section className="browser-column" onMouseDown={() => { if (isPreviewMode()) void window.arbalete.setSidebar('hide') }}>
         <Toolbar activeTab={activeTab} sidebarPinned={sidebar.pinned} themeChoice={theme.choice}
