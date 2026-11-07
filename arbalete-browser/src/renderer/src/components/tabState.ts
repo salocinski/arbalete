@@ -12,7 +12,7 @@ export function etatsOnglet(tab: BrowserTab, active: boolean): string[] {
   return etats
 }
 
-// Icône du favicon : l'erreur l'emporte sur le chargement. 'generique' tant que le favicon n'est pas transmis.
+// Icône du favicon : l'erreur l'emporte sur le chargement. 'generique' : l'image du site (tab.favicon) est choisie par TabItem.
 export function iconeFavicon(tab: BrowserTab): 'erreur' | 'chargement' | 'generique' {
   return tab.error ? 'erreur' : tab.isLoading ? 'chargement' : 'generique'
 }

@@ -58,6 +58,7 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .tab-select { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; height: 100%; padding: 0 4px 0 10px; background: transparent; border: 0; text-align: left; }
 .tab-favicon { display: grid; place-items: center; color: var(--color-text-secondary); flex-shrink: 0; }
 .tab-item--loading .tab-favicon { color: var(--color-accent); }
+.tab-favicon-img { border-radius: 3px; object-fit: contain; }
 .tab-spinner { animation: tab-spin 900ms linear infinite; }
 @keyframes tab-spin { to { transform: rotate(360deg); } }
 .tab-title { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }

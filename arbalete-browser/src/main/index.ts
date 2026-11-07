@@ -4,6 +4,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
+import { faviconAcceptable } from './favicon.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historique.ts'
@@ -425,6 +426,10 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
     if (cadrePrincipal) noterVisite(record, url)
     updateTabFromView(id)
   })
+  view.webContents.on('page-favicon-updated', (_event, favicons) => {
+    record.data = { ...record.data, favicon: faviconAcceptable(favicons) }
+    updateTabFromView(id)
+  })
   view.webContents.on('audio-state-changed', () => updateTabFromView(id))
   // État Error : le chargement de la page a échoué. -3 (ERR_ABORTED) est une navigation interrompue, pas une panne.
   view.webContents.on('did-fail-load', (_event, code, _desc, _url, cadrePrincipal) => {
@@ -434,8 +439,10 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   })
   // Une navigation du cadre principal vers un autre document efface l'erreur ; un changement de fragment ne l'efface pas.
   view.webContents.on('did-start-navigation', (_event, _url, dansPage, cadrePrincipal) => {
-    if (!cadrePrincipal || dansPage || !record.data.error) return
-    record.data = { ...record.data, error: false }
+    if (!cadrePrincipal || dansPage) return
+    // Le favicon de l'ancien document ne suit pas : la nouvelle page en annonce un, ou l'icône générique revient.
+    if (!record.data.error && !record.data.favicon) return
+    record.data = { ...record.data, error: false, favicon: undefined }
     updateTabFromView(id)
   })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
