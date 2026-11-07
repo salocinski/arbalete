@@ -2,6 +2,20 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.4.0] - 2026-11-07
+
+### Ajouté
+- Chaque onglet de la barre latérale montre son état : chargement (indicateur tournant sur l'icône), erreur quand la page n'a pas pu se charger (icône et couleur d'erreur, effacées à la navigation suivante), son et muet (icône de haut-parleur), épinglé (icône d'épingle, sans bouton de fermeture). L'onglet actif se repère à sa barre Amber, sans fond fortement contrasté, et les états sont aussi annoncés aux lecteurs d'écran.
+- Quand les onglets changent de place ou qu'un onglet se ferme, les autres glissent en 160 ms au lieu de sauter ; le réglage de mouvement réduit du système coupe l'animation.
+- Un test vérifie qu'un échec de chargement met l'onglet en erreur et que la navigation suivante l'efface, un autre que l'erreur l'emporte sur le chargement et le muet sur le son.
+
+### Modifié
+- `TabItem` devient un composant à part (`TabList` ne garde que la liste), et `DESIGN.md` décrit ces états.
+
+### Limites connues
+- Les états Épinglé et Muet sont prêts mais aucune commande ne les déclenche encore : épingler un onglet et couper son son viendront avec leurs propres tickets.
+- L'onglet affiche toujours l'icône générique : le favicon de la page n'est pas encore transmis.
+
 ## [0.12.3.0] - 2026-11-07
 
 ### Modifié
