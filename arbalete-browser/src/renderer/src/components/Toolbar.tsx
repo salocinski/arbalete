@@ -12,7 +12,6 @@ type ToolbarProps = {
   sidebarPinned: boolean
   themeChoice: ThemeChoice
   address: string
-  addressFocused: boolean
   addressRef: RefObject<HTMLInputElement | null>
   onAddressChange: (value: string) => void
   onAddressFocusChange: (focused: boolean) => void

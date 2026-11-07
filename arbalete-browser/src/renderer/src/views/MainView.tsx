@@ -99,7 +99,7 @@ export function MainView() {
 
       <section className="browser-column" onMouseDown={() => { if (isPreviewMode()) void window.arbalete.setSidebar('hide') }}>
         <Toolbar activeTab={activeTab} sidebarPinned={sidebar.pinned} themeChoice={theme.choice}
-          address={address} addressFocused={addressFocused} addressRef={addressRef}
+          address={address} addressRef={addressRef}
           onAddressChange={setAddress} onAddressFocusChange={setAddressFocused} onNavigate={navigate} />
         {dataIncident && <DataIncidentBanner incident={dataIncident} />}
         {restoreOffer && <RestoreBanner />}
