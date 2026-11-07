@@ -36,6 +36,7 @@ npm run dev
 | `npm run dev:web` | Aperçu de l'interface dans un navigateur, sur http://localhost:5180 |
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build de production |
+| `npm run test:unit` | Tests unitaires (couche de données, design tokens) |
 | `npm run test:smoke` | Test automatisé de l'app construite (Playwright) |
 
 ## Technologies

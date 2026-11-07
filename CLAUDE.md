@@ -30,6 +30,7 @@ arbalete-browser/
   src/preload/index.ts     pont IPC minimal exposé en window.arbalete
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
   src/renderer/src/        interface React : App.tsx (aiguillage fenêtre / barre), styles.css
+  src/renderer/src/design-system/tokens.css  design tokens et palettes Dark / Light (ARB-34) : seules couleurs de l'interface
   src/renderer/src/views/  MainView (fenêtre) et SidebarView (vue native de la barre, ?vue=barre)
   src/renderer/src/components/  Sidebar, TabList, Toolbar, AddressBar, WorkspaceSwitcher, StatusBar…
   src/renderer/src/state.ts      hooks d'état suivis depuis le processus principal (onglets, barre, thème)
@@ -53,20 +54,20 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build Electron (main, preload, renderer) dans `out/` |
 | `npm run build:web` | Build de l'aperçu navigateur dans `out/web/` |
-| `npm run test:unit` | Tests unitaires `node:test` (`src/**/*.test.ts`) sous le Node d'Electron, sans build : couche de données |
+| `npm run test:unit` | Tests unitaires `node:test` (`src/**/*.test.ts`) sous le Node d'Electron, sans build : couche de données et design tokens |
 | `npm run test:smoke` | Build puis tests Playwright de l'app Electron : `tests/smoke.spec.ts` (app construite) et `tests/developpement.spec.ts` (mode développement, serveur Vite) |
 
 ## Testing
 
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4, et depuis ARB-43 des tests unitaires `node:test`
-sur la couche de données (lecture/écriture de la session, migrations, refus d'une base plus récente, mise de côté d'une base illisible) ; EP-14 les étendra.
+sur la couche de données (lecture/écriture de la session, migrations, refus d'une base plus récente, mise de côté d'une base illisible) et, depuis ARB-34, sur les design tokens (aucune valeur hexadécimale hors de `tokens.css`, mêmes variables dans les deux palettes, `FOND_FENETRE` aligné sur `--color-background`) ; EP-14 les étendra.
 Il couvre le contrat de régression C1-C7, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, bouton Recharger,
 alignement de la vue web au redimensionnement. Depuis ARB-33, la barre latérale est une vue native au-dessus de la page :
 masquée à l'ouverture (C31), elle apparaît au survol du bord gauche par-dessus la page et se retire à la sortie de la
 souris ou au clic dans la page (C33) ; épinglée par le bouton (C9) ou Ctrl+Maj+B depuis la page (C32), la page lui laisse
 sa place ; sa vue ne navigue pas, n'ouvre pas de fenêtre et pilote l'IPC, qu'elle perd une fois chargée sur une autre
-page (C34) ; le thème choisi s'applique à la fenêtre et à la barre, et `set-theme` comme `set-sidebar` refusent un
+page (C34) ; le thème choisi s'applique à la fenêtre et à la barre (`data-theme` sur `<html>`) ainsi qu'au fond natif de la fenêtre, et `set-theme` comme `set-sidebar` refusent un
 argument hors liste (C35). Depuis ARB-18, Ctrl+L, Alt+←/→, Ctrl+T et Ctrl+W agissent depuis la page, la barre et la
 fenêtre, interceptés par le processus principal sans atteindre la page ni doubler l'action ; Ctrl+T donne le clavier
 à la barre d'adresse, Ctrl+W à l'onglet redevenu actif, et AltGr n'en déclenche aucun (C36). Depuis ARB-117, un second

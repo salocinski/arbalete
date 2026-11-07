@@ -1,0 +1,114 @@
+/* Design tokens d'Arbalète (ARB-34), valeurs du front matter de DESIGN.md (référentiel 1.1).
+   Seul fichier de l'interface où figurent des valeurs de couleur : les composants et styles.css consomment les
+   variables sémantiques. Le thème se choisit par data-theme sur <html> (state.ts) ; sans attribut, sombre.
+   Jumelles de --color-background : FOND_FENETRE dans src/main/index.ts, à changer ensemble. */
+
+:root {
+  /* Typographie : Inter, Manrope et JetBrains Mono seront embarquées (ARB-121) ; d'ici là, repli Windows. */
+  --font-ui: Inter, 'Segoe UI', sans-serif;
+  --font-display: Manrope, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+  --font-size-display: 28px;
+  --font-size-h1: 22px;
+  --font-size-h2: 18px;
+  --font-size-h3: 16px;
+  --font-size-body: 14px;
+  --font-size-body-small: 13px;
+  --font-size-label: 12px;
+  --font-size-caption: 11px;
+  --font-size-mono: 12px;
+
+  --radius-sm: 6px;
+  --radius-button: 8px;
+  --radius-md: 10px;
+  --radius-card: 12px;
+  --radius-floating: 14px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --size-sidebar-expanded: 250px;
+  --size-sidebar-compact: 68px;
+  --size-control-bar: 48px;
+  --size-tab: 36px;
+  --size-button: 34px;
+  --size-search-field: 40px;
+  --size-border: 1px;
+
+  --duration-hover-focus: 120ms;
+  --duration-panel-open: 180ms;
+  --duration-panel-close: 150ms;
+  --duration-workspace-switch: 200ms;
+  --duration-modal-open: 180ms;
+  --duration-tab-reorder: 160ms;
+  --ease-standard: ease-out;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: ease-in;
+  --ease-move: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Niveaux d'empilement de l'interface (la page web, vue native, n'en fait pas partie : décision 0002). */
+  --z-chrome: 2;
+  --z-menu: 10;
+  --z-sidebar: 20;
+  --z-overlay: 100;
+}
+
+/* Sombre : Obsidian, Slate, Graphite, Frost, Amber. */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-background: #111820;
+  --color-sidebar: #1C2833;
+  --color-surface: #273746;
+  --color-surface-hover: #304351;
+  --color-text-primary: #E8EDF2;
+  --color-text-secondary: #A1AEB9;
+  --color-border: #34424F;
+  --color-accent: #DCA173;
+  --color-accent-hover: #E7AC7D;
+  --color-accent-active: #BD8052;
+  /* Texte sur un fond Amber : Obsidian en sombre (DESIGN.md, Contrastes). */
+  --color-on-accent: #111820;
+  --color-focus: var(--color-accent);
+  --color-success: #95B49D;
+  --color-warning: #E3B46C;
+  --color-error: #E29A9A;
+  --color-workspace-personal: #56B8C8;
+  --color-workspace-development: #8C91E8;
+  --color-workspace-work: #D99A69;
+  --color-workspace-research: #83A78D;
+  --shadow-floating: 0 12px 30px rgb(0 0 0 / 0.35);
+}
+
+/* Clair : Cloud, Mist, Porcelain, Ink, Amber foncé. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-background: #F3F5F7;
+  --color-sidebar: #E5EAF0;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #EEF1F5;
+  --color-text-primary: #202B36;
+  --color-text-secondary: #5D6A78;
+  --color-border: #D9E0E7;
+  --color-accent: #905D37;
+  --color-accent-hover: #815331;
+  --color-accent-active: #724A2C;
+  /* Texte sur un fond Amber : blanc en clair. */
+  --color-on-accent: #FFFFFF;
+  --color-focus: var(--color-accent);
+  --color-success: #4B7258;
+  --color-warning: #87632C;
+  --color-error: #AE4949;
+  --color-workspace-personal: #3491A0;
+  --color-workspace-development: #757BE3;
+  --color-workspace-work: #C27031;
+  --color-workspace-research: #658F71;
+  --shadow-floating: 0 12px 30px rgb(32 43 54 / 0.14);
+}

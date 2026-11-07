@@ -7,7 +7,7 @@ import { useBrowserState, useSidebar, useTheme } from '../state'
 export function SidebarView() {
   const state = useBrowserState()
   const sidebar = useSidebar()
-  const theme = useTheme()
+  useTheme()
   useEffect(() => { document.documentElement.classList.add('vue-barre') }, [])
-  return <Sidebar state={state} sidebar={sidebar} theme={theme.effective} />
+  return <Sidebar state={state} sidebar={sidebar} />
 }

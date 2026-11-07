@@ -37,6 +37,13 @@ let echapAvale = false
 const LARGEUR_BARRE = 252
 const LARGEUR_BANDE = 6
 let choixTheme: ThemeChoice = 'system'
+// Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
+// --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
+const FOND_FENETRE = { dark: '#111820', light: '#F3F5F7' } as const
+function themeEffectif(): 'dark' | 'light' {
+  if (choixTheme !== 'system') return choixTheme
+  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+}
 const tabs = new Map<string, TabRecord>()
 let activeTabId: string | null = null
 let nextTabNumber = 1
@@ -578,7 +585,7 @@ function createWindow(adresses: readonly string[] = []) {
     height: 920,
     minWidth: 980,
     minHeight: 640,
-    backgroundColor: '#101116',
+    backgroundColor: FOND_FENETRE[themeEffectif()],
     title: 'Arbalète',
     autoHideMenuBar: true,
     webPreferences: PREFERENCES_INTERFACE
@@ -678,12 +685,14 @@ app.whenReady().then(() => {
   traiter('browser:get-system-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
   nativeTheme.on('updated', () => {
     envoyerAuxInterfaces('browser:system-theme', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+    mainWindow?.setBackgroundColor(FOND_FENETRE[themeEffectif()])
   })
   // Le thème choisi est tenu ici pour que la fenêtre et la barre latérale l'affichent ensemble.
   traiter('browser:get-theme', () => choixTheme)
   traiter('browser:set-theme', (valeur) => {
     choixTheme = exigerChoix(valeur, ['system', 'dark', 'light'] as const)
     envoyerAuxInterfaces('browser:theme', choixTheme)
+    mainWindow?.setBackgroundColor(FOND_FENETRE[themeEffectif()])
   })
   traiter('browser:get-sidebar', () => ({ ...barre }))
   traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin'] as const)))

@@ -116,8 +116,9 @@ motion:
 > **Atmospheric Minimalism**. Repris du document « Arbalete_Design_System_Direction_Artistique_v1.0 » (ARB-85),
 > avec les décisions du 2026-11-03 (barre de contrôle, barre latérale) et les contrastes corrigés (ARB-125).
 >
-> **État du code** : l'interface utilise encore l'ancien brouillon (accent violet, polices système, couleurs en
-> dur). La mise en conformité est suivie dans l'epic EP-05 (ARB-34 tokens, ARB-121 polices, ARB-122 composants…).
+> **État du code** : depuis ARB-34, les couleurs de l'interface viennent des tokens (palettes Dark / Light,
+> accent Amber) ; polices système et composants de l'ancien brouillon restent à mettre en conformité dans l'epic
+> EP-05 (ARB-121 polices, ARB-122 composants…).
 
 ## Autorité
 
@@ -331,7 +332,11 @@ Les composants consomment des variables sémantiques, jamais une valeur hexadéc
 `--color-surface`, `--color-surface-hover`, `--color-sidebar`, `--color-text-primary`,
 `--color-text-secondary`, `--color-border`, `--color-accent`, `--color-accent-hover`, `--color-accent-active`,
 `--color-focus`, `--color-success`, `--color-warning`, `--color-error`. Les valeurs de chaque thème sont celles
-du front matter. Restent à définir à l'implémentation (ARB-34) : focus, overlays, ombres, z-index, densité.
+du front matter. Implémentation (ARB-34) : `arbalete-browser/src/renderer/src/design-system/tokens.css`, seul fichier
+de l'interface qui contient des couleurs, palette choisie par `data-theme` sur `<html>` (sombre par défaut). Il ajoute
+`--color-on-accent` (texte sur un fond Amber : Obsidian en sombre, blanc en clair), `--shadow-floating` (menus et
+panneaux flottants) et les niveaux `--z-chrome`, `--z-menu`, `--z-sidebar`, `--z-overlay` ; `--color-focus` reprend
+l'accent. Restent à définir : ombres et z-index complets (ARB-126), densité.
 
 Personnalisation future, jamais au détriment de la cohérence : couleur par espace, largeur et densité de la
 barre latérale, thème, raccourcis, animations.

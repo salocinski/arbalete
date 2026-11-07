@@ -428,28 +428,33 @@ test('C34 : la vue de la barre ne navigue pas, n’ouvre pas de fenêtre et pilo
 //   bouton ne passe plus par setTheme, ou exigerChoix laisse passer une valeur inconnue (règle 2);
 //   why_new=aucun test ne touchait au thème (C8 manuel) ni aux arguments des nouveaux canaux; seam=none (nativeTheme.
 //   themeSource pilote le thème système); no_claim=ne vérifie ni les couleurs rendues ni le thème réel de Windows.
+// Étendu par l'audit /ship (ARB-34) : protects=setBackgroundColor suit set-theme et nativeTheme 'updated';
+//   fails_when=un des deux appels setBackgroundColor ou themeEffectif() est retiré ou faux; seam=none.
 test('C35 : le thème s’applique à la fenêtre et à la barre ; set-theme et set-sidebar valident leur argument', async () => {
+  // data-theme sur <html> choisit la palette de design-system/tokens.css (ARB-34).
   const themes = async () => [
-    await ui.locator('.app-shell').getAttribute('class'),
-    await barreUi.locator('.sidebar-zone').getAttribute('class')
-  ].map((classes) => /theme-(dark|light)/.exec(classes ?? '')?.[1])
+    await ui.locator('html').getAttribute('data-theme'),
+    await barreUi.locator('html').getAttribute('data-theme'),
+    // Fond natif de la fenêtre (FOND_FENETRE, ARB-34) : suit le thème effectif, choisi ou système.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor().toLowerCase())
+  ]
   const choix = () => barreUi.evaluate(() => window.arbalete.getTheme())
   const bouton = ui.getByTitle('Thème : changer le mode')
   expect(await choix()).toBe('system')
   try {
     await bouton.click()
     await expect.poll(choix).toBe('dark')
-    await expect.poll(themes).toEqual(['dark', 'dark'])
+    await expect.poll(themes).toEqual(['dark', 'dark', '#111820'])
     await bouton.click()
     await expect.poll(choix).toBe('light')
-    await expect.poll(themes).toEqual(['light', 'light'])
+    await expect.poll(themes).toEqual(['light', 'light', '#f3f5f7'])
     await bouton.click()
     await expect.poll(choix).toBe('system')
     // Thème système : un changement de nativeTheme atteint la fenêtre et la barre.
     await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'light' })
-    await expect.poll(themes).toEqual(['light', 'light'])
+    await expect.poll(themes).toEqual(['light', 'light', '#f3f5f7'])
     await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'dark' })
-    await expect.poll(themes).toEqual(['dark', 'dark'])
+    await expect.poll(themes).toEqual(['dark', 'dark', '#111820'])
   } finally {
     await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'system' })
   }

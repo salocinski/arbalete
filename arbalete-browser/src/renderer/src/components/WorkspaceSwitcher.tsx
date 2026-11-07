@@ -1,9 +1,9 @@
 import { ChevronDown } from 'lucide-react'
 
 export const workspaces = [
-  { id: 'dev', name: 'Développement', color: '#a78bfa', icon: '⌘' },
-  { id: 'personal', name: 'Personnel', color: '#5eead4', icon: '✳' },
-  { id: 'research', name: 'Recherche', color: '#fbbf24', icon: '◈' }
+  { id: 'dev', name: 'Développement', color: 'var(--color-workspace-development)', icon: '⌘' },
+  { id: 'personal', name: 'Personnel', color: 'var(--color-workspace-personal)', icon: '✳' },
+  { id: 'research', name: 'Recherche', color: 'var(--color-workspace-research)', icon: '◈' }
 ]
 
 type WorkspaceSwitcherProps = {
