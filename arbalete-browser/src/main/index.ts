@@ -224,6 +224,8 @@ function updateTabFromView(id: string) {
     title: wc.getTitle() || record.data.title || 'Nouvel onglet',
     url: wc.getURL() || record.data.url,
     isLoading: wc.isLoading(),
+    audible: wc.isCurrentlyAudible(),
+    muted: wc.audioMuted,
     canGoBack: wc.navigationHistory.canGoBack(),
     canGoForward: wc.navigationHistory.canGoForward()
   }
@@ -421,6 +423,19 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   })
   view.webContents.on('did-navigate-in-page', (_event, url, cadrePrincipal) => {
     if (cadrePrincipal) noterVisite(record, url)
+    updateTabFromView(id)
+  })
+  view.webContents.on('audio-state-changed', () => updateTabFromView(id))
+  // État Error : le chargement de la page a échoué. -3 (ERR_ABORTED) est une navigation interrompue, pas une panne.
+  view.webContents.on('did-fail-load', (_event, code, _desc, _url, cadrePrincipal) => {
+    if (!cadrePrincipal || code === -3) return
+    record.data = { ...record.data, error: true }
+    updateTabFromView(id)
+  })
+  // Une navigation du cadre principal vers un autre document efface l'erreur ; un changement de fragment ne l'efface pas.
+  view.webContents.on('did-start-navigation', (_event, _url, dansPage, cadrePrincipal) => {
+    if (!cadrePrincipal || dansPage || !record.data.error) return
+    record.data = { ...record.data, error: false }
     updateTabFromView(id)
   })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))

@@ -1623,3 +1623,19 @@ test('C46 : chaque navigation est enregistrée dans l’historique, un rechargem
   expect(pageDeLHistorique(profil, 'http://127.0.0.1:1/')).toBeUndefined()
   expect(pageDeLHistorique(profil, pageA)?.titre).toBe(titreA)
 })
+
+// Value: protects=l'état Error de l'onglet après un échec de chargement, effacé par la navigation suivante (ARB-124);
+// fails_when=error n'est pas posé sur une adresse injoignable, ou survit à une page qui charge; why_new=C46 ne regarde
+// que l'historique; seam=none; no_claim=ni le rendu de l'icône ni la couleur.
+test('C49 : un échec de chargement met l’onglet en erreur, la navigation suivante l’efface', async () => {
+  await epinglerBarre(true)
+  await saisirAdresse('http://127.0.0.1:1/')
+  await expect.poll(async () => ongletActif(await etat())?.error).toBe(true)
+  await expect(barreUi.locator('.tab-item--error')).toHaveCount(1)
+
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await expect.poll(async () => ongletActif(await etat())?.error).toBeFalsy()
+  await expect(barreUi.locator('.tab-item--error')).toHaveCount(0)
+  await epinglerBarre(false)
+})
