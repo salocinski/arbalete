@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.6.1] - 2026-11-07
+
+### Modifié
+- La barre de contrôle (ARB-31) fait désormais 48 px, comme le prévoit `DESIGN.md`, au lieu de 64 px : sa hauteur, ses marges et ses écarts passent par les tokens du design system, sans valeur en dur. Précédent, Suivant et Recharger forment le composant `NavigationControls`, et la vue de la page garde le même décalage avant le premier calcul de l'interface (48 px au lieu de 64 px).
+
+### Ajouté
+- Un test vérifie que la règle de la barre de contrôle passe par les tokens (hauteur, marges, écarts), et le test C3 contrôle que Suivant se désactive en fin d'historique alors que Précédent et Recharger restent actifs.
+
+### Limites connues
+- La barre reste dans la colonne de la page, à droite de la barre latérale : la pleine largeur de la composition A (ARB-28) et l'alignement des boutons Windows (ARB-30) restent à faire. L'accès aux commandes n'existe pas encore, et le bouton Favori n'a toujours pas de comportement.
+- Le gap et le padding de la barre sont vérifiés dans le texte de la feuille de style, pas dans le rendu ; l'ordre Épingle puis Navigation et le cas sans onglet actif ne sont pas testés (non couverts volontairement).
+
 ## [0.12.6.0] - 2026-11-07
 
 ### Ajouté
