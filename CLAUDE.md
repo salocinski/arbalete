@@ -37,6 +37,7 @@ arbalete-browser/
   src/renderer/src/shortcuts.ts  raccourcis d'onglets de l'aperçu web (dans Electron, le processus principal les intercepte)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
   vite-csp.ts              CSP de l'interface injectée dans index.html (stricte au build, assouplie en dev)
+  resources/icone.ico      icône de l'application (fenêtre et barre des tâches), passée en `icon` à BrowserWindow
   scripts/test-unitaire.mjs  lance les tests unitaires sous le Node d'Electron
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
 ```

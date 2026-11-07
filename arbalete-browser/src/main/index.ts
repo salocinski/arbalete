@@ -10,6 +10,8 @@ import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historiq
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
+// shortcut: icône lue sur disque (dev et build), l'empaquetage devra la fournir à l'installeur (EP-14).
+const CHEMIN_ICONE = join(__dirname, '../../resources/icone.ico')
 
 type TabRecord = {
   data: BrowserTab
@@ -587,6 +589,7 @@ function createWindow(adresses: readonly string[] = []) {
     minHeight: 640,
     backgroundColor: FOND_FENETRE[themeEffectif()],
     title: 'Arbalète',
+    icon: CHEMIN_ICONE,
     autoHideMenuBar: true,
     webPreferences: PREFERENCES_INTERFACE
   })
