@@ -6,8 +6,7 @@ import type { BrowserTab } from '../../../shared/types'
 
 // Onglet de la barre latérale (DESIGN.md §5.3). Les états passent par des classes `tab-item--<état>` (tabState.ts) ;
 // l'indicateur sonore et l'état Muted sont des icônes en plus de la couleur, jamais la couleur seule.
-// shortcut: favicon = icône générique (le processus principal ne le transmet pas encore) et Muted s'affiche sans bouton
-// pour couper le son ; à brancher avec la gestion du son par onglet.
+// shortcut: Muted s'affiche sans bouton pour couper le son ; à brancher avec la gestion du son par onglet.
 export function TabItem({ tab, active, onSelect, onClose, onMenu }: { tab: BrowserTab; active: boolean; onSelect: () => void; onClose: () => void; onMenu: (x: number, y: number) => void }) {
   const etats = etatsOnglet(tab, active)
   const son = iconeSonore(tab)
@@ -17,7 +16,7 @@ export function TabItem({ tab, active, onSelect, onClose, onMenu }: { tab: Brows
   return (
     <div className={cx('tab-item', ...etats.map((etat) => `tab-item--${etat}`))} data-tab-id={tab.id} onContextMenu={(event) => { event.preventDefault(); onMenu(event.clientX, event.clientY) }}>
       <button className="tab-select" aria-current={active ? 'page' : undefined} onClick={onSelect}>
-        <span className="tab-favicon">{favicon === 'erreur' ? <AlertTriangle size={14}/> : favicon === 'chargement' ? <Loader2 size={14} className="tab-spinner"/> : <Globe2 size={14}/>}</span>
+        <span className="tab-favicon">{favicon === 'erreur' ? <AlertTriangle size={14}/> : favicon === 'chargement' ? <Loader2 size={14} className="tab-spinner"/> : tab.favicon ? <img className="tab-favicon-img" src={tab.favicon} alt="" width={14} height={14}/> : <Globe2 size={14}/>}</span>
         <span className="tab-title">{tab.title}</span>
         {sonore}
         {etats.includes('error') && <span className="sr-only">, erreur de chargement</span>}

@@ -9,7 +9,7 @@ function csp(developpement: boolean): string {
     "default-src 'none'",
     `script-src 'self'${inline}`,
     `style-src 'self'${inline}`,
-    "img-src 'self' data:",
+    "img-src 'self' data: https:", // favicons des onglets (ARB-35, ARB-106) ; script-src et style-src restent stricts
     "font-src 'self'",
     `connect-src 'self'${developpement ? ' ws://localhost:* ws://127.0.0.1:*' : ''}`,
     "base-uri 'none'",

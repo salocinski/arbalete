@@ -27,7 +27,10 @@ const pages: Record<string, string> = {
     <a id="suivante" href="/page-b.html">suivante</a>
     <a id="popup" href="/page-b.html" target="_blank">popup</a>
     <a id="bloquee" href="arbalete-test:bloquee">bloquée</a>`,
-  '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>'
+  '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>',
+  // Favicon data: de 1 pixel (ARB-35) ; page-b n'en déclare pas.
+  '/page-icone.html': `<!doctype html><title>Page icône</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">`
 }
 
 // Nombre de requêtes reçues par chemin : prouve qu'un rechargement repasse bien par le réseau.
@@ -1637,5 +1640,44 @@ test('C49 : un échec de chargement met l’onglet en erreur, la navigation suiv
   await attendreUrlActive(`${origine}/page-a.html`)
   await expect.poll(async () => ongletActif(await etat())?.error).toBeFalsy()
   await expect(barreUi.locator('.tab-item--error')).toHaveCount(0)
+  await epinglerBarre(false)
+})
+
+// Value: protects=favicon des onglets (ARB-35) et CSP de l'interface (ARB-106) : l'icône du site s'affiche sous img-src sans
+//   violation, une page sans icône garde l'icône générique, la CSP n'élargit ni script-src ni style-src;
+//   fails_when=page-favicon-updated n'est plus écouté, le favicon d'une page survit à la navigation, ou img-src bloque l'image;
+//   why_new=C13 et C48 ne regardent ni les images ni les favicons; seam=none (favicon data: servi par le test);
+//   no_claim=ne charge aucun favicon https réel (réseau), ne couvre pas les balises <style> injectées par une bibliothèque;
+//   la directive img-src est épinglée dans le <meta> CSP (https: n'est exercé que par ce contrôle, pas par un chargement).
+test('C50 : l’onglet affiche le favicon du site sans violation de la CSP, et le perd à la navigation', async () => {
+  await epinglerBarre(true)
+  await barreUi.evaluate(() => {
+    const w = window as unknown as { __violationsCsp: string[] }
+    w.__violationsCsp = []
+    document.addEventListener('securitypolicyviolation', (e) => w.__violationsCsp.push(e.violatedDirective))
+  })
+  await saisirAdresse(`${origine}/page-icone.html`)
+  await attendreUrlActive(`${origine}/page-icone.html`)
+  await expect.poll(async () => ongletActif(await etat())?.favicon).toMatch(/^data:image\/png/)
+  const image = barreUi.locator('.tab-item--active .tab-favicon-img')
+  await expect(image).toHaveCount(1)
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1)
+
+  // Un changement de fragment ne change pas de document : le favicon reste.
+  await saisirAdresse(`${origine}/page-icone.html#ancre`)
+  await attendreUrlActive(`${origine}/page-icone.html#ancre`)
+  expect(ongletActif(await etat())?.favicon).toMatch(/^data:image\/png/)
+
+  await saisirAdresse(`${origine}/page-b.html`)
+  await attendreUrlActive(`${origine}/page-b.html`)
+  await expect.poll(async () => ongletActif(await etat())?.favicon).toBeUndefined()
+  await expect(barreUi.locator('.tab-item--active .tab-favicon-img')).toHaveCount(0)
+
+  const csp = await barreUi.evaluate(() => document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Security-Policy"]')?.content ?? '')
+  expect(csp).toMatch(/img-src 'self' data: https:(;|$)/)
+  expect(csp).toMatch(/script-src 'self'(;|$)/)
+  expect(csp).toMatch(/style-src 'self'(;|$)/)
+
+  expect(await barreUi.evaluate(() => (window as unknown as { __violationsCsp: string[] }).__violationsCsp)).toEqual([])
   await epinglerBarre(false)
 })
