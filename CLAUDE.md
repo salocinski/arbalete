@@ -66,7 +66,7 @@ sur la couche de données (lecture/écriture de la session, migrations, refus d'
 Il couvre le contrat de régression C1-C7, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, bouton Recharger,
 alignement de la vue web au redimensionnement. Depuis ARB-33, la barre latérale est une vue native au-dessus de la page :
-masquée à l'ouverture (C31), elle apparaît au survol du bord gauche par-dessus la page et se retire à la sortie de la
+masquée à l'ouverture, la page de l'onglet actif gardant alors le focus clavier (C31), elle apparaît au survol du bord gauche par-dessus la page et se retire à la sortie de la
 souris ou au clic dans la page (C33) ; épinglée par le bouton (C9) ou Ctrl+Maj+B depuis la page (C32), la page lui laisse
 sa place ; sa vue ne navigue pas, n'ouvre pas de fenêtre et pilote l'IPC, qu'elle perd une fois chargée sur une autre
 page (C34) ; le thème choisi s'applique à la fenêtre et à la barre (`data-theme` sur `<html>`) ainsi qu'au fond natif de la fenêtre, et `set-theme` comme `set-sidebar` refusent un

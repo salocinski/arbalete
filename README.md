@@ -4,8 +4,10 @@
 Barre latérale, espaces de travail, organisation des onglets : une ergonomie inspirée d'Arc, dans un
 projet communautaire sous licence GPL-3.0.
 
-> **Statut : prototype (0.1).** La navigation fonctionne, mais Arbalète n'est pas encore prêt pour un
-> usage quotidien. Favoris, historique, espaces de travail et extensions sont en cours de construction.
+> **Statut : en développement (0.12).** La navigation, les onglets, la restauration de session, l'historique et les
+> thèmes Dark, Light et System fonctionnent, mais Arbalète n'est pas encore prêt pour un usage quotidien.
+> Favoris, espaces de travail, téléchargements et extensions sont en cours de construction. Détails techniques :
+> [README de l'application](arbalete-browser/README.md).
 
 ## Objectifs
 

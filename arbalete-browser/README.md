@@ -1,6 +1,6 @@
-# Arbalète — prototype desktop
+# Arbalète — application desktop
 
-Prototype de navigateur Windows inspiré d'Arc, construit avec Electron, React, TypeScript et Vite.
+Navigateur Windows inspiré d'Arc, construit avec Electron, React, TypeScript et Vite.
 
 ## Prérequis
 
@@ -39,12 +39,14 @@ npm run dev:web   # http://localhost:5180
 - Onglets créés, sélectionnés et fermés
 - Espaces de travail visuels
 - Thème manuel sombre / clair / système (le mode système est le défaut visuel initial)
+- Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
+- Historique enregistré à chaque navigation vers une autre page
 
 ## État actuel et limites
 
-Ceci est un prototype de départ, pas encore un navigateur prêt à être utilisé quotidiennement.
+Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les favoris, l'historique, les téléchargements et les espaces ne sont pas encore persistés.
+- Les favoris, les téléchargements et les espaces ne sont pas encore persistés ; l'historique est enregistré mais n'a pas encore de panneau.
 - Le sélecteur d'espaces modifie pour l'instant l'interface, pas les sessions ou les groupes d'onglets.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
@@ -67,8 +69,6 @@ Ceci est un prototype de départ, pas encore un navigateur prêt à être utilis
 ## Prochaines étapes recommandées
 
 1. Tester le démarrage sur Windows et corriger les éventuels écarts de configuration.
-2. Ajouter un vrai mode système via `nativeTheme`.
-3. Persister onglets, favoris, historique et espaces dans SQLite.
-4. Ajouter une politique stricte de navigation et de fenêtres externes.
-5. Réaliser un prototype de compatibilité des extensions avant de figer l'architecture.
-6. Préparer le packaging et les mises à jour automatiques.
+2. Persister favoris et espaces dans SQLite (onglets et historique le sont déjà).
+3. Réaliser un prototype de compatibilité des extensions avant de figer l'architecture.
+4. Préparer le packaging et les mises à jour automatiques.
