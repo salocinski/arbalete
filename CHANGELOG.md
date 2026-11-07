@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.0.0] - 2026-11-06
+
+### Ajouté
+- Les thèmes sombre et clair d'Arbalète suivent désormais les palettes de `DESIGN.md` : Obsidian, Slate et Graphite
+  en sombre, Cloud, Porcelain et Mist en clair, avec l'accent Amber. Le changement de thème, choisi ou suivi du
+  système, s'applique aussitôt à la fenêtre et à la barre latérale, sans rechargement ni élément resté dans l'autre
+  thème.
+- Le fond natif de la fenêtre prend la couleur du thème : plus de bande sombre au redimensionnement en thème clair,
+  ni de flash sombre au démarrage quand Windows est en mode clair.
+- Avec l'option « réduire les animations » de Windows, les transitions de l'interface sont coupées.
+
+### Modifié
+- Les couleurs de l'interface ne vivent plus que dans un seul fichier de design tokens ; un test refuse toute
+  valeur hexadécimale ailleurs. L'Amber est réservé aux interactions et aux états actifs.
+
 ## [0.11.2.0] - 2026-11-03
 
 ### Documentation
