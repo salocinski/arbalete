@@ -375,8 +375,8 @@ Montrer clairement ce qui n'est pas encore fonctionnel plutôt que des boutons m
 Arc est une référence **fonctionnelle et conceptuelle** (navigation spatiale, organisation contextuelle), pas
 graphique. À ne pas reprendre : écrans pixel par pixel, logo, illustrations ou ressources d'Arc, compositions,
 espacements ou comportements visuels distinctifs, toute identité suggérant une affiliation. À développer en
-propre : logo (ARB-127), iconographie, palette, espaces, composants, animations, palette de commandes,
-typographie. Une vérification juridique reste recommandée avant toute commercialisation.
+propre : iconographie, palette, espaces, composants, animations, palette de commandes,
+typographie. Le logo propre à Arbalète est livré (ARB-127) : sources dans `branding/`. Une vérification juridique reste recommandée avant toute commercialisation.
 
 ## Before building an interface
 

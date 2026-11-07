@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.0.2] - 2026-11-07
+
+### Modifié
+- L'icône d'Arbalète contient désormais quatre tailles (16, 32, 48 et 256 px) : elle reste nette dans la barre de titre, la barre des tâches et les petites vignettes de Windows.
+
+### Ajouté
+- Les sources du logo et des icônes sont versionnées dans le dossier `branding/`, avec leur provenance.
+
 ## [0.12.0.1] - 2026-11-06
 
 ### Ajouté
