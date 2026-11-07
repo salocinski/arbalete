@@ -14,6 +14,7 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Backlog, epics, statuts | **Arbalète Suivi** : https://claude.ai/artifact/FpicMw6k8toB6GKWEp6BhW (tickets `ARB-n`, epics `EP-nn`) |
 | Design | `DESIGN.md` (racine) : référentiel Atmospheric Minimalism, voir « Référentiel graphique obligatoire » |
 | Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
+| Maquettes | `docs/maquettes/` : pages HTML statiques de design validé, sans effet sur l'application (ex. `arb-28-mise-en-page.html`, mise en page cible, composition A) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
 | Identité visuelle | `branding/` : sources du logo et des icônes (ARB-127), voir son README |
 | Licence | **GPL-3.0-or-later** (`LICENSE`) : tout code ajouté doit être compatible (pas de dépendance sous licence propriétaire ou incompatible GPL) |
