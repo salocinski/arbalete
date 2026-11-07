@@ -26,7 +26,7 @@ export function WelcomeCard({ address, onAddressChange, onAddressFocus, onNaviga
           placeholder="Rechercher ou saisir une adresse"
           aria-label="Rechercher ou saisir une adresse"
           leading={<Search size={20}/>}
-          trailing={<Button type="submit" variant="primary" icon={<ArrowRight size={16}/>} className="welcome-submit">Explorer</Button>}
+          trailing={<Button type="submit" variant="primary">Explorer<ArrowRight size={16}/></Button>}
         />
       </form>
       <div className="quick-links">
