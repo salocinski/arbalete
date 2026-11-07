@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.0.1] - 2026-11-06
+
+### Ajouté
+- Arbalète a désormais sa propre icône dans la barre de titre de la fenêtre et dans la barre des tâches de Windows.
+
 ## [0.12.0.0] - 2026-11-06
 
 ### Ajouté
