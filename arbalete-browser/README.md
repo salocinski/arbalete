@@ -60,6 +60,7 @@ Ceci est un prototype de départ, pas encore un navigateur prêt à être utilis
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
 - `src/renderer/src/views/` et `src/renderer/src/components/` : interface et interactions.
 - `src/renderer/src/state.ts` et `src/renderer/src/shortcuts.ts` : état suivi depuis le processus principal et raccourcis d'onglets de l'aperçu web.
+- `resources/icone.ico` : icône de la fenêtre et de la barre des tâches.
 - `src/renderer/src/styles.css` : identité visuelle.
 - `src/renderer/src/design-system/tokens.css` : design tokens et palettes sombre / claire de `DESIGN.md`, seules couleurs de l'interface.
 
