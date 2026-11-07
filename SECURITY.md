@@ -14,7 +14,7 @@ si tu le souhaites, ton signalement sera crédité dans les notes de version.
 
 ## Versions prises en charge
 
-Le projet est au stade de prototype : seule la dernière version de la branche `main` reçoit des correctifs.
+Le projet est en développement actif (versions 0.x) : seule la dernière version de la branche `main` reçoit des correctifs.
 
 ## Périmètre
 
