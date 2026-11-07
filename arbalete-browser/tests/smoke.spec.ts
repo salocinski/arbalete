@@ -655,6 +655,11 @@ test('C3 : précédent et suivant suivent l’historique', async () => {
 
   await ui.getByTitle('Suivant (Alt+→)').click()
   await attendreUrlActive(`${origine}/page-b.html`)
+
+  // Fin d'historique (ARB-31) : Suivant est désactivé, Précédent et Recharger restent actifs.
+  await expect(ui.getByTitle('Suivant (Alt+→)')).toBeDisabled()
+  await expect(ui.getByTitle('Précédent (Alt+←)')).toBeEnabled()
+  await expect(ui.getByTitle('Recharger')).toBeEnabled()
 })
 
 // Value: protects=raccourcis d'Arbalète où que soit le focus (ARB-18) : depuis la page, Ctrl+L met le focus dans la

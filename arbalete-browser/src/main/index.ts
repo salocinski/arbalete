@@ -50,9 +50,9 @@ function themeEffectif(): 'dark' | 'light' {
 const tabs = new Map<string, TabRecord>()
 let activeTabId: string | null = null
 let nextTabNumber = 1
-// Bornes de la vue web avant que l'interface envoie les siennes : pleine largeur sous la barre d'outils (64 px),
+// Bornes de la vue web avant que l'interface envoie les siennes : pleine largeur sous la barre de contrôle (48 px, --size-control-bar),
 // la barre latérale étant masquée à l'ouverture (ARB-33).
-let contentBounds = { x: 0, y: 64, width: 900, height: 600 }
+let contentBounds = { x: 0, y: 48, width: 900, height: 600 }
 
 // Une seule instance d'Arbalète (ARB-117) : deux instances partageraient arbalete.db et écraseraient la session l'une
 // de l'autre. Un second lancement transmet ses adresses à la première instance, puis se ferme sans ouvrir la base.
