@@ -25,3 +25,13 @@ test('les champs gèrent le focus sur tout le champ et l’erreur', () => {
 test('aucun dégradé dans les contrôles', () => {
   ok(!/gradient\(/.test(css), 'DESIGN.md interdit les dégradés sur les boutons')
 })
+
+test('la barre de contrôle fait 48 px par token, sans dimension en dur (ARB-31)', () => {
+  const styles = readFileSync(fileURLToPath(new URL('../styles.css', import.meta.url)), 'utf8')
+  const regle = styles.match(/^\.toolbar \{[^}]*\}/m)?.[0] ?? ''
+  ok(regle.includes('height: var(--size-control-bar)'), 'la hauteur doit venir du token --size-control-bar')
+  ok(!/\d+px/.test(regle), 'aucune dimension en px dans la règle .toolbar')
+  ok(/gap: var\(--space-\d+\)/.test(regle) && /padding: 0 var\(--space-\d+\)/.test(regle), 'gap et padding de .toolbar passent par les tokens')
+  const nav = styles.match(/^\.nav-controls \{[^}]*\}/m)?.[0] ?? ''
+  ok(/gap: var\(--space-\d+\)/.test(nav), 'gap de .nav-controls passe par un token')
+})

@@ -81,8 +81,8 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .profile-copy strong { font-size: 11px; color: var(--color-text-primary); font-weight: 600; }
 .profile-copy span { font-size: 9px; color: var(--color-text-secondary); }
 .browser-column { min-width: 0; flex: 1; display: flex; flex-direction: column; position: relative; }
-.toolbar { height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 20px; background: var(--color-background); border-bottom: 1px solid var(--color-border); position: relative; z-index: var(--z-chrome); }
-.nav-controls { display: flex; align-items: center; gap: 2px; }
+.toolbar { height: var(--size-control-bar); flex-shrink: 0; display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); background: var(--color-background); border-bottom: var(--size-border) solid var(--color-border); position: relative; z-index: var(--z-chrome); }
+.nav-controls { display: flex; align-items: center; gap: var(--space-1); }
 .address-bar { display: flex; flex: 1; min-width: 120px; }
 .address-bar .ui-field-group { flex: 1; }
 .secure-icon { color: var(--color-success); flex-shrink: 0; }

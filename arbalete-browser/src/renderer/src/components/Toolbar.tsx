@@ -1,7 +1,8 @@
 import type { RefObject } from 'react'
-import { ArrowLeft, ArrowRight, Monitor, Moon, Plus, RotateCw, Sun } from 'lucide-react'
+import { Monitor, Moon, Plus, Sun } from 'lucide-react'
 import type { BrowserTab, ThemeChoice } from '../../../shared/types'
 import { AddressBar } from './AddressBar'
+import { NavigationControls } from './NavigationControls'
 import { PinButton } from './PinButton'
 import { IconButton } from './ui/IconButton'
 
@@ -21,12 +22,8 @@ type ToolbarProps = {
 export function Toolbar({ activeTab, sidebarPinned, themeChoice, onNavigate, ...address }: ToolbarProps) {
   return (
     <header className="toolbar">
-      <div className="nav-controls">
-        <PinButton pinned={sidebarPinned} />
-        <IconButton title="Précédent (Alt+←)" onClick={() => void window.arbalete.goBack()} disabled={!activeTab?.canGoBack}><ArrowLeft size={16}/></IconButton>
-        <IconButton title="Suivant (Alt+→)" onClick={() => void window.arbalete.goForward()} disabled={!activeTab?.canGoForward}><ArrowRight size={16}/></IconButton>
-        <IconButton title="Recharger" onClick={() => void window.arbalete.reload()}><RotateCw size={16}/></IconButton>
-      </div>
+      <PinButton pinned={sidebarPinned} />
+      <NavigationControls activeTab={activeTab} />
       <AddressBar {...address} onSubmit={onNavigate} />
       <IconButton variant="secondary" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={16}/></IconButton>
       <IconButton variant="secondary" title="Thème : changer le mode" onClick={() => void window.arbalete.setTheme(nextTheme[themeChoice])}>
