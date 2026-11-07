@@ -58,7 +58,7 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 | `npm run typecheck` | Vérification TypeScript |
 | `npm run build` | Build Electron (main, preload, renderer) dans `out/` |
 | `npm run build:web` | Build de l'aperçu navigateur dans `out/web/` |
-| `npm run test:unit` | Tests unitaires `node:test` (`src/**/*.test.ts`) sous le Node d'Electron, sans build : couche de données et design tokens |
+| `npm run test:unit` | Tests unitaires `node:test` (`src/**/*.test.ts`) sous le Node d'Electron, sans build : couche de données, design tokens, polices et composants de base |
 | `npm run test:smoke` | Build puis tests Playwright de l'app Electron : `tests/smoke.spec.ts` (app construite) et `tests/developpement.spec.ts` (mode développement, serveur Vite) |
 
 ## Testing

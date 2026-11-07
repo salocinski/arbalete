@@ -5,7 +5,6 @@ import { Input } from './ui/Input'
 
 type AddressBarProps = {
   address: string
-  addressFocused: boolean
   addressRef: RefObject<HTMLInputElement | null>
   onAddressChange: (value: string) => void
   onAddressFocusChange: (focused: boolean) => void
