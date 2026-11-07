@@ -6,6 +6,11 @@ export type BrowserTab = {
   canGoBack: boolean
   canGoForward: boolean
   favicon?: string
+  // États visuels de l'onglet (ARB-124). pinned : pas encore de commande pour épingler un onglet.
+  pinned?: boolean
+  audible?: boolean
+  muted?: boolean
+  error?: boolean
 }
 
 export type BrowserState = {

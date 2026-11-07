@@ -272,7 +272,8 @@ bord gauche (ARB-33). Son état est conservé au redémarrage ; elle se pilote a
 
 **Onglets** : verticaux, avec favicon, titre, indicateur de chargement, état actif, épinglé, indicateur sonore
 et fermeture. États : Default, Hover, Active, Pinned, Loading, Muted, Error. L'onglet actif se reconnaît
-sans fond fortement contrasté (ARB-124).
+sans fond fortement contrasté (ARB-124) : surface discrète et barre Amber. Le son et l'état muet s'affichent
+par une icône, l'erreur par une icône et la couleur Error, le chargement par un indicateur tournant sur le favicon.
 
 **Espaces** : chacun est un contexte indépendant avec nom, couleur, onglets, favoris, préférences éventuelles
 et session persistante. Changer d'espace préserve les états de navigation.
