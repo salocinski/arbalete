@@ -296,7 +296,9 @@ Composants cibles : AppShell, Sidebar, WorkspaceSwitcher, TabItem, TabList, Addr
 CommandBar, FloatingPanel, ContextMenu, Tooltip, Modal, Toast, SplitView, SettingsPanel.
 
 - **Boutons** : variantes Primary, Secondary, Ghost, Icon, Destructive ; états Disabled, Hover, Focus,
-  Active ; feedback immédiat ; aucun dégradé (ARB-122).
+  Active ; feedback immédiat ; aucun dégradé (ARB-122). Implémentation : `Button`, `IconButton` et `Input`
+  (`components/ui/`, styles dans `design-system/controls.css`) ; Destructive prend la couleur d'erreur, sans token
+  d'état dédié (survol et appui par mélange avec le texte principal).
 - **Champs** : surface neutre, bordure discrète, focus identifiable, erreur explicite.
 - **Panneaux flottants** : commande, menus, sélecteurs, dialogues, actions contextuelles.
 

@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.2.0] - 2026-11-07
+
+### Ajouté
+- Trois composants de base servent désormais de seuls boutons et champs de l'interface : `Button` (principal, secondaire, discret, destructif, en deux tailles), `IconButton` (bouton d'icône, avec libellé obligatoire pour l'accessibilité) et `Input` (champ avec icônes et état d'erreur). Tous suivent les design tokens, dans les thèmes sombre et clair, avec un anneau de focus visible au clavier.
+- Des tests vérifient que chaque variante a ses états survol, actif et désactivé, que le champ a ses états focus et erreur, et qu'aucun dégradé n'apparaît.
+
+### Modifié
+- La barre d'outils, la barre d'adresse, les bandeaux, la page d'accueil, la barre latérale et les onglets utilisent ces composants à la place de leurs boutons et champs propres. Les états désactivés sont un peu plus lisibles (opacité de 0,4 au lieu de 0,28).
+
 ## [0.12.1.0] - 2026-11-07
 
 ### Ajouté

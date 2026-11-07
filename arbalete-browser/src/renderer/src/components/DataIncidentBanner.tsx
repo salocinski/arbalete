@@ -1,4 +1,5 @@
 import type { DataIncident } from '../../../shared/types'
+import { Button } from './ui/Button'
 
 // Avertissement d'un incident de la base à l'ouverture (ARB-119), au-dessus de la page comme l'invite d'ARB-46.
 function message(incident: DataIncident): string {
@@ -17,7 +18,7 @@ export function DataIncidentBanner({ incident }: { incident: DataIncident }) {
     <div className="app-banner" role="alert" data-testid="data-incident-banner">
       <span>{message(incident)}</span>
       <div className="app-banner-actions">
-        <button type="button" onClick={() => void window.arbalete.dismissDataIncident()}>Fermer</button>
+        <Button size="sm" onClick={() => void window.arbalete.dismissDataIncident()}>Fermer</Button>
       </div>
     </div>
   )

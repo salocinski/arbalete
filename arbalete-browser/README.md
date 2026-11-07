@@ -65,6 +65,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 - `resources/icone.ico` : icône de la fenêtre et de la barre des tâches (16, 32, 48 et 256 px) ; sources dans `branding/`.
 - `src/renderer/src/styles.css` : identité visuelle.
 - `src/renderer/src/design-system/tokens.css` : design tokens et palettes sombre / claire de `DESIGN.md`, seules couleurs de l'interface.
+- `src/renderer/src/components/ui/` : `Button`, `IconButton` et `Input`, composants de base de l'interface (styles dans `design-system/controls.css`).
 - `src/renderer/src/design-system/fonts.css` : polices Inter, Manrope et JetBrains Mono (paquets `@fontsource-variable`, licence OFL, textes dans `licences-polices/`), servies localement.
 
 ## Prochaines étapes recommandées

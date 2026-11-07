@@ -1,4 +1,5 @@
 import { Globe2, ShieldCheck, X } from 'lucide-react'
+import { IconButton } from './ui/IconButton'
 import type { BrowserState, BrowserTab } from '../../../shared/types'
 
 // onMenu : clic droit sur un onglet, avec la position du pointeur dans la vue (menu de l'onglet, ARB-39).
@@ -19,7 +20,7 @@ function TabItem({ tab, active, onSelect, onClose, onMenu }: { tab: BrowserTab; 
         <span className="tab-title">{tab.title}</span>
         {tab.url.startsWith('https://') && <span className="tab-secure"><ShieldCheck size={12}/></span>}
       </button>
-      <button className="tab-close" title="Fermer l'onglet" onClick={(event) => { event.stopPropagation(); onClose() }}><X size={14}/></button>
+      <IconButton size="sm" className="tab-close" title="Fermer l'onglet" onClick={(event) => { event.stopPropagation(); onClose() }}><X size={14}/></IconButton>
     </div>
   )
 }

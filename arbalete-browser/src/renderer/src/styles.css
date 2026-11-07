@@ -1,5 +1,6 @@
 @import './design-system/tokens.css';
 @import './design-system/fonts.css';
+@import './design-system/controls.css';
 
 /* Aucune valeur de couleur ici : uniquement les variables de design-system/tokens.css (ARB-34). */
 :root {
@@ -30,9 +31,6 @@ html.vue-barre .sidebar-zone { right: 0; }
 .brand-mark { width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; background: var(--color-accent); color: var(--color-on-accent); font: 800 18px var(--font-display); flex-shrink: 0; }
 .brand-name { font: 800 16px var(--font-display); letter-spacing: -.65px; }
 .sidebar-toggle { margin-left: auto; }
-.icon-button, .tiny-icon { border: 0; background: transparent; color: var(--color-text-secondary); display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-button); width: 30px; height: 30px; flex-shrink: 0; transition: background var(--duration-hover-focus) var(--ease-standard), color var(--duration-hover-focus) var(--ease-standard); }
-.icon-button:hover, .tiny-icon:hover { color: var(--color-text-primary); background: var(--color-surface-hover); }
-.icon-button:disabled { opacity: .28; cursor: default; }
 .workspace-switcher { height: 38px; display: flex; align-items: center; gap: 9px; width: 100%; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-md); padding: 0 10px; font-size: 12px; font-weight: 600; text-align: left; }
 .workspace-switcher span:nth-child(2) { flex: 1; }
 .workspace-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -52,7 +50,6 @@ html.vue-barre .sidebar-zone { right: 0; }
 .nav-item span { flex: 1; }
 kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px solid var(--color-border); border-radius: 4px; padding: 2px 4px; white-space: nowrap; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 5px 8px 9px; color: var(--color-text-secondary); font-size: 9px; letter-spacing: 1.2px; font-weight: 700; }
-.tiny-icon { width: 22px; height: 22px; }
 .tab-list { display: grid; gap: 3px; }
 .tab-item { display: flex; align-items: center; min-width: 0; height: 35px; border-radius: var(--radius-button); position: relative; }
 .tab-item.active { background: var(--color-surface); box-shadow: inset 2px 0 var(--color-accent); }
@@ -63,9 +60,8 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .tab-title { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .tab-item.active .tab-title { color: var(--color-text-primary); font-weight: 600; }
 .tab-secure { display: inline-flex; color: var(--color-success); }
-.tab-close { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-sm); margin-right: 4px; opacity: 0; }
+.tab-close { margin-right: 4px; opacity: 0; }
 .tab-item:hover .tab-close, .tab-item.active .tab-close { opacity: 1; }
-.tab-close:hover { color: var(--color-text-primary); background: var(--color-surface-hover); }
 .new-tab-button { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 7px; padding: 0 8px; height: 34px; color: var(--color-text-secondary); background: transparent; border: 1px dashed var(--color-border); border-radius: var(--radius-button); font-size: 11px; }
 .new-tab-button:hover { color: var(--color-text-primary); background: var(--color-surface-hover); border-color: var(--color-text-secondary); }
 .new-tab-button span { flex: 1; text-align: left; }
@@ -79,20 +75,11 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .browser-column { min-width: 0; flex: 1; display: flex; flex-direction: column; position: relative; }
 .toolbar { height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 20px; background: var(--color-background); border-bottom: 1px solid var(--color-border); position: relative; z-index: var(--z-chrome); }
 .nav-controls { display: flex; align-items: center; gap: 2px; }
-.address-bar { display: flex; align-items: center; height: 36px; min-width: 120px; flex: 1; padding: 0 10px; gap: 9px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 11px; transition: border-color var(--duration-hover-focus) var(--ease-standard), background var(--duration-hover-focus) var(--ease-standard), box-shadow var(--duration-hover-focus) var(--ease-standard); }
-.address-bar:focus-within, .address-bar.is-focused { border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 18%, transparent); }
-.address-bar input { width: 100%; min-width: 0; outline: 0; border: 0; color: var(--color-text-primary); background: transparent; font-size: 11px; }
+.address-bar { display: flex; flex: 1; min-width: 120px; }
+.address-bar .ui-field-group { flex: 1; }
 .secure-icon { color: var(--color-success); flex-shrink: 0; }
-.address-action { border: 0; background: transparent; color: var(--color-text-secondary); display: grid; place-items: center; padding: 2px; }
-.address-action:hover { color: var(--color-accent); }
-.toolbar-action { border: 1px solid var(--color-border); background: var(--color-surface); }
 .app-banner { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 20px; background: var(--color-sidebar); border-bottom: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 11px; position: relative; z-index: var(--z-chrome); }
 .app-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.app-banner-actions button { height: 26px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-button); background: var(--color-surface); color: var(--color-text-primary); font-size: 11px; }
-.app-banner-actions button:hover { background: var(--color-surface-hover); }
-.app-banner-actions .app-banner-primary { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-on-accent); }
-.app-banner-actions .app-banner-primary:hover { background: var(--color-accent-hover); }
-.app-banner-actions .app-banner-primary:active { background: var(--color-accent-active); }
 .page-stage { position: relative; flex: 1; min-height: 0; background: var(--color-background); overflow: hidden; }
 .web-content { position: absolute; inset: 0; overflow: hidden; background: var(--color-background); }
 .demo-placeholder { background: radial-gradient(ellipse at 50% 44%, var(--color-sidebar) 0%, var(--color-background) 72%); }
@@ -102,12 +89,10 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .welcome-card h1 { font: 700 clamp(29px,3vw,43px) var(--font-display); letter-spacing: -1.8px; margin: 0; color: var(--color-text-primary); }
 .welcome-card h1 span { color: var(--color-text-primary); }
 .welcome-description { max-width: 390px; font-size: 12px; line-height: 1.8; color: var(--color-text-secondary); margin: 17px 0 26px; }
-.welcome-search { display: flex; align-items: center; gap: 10px; width: 100%; height: 48px; padding: 5px 6px 5px 15px; border: 1px solid var(--color-border); border-radius: var(--radius-floating); background: var(--color-surface); color: var(--color-text-secondary); }
-.welcome-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--color-text-primary); font-size: 12px; }
-.welcome-search input::placeholder { color: var(--color-text-secondary); }
-.welcome-search button { display: flex; align-items: center; gap: 7px; height: 35px; border: 0; border-radius: var(--radius-md); padding: 0 12px; background: var(--color-accent); color: var(--color-on-accent); font-size: 11px; font-weight: 700; }
-.welcome-search button:hover { background: var(--color-accent-hover); }
-.welcome-search button:active { background: var(--color-accent-active); }
+.welcome-search { width: 100%; }
+.welcome-search .ui-field-group { width: 100%; }
+.welcome-search .ui-field { height: 48px; padding: 5px 6px 5px 15px; border-radius: var(--radius-floating); }
+.welcome-search .ui-input { font-size: var(--font-size-body-small); }
 .quick-links { display: flex; align-items: center; gap: 12px; margin-top: 26px; }
 .quick-links button { display: flex; flex-direction: column; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 10px; min-width: 58px; }
 .quick-links button:hover { color: var(--color-text-primary); }

@@ -35,6 +35,7 @@ arbalete-browser/
   src/renderer/src/design-system/fonts.css   @font-face d'Inter, Manrope et JetBrains Mono (ARB-121) ; licences OFL dans licences-polices/
   src/renderer/src/views/  MainView (fenêtre) et SidebarView (vue native de la barre, ?vue=barre)
   src/renderer/src/components/  Sidebar, TabList, Toolbar, AddressBar, WorkspaceSwitcher, StatusBar…
+  src/renderer/src/components/ui/  Button, IconButton et Input (ARB-122) : seuls boutons d'action et champs de l'interface ; styles dans design-system/controls.css
   src/renderer/src/state.ts      hooks d'état suivis depuis le processus principal (onglets, barre, thème)
   src/renderer/src/shortcuts.ts  raccourcis d'onglets de l'aperçu web (dans Electron, le processus principal les intercepte)
   src/renderer/src/previewApi.ts  API simulée pour l'aperçu navigateur (hors Electron)
@@ -63,7 +64,7 @@ Toutes les commandes se lancent dans `arbalete-browser/`.
 ## Testing
 
 Test automatisé : un smoke test Playwright (`_electron`) depuis ARB-4, et depuis ARB-43 des tests unitaires `node:test`
-sur la couche de données (lecture/écriture de la session, migrations, refus d'une base plus récente, mise de côté d'une base illisible) et, depuis ARB-34, sur les design tokens (aucune valeur hexadécimale hors de `tokens.css`, mêmes variables dans les deux palettes, `FOND_FENETRE` aligné sur `--color-background`), puis depuis ARB-121 sur les polices (chaque famille des tokens a son `@font-face`, dont les six fichiers existent dans `node_modules`) ; EP-14 les étendra.
+sur la couche de données (lecture/écriture de la session, migrations, refus d'une base plus récente, mise de côté d'une base illisible) et, depuis ARB-34, sur les design tokens (aucune valeur hexadécimale hors de `tokens.css`, mêmes variables dans les deux palettes, `FOND_FENETRE` aligné sur `--color-background`), puis depuis ARB-121 sur les polices (chaque famille des tokens a son `@font-face`, dont les six fichiers existent dans `node_modules`), puis depuis ARB-122 sur les boutons et champs de base (chaque variante définit ses états Hover et Active, Disabled est commun, focus et erreur des champs présents, aucun dégradé) ; EP-14 les étendra.
 Il couvre le contrat de régression C1-C7, C11 et C12 : démarrage avec `window.arbalete`, barre d'adresse,
 précédent/suivant, onglets, `target=_blank` en onglet, schéma non http refusé, permissions refusées, bouton Recharger,
 alignement de la vue web au redimensionnement. Depuis ARB-33, la barre latérale est une vue native au-dessus de la page :

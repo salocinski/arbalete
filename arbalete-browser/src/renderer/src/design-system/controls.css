@@ -1,0 +1,48 @@
+/* Boutons et champs de base (ARB-122, DESIGN.md « Components »). Aucune valeur de couleur ici : uniquement les
+   variables de tokens.css. Quatre variantes de bouton (Primary, Secondary, Ghost, Destructive) plus la forme icône ;
+   états Disabled, Hover, Focus (outline global de styles.css), Active ; aucun dégradé. */
+
+.ui-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-shrink: 0;
+  height: var(--size-button); padding: 0 var(--space-3);
+  border: var(--size-border) solid transparent; border-radius: var(--radius-button);
+  background: transparent; color: var(--color-text-primary);
+  font-size: var(--font-size-body-small); font-weight: 600; white-space: nowrap;
+  transition: background var(--duration-hover-focus) var(--ease-standard), border-color var(--duration-hover-focus) var(--ease-standard), color var(--duration-hover-focus) var(--ease-standard);
+}
+.ui-button:disabled { opacity: .4; cursor: default; }
+.ui-button--sm { height: 26px; padding: 0 var(--space-3); font-size: var(--font-size-label); }
+.ui-button--icon { width: var(--size-button); padding: 0; }
+.ui-button--icon.ui-button--sm { width: 24px; height: 24px; border-radius: var(--radius-sm); }
+
+.ui-button--primary { background: var(--color-accent); color: var(--color-on-accent); }
+.ui-button--primary:not(:disabled):hover { background: var(--color-accent-hover); }
+.ui-button--primary:not(:disabled):active { background: var(--color-accent-active); }
+
+.ui-button--secondary { background: var(--color-surface); border-color: var(--color-border); }
+.ui-button--secondary:not(:disabled):hover { background: var(--color-surface-hover); }
+.ui-button--secondary:not(:disabled):active { background: var(--color-surface-hover); border-color: var(--color-text-secondary); }
+
+.ui-button--ghost { color: var(--color-text-secondary); }
+.ui-button--ghost:not(:disabled):hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.ui-button--ghost:not(:disabled):active { background: color-mix(in srgb, var(--color-surface-hover) 85%, var(--color-text-primary)); color: var(--color-text-primary); }
+
+.ui-button--destructive { background: var(--color-error); color: var(--color-on-accent); }
+.ui-button--destructive:not(:disabled):hover { background: color-mix(in srgb, var(--color-error) 88%, var(--color-text-primary)); }
+.ui-button--destructive:not(:disabled):active { background: color-mix(in srgb, var(--color-error) 78%, var(--color-text-primary)); }
+
+.ui-field-group { display: grid; gap: var(--space-1); min-width: 0; }
+.ui-field {
+  display: flex; align-items: center; gap: var(--space-2); height: var(--size-search-field); padding: 0 var(--space-3);
+  border: var(--size-border) solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface);
+  color: var(--color-text-secondary);
+  transition: border-color var(--duration-hover-focus) var(--ease-standard), box-shadow var(--duration-hover-focus) var(--ease-standard);
+}
+.ui-field:focus-within { border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 18%, transparent); }
+.ui-field--error { border-color: var(--color-error); }
+.ui-field--error:focus-within { border-color: var(--color-error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error) 18%, transparent); }
+.ui-input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--color-text-primary); font-size: var(--font-size-body-small); }
+.ui-input:focus-visible { outline: none; } /* le champ entier porte le focus */
+.ui-input::placeholder { color: var(--color-text-secondary); }
+.ui-input:disabled { opacity: .4; }
+.ui-field-error { margin: 0; padding: 0 var(--space-1); color: var(--color-error); font-size: var(--font-size-caption); }
