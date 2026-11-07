@@ -45,3 +45,15 @@ test('le fond natif de la fenêtre suit --color-background de chaque thème', ()
   strictEqual(fond[1].toLowerCase(), sombre.get('--color-background')?.toLowerCase())
   strictEqual(fond[2].toLowerCase(), clair.get('--color-background')?.toLowerCase())
 })
+
+test('les polices embarquées couvrent les familles des tokens, fichiers présents', () => {
+  const polices = lire('src/renderer/src/design-system/fonts.css')
+  const declarees = new Set([...polices.matchAll(/font-family: '([^']+)'/g)].map((m) => m[1]))
+  for (const nom of ['--font-ui', '--font-display', '--font-mono']) {
+    const famille = tokens.match(new RegExp(`${nom}:\\s*'?([^,']+)'?,`))?.[1]?.trim()
+    ok(famille && declarees.has(famille), `${nom} : la famille ${famille} n'a pas de @font-face`)
+  }
+  const fichiers = [...polices.matchAll(/url\('([^']+)'\)/g)].map((m) => m[1])
+  strictEqual(fichiers.length, 6)
+  for (const f of fichiers) ok(globSync(`node_modules/${f}`, { cwd: racine }).length === 1, `${f} introuvable`)
+})

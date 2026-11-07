@@ -117,8 +117,8 @@ motion:
 > avec les décisions du 2026-11-03 (barre de contrôle, barre latérale) et les contrastes corrigés (ARB-125).
 >
 > **État du code** : depuis ARB-34, les couleurs de l'interface viennent des tokens (palettes Dark / Light,
-> accent Amber) ; polices système et composants de l'ancien brouillon restent à mettre en conformité dans l'epic
-> EP-05 (ARB-121 polices, ARB-122 composants…).
+> accent Amber) et, depuis ARB-121, les polices Inter, Manrope et JetBrains Mono sont embarquées ; les composants de
+> l'ancien brouillon restent à mettre en conformité dans l'epic EP-05 (ARB-122 composants…).
 
 ## Autorité
 

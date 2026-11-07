@@ -1,4 +1,5 @@
 @import './design-system/tokens.css';
+@import './design-system/fonts.css';
 
 /* Aucune valeur de couleur ici : uniquement les variables de design-system/tokens.css (ARB-34). */
 :root {

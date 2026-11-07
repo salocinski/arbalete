@@ -2,6 +2,12 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.1.0] - 2026-11-07
+
+### Ajouté
+- L'interface d'Arbalète utilise désormais ses trois polices : Inter pour l'interface, Manrope pour les titres et la marque, JetBrains Mono pour les données techniques. Elles sont embarquées dans l'application, donc identiques hors ligne et sans appel réseau, avec Segoe UI en repli.
+- Un test vérifie que les trois polices se chargent sous la politique de sécurité stricte de l'interface construite, et que chaque police des design tokens a sa déclaration.
+
 ## [0.12.0.3] - 2026-11-07
 
 ### Documentation
