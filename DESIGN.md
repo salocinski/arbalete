@@ -1,38 +1,42 @@
 ---
 name: Arbalète
 direction: Atmospheric Minimalism
-version: "1.0"
+version: "1.1"
 colors:
   dark-background: "#111820"
   dark-sidebar: "#1C2833"
   dark-surface: "#273746"
   dark-surface-hover: "#304351"
   dark-text-primary: "#E8EDF2"
-  dark-text-secondary: "#91A0AD"
+  dark-text-secondary: "#A1AEB9"
   dark-border: "#34424F"
-  dark-accent: "#D99A69"
+  dark-accent: "#DCA173"
   dark-accent-hover: "#E7AC7D"
   dark-accent-active: "#BD8052"
-  dark-success: "#83A78D"
+  dark-success: "#95B49D"
   dark-warning: "#E3B46C"
-  dark-error: "#D97C7C"
+  dark-error: "#E29A9A"
   light-background: "#F3F5F7"
   light-sidebar: "#E5EAF0"
   light-surface: "#FFFFFF"
   light-surface-hover: "#EEF1F5"
   light-text-primary: "#202B36"
-  light-text-secondary: "#687786"
+  light-text-secondary: "#5D6A78"
   light-border: "#D9E0E7"
-  light-accent: "#B97949"
-  light-accent-hover: "#A9673D"
-  light-accent-active: "#92552F"
-  light-success: "#527D60"
-  light-warning: "#956D30"
-  light-error: "#B65050"
-  workspace-personal: "#56B8C8"
-  workspace-development: "#8C91E8"
-  workspace-work: "#D99A69"
-  workspace-research: "#83A78D"
+  light-accent: "#905D37"
+  light-accent-hover: "#815331"
+  light-accent-active: "#724A2C"
+  light-success: "#4B7258"
+  light-warning: "#87632C"
+  light-error: "#AE4949"
+  dark-workspace-personal: "#56B8C8"
+  dark-workspace-development: "#8C91E8"
+  dark-workspace-work: "#D99A69"
+  dark-workspace-research: "#83A78D"
+  light-workspace-personal: "#3491A0"
+  light-workspace-development: "#757BE3"
+  light-workspace-work: "#C27031"
+  light-workspace-research: "#658F71"
 typography:
   display:
     fontFamily: "Manrope, Segoe UI, sans-serif"
@@ -108,9 +112,9 @@ motion:
 ---
 # Arbalète — Design System
 
-> Référentiel officiel de conception et d'implémentation, version 1.0 (novembre 2026), direction artistique
+> Référentiel officiel de conception et d'implémentation, version 1.1 (novembre 2026), direction artistique
 > **Atmospheric Minimalism**. Repris du document « Arbalete_Design_System_Direction_Artistique_v1.0 » (ARB-85),
-> avec les décisions du 2026-11-03 (barre de contrôle, barre latérale).
+> avec les décisions du 2026-11-03 (barre de contrôle, barre latérale) et les contrastes corrigés (ARB-125).
 >
 > **État du code** : l'interface utilise encore l'ancien brouillon (accent violet, polices système, couleurs en
 > dur). La mise en conformité est suivie dans l'epic EP-05 (ARB-34 tokens, ARB-121 polices, ARB-122 composants…).
@@ -147,10 +151,10 @@ Palette sombre :
 | Slate | `#1C2833` | Barre latérale |
 | Graphite | `#273746` | Surfaces secondaires |
 | Frost | `#E8EDF2` | Texte principal |
-| Muted | `#91A0AD` | Texte secondaire |
+| Muted | `#A1AEB9` | Texte secondaire |
 | Border | `#34424F` | Bordures discrètes |
-| Amber | `#D99A69` | Accent (hover `#E7AC7D`, actif `#BD8052`) |
-| Success / Warning / Error | `#83A78D` / `#E3B46C` / `#D97C7C` | États fonctionnels |
+| Amber | `#DCA173` | Accent (hover `#E7AC7D`, actif `#BD8052`) |
+| Success / Warning / Error | `#95B49D` / `#E3B46C` / `#E29A9A` | États fonctionnels |
 
 Palette claire :
 
@@ -160,13 +164,20 @@ Palette claire :
 | Porcelain | `#FFFFFF` | Surfaces |
 | Mist | `#E5EAF0` | Barre latérale |
 | Ink | `#202B36` | Texte principal |
-| Muted | `#687786` | Texte secondaire |
+| Muted | `#5D6A78` | Texte secondaire |
 | Border | `#D9E0E7` | Bordures |
-| Amber | `#B97949` | Accent, plus sombre qu'en mode sombre (hover `#A9673D`, actif `#92552F`) |
-| Success / Warning / Error | `#527D60` / `#956D30` / `#B65050` | États fonctionnels |
+| Amber | `#905D37` | Accent, plus sombre qu'en mode sombre (hover `#815331`, actif `#724A2C`) |
+| Success / Warning / Error | `#4B7258` / `#87632C` / `#AE4949` | États fonctionnels |
 
-Couleurs contextuelles des espaces : Personal **Glacier** `#56B8C8`, Development **Iris** `#8C91E8`,
-Work **Amber** `#D99A69`, Research **Sage** `#83A78D`, Custom configurable.
+Couleurs contextuelles des espaces, une variante par thème pour rester visibles sur la barre latérale :
+
+| Espace | Sombre | Clair |
+|---|---|---|
+| Personal **Glacier** | `#56B8C8` | `#3491A0` |
+| Development **Iris** | `#8C91E8` | `#757BE3` |
+| Work **Amber** | `#D99A69` | `#C27031` |
+| Research **Sage** | `#83A78D` | `#658F71` |
+| Custom | configurable | configurable |
 
 Règles :
 - Le fond principal reste neutre ; la barre latérale a une surface légèrement distincte.
@@ -174,10 +185,32 @@ Règles :
 - Les couleurs d'espace distinguent les espaces sans remplacer les couleurs fonctionnelles.
 - Toute couleur informative garde un contraste suffisant.
 
-**Contrastes à valider (ARB-125).** Mesures du 2026-11-03 pour du texte normal (seuil AA 4,5:1) : la palette
-sombre passe (Amber 7,5:1 sur Obsidian, Muted 5,6:1 sur Slate). En clair, Amber `#B97949` n'atteint que
-3,26:1 sur Cloud et 2,95:1 sur Mist, Muted 3,8:1 sur Mist. Sur un bouton Amber, le texte est Obsidian
-(7,5:1), pas blanc (2,4:1). Les valeurs corrigées seront reportées ici après validation.
+### Contrastes
+
+Validés le 2026-11-03 (ARB-125), ratios WCAG 2.1 calculés sur les quatre fonds de chaque thème (fond,
+barre latérale, surface, surface au survol). Seuils : 4,5:1 pour le texte (AA), 3:1 pour un repère non
+textuel (anneau de focus, couleur d'espace).
+
+| Élément | Sombre (minimum) | Clair (minimum) |
+|---|---|---|
+| Texte principal (Frost / Ink) | 8,71:1 | 11,89:1 |
+| Texte secondaire (Muted) | 4,53:1 | 4,57:1 |
+| Accent Amber en texte ou lien | 4,59:1 | 4,56:1 |
+| Success / Warning / Error en texte | 4,54 / 5,38 / 4,55:1 | 4,51 / 4,51 / 4,51:1 |
+| Anneau de focus (Amber) | 4,59:1 | 4,56:1 |
+| Couleur d'espace sur la barre latérale | 5,23:1 | 3,03:1 |
+
+Texte sur un bouton Amber : **Obsidian** en sombre (8,0:1 ; 9,0:1 au survol, 5,4:1 actif), **blanc** en
+clair (5,5:1 ; 6,5:1 au survol, 7,7:1 actif). L'inverse échoue (blanc sur Amber sombre 2,2:1, Obsidian
+sur Amber clair 3,2:1).
+
+Règles qui en découlent :
+- Les variantes hover et actif de l'accent sont des fonds de bouton, pas des couleurs de texte (Amber actif
+  sombre ne donne que 3,1:1 en texte sur la surface au survol).
+- `--color-focus` reprend l'accent du thème.
+- Les bordures (`#34424F`, `#D9E0E7`) restent décoratives (1,0 à 1,7:1) : un champ ou un contrôle se
+  repère par sa surface, son libellé et son focus, jamais par sa seule bordure.
+- Toute nouvelle couleur de texte ou de repère est mesurée sur les quatre fonds avant d'entrer ici.
 
 ## Typography
 
@@ -349,8 +382,8 @@ typographie. Une vérification juridique reste recommandée avant toute commerci
 5. Documenter les composants réutilisables et toute évolution de ce référentiel.
 
 Contrôle qualité : cohérence graphique, tokens, Dark et Light, états interactifs, navigation clavier et
-desktop responsive sont **obligatoires** ; contraste, performance et accessibilité sont **à valider**
-(ARB-125, ARB-128).
+desktop responsive sont **obligatoires**, comme les contrastes du tableau ci-dessus ; performance et
+accessibilité sont **à valider** (ARB-128).
 
 ## Acceptance criteria
 
