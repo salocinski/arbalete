@@ -2,6 +2,12 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.3.0] - 2026-11-07
+
+### Modifié
+- La barre d'adresse n'a plus besoin qu'on lui transmette l'état de focus du champ : l'anneau de focus suit désormais le champ lui-même. L'adresse affichée reste protégée pendant la saisie, comme avant.
+- Les descriptions de `npm run test:unit` dans `README.md` et `CLAUDE.md` citent les tests des polices et des composants de base, en plus de la couche de données et des design tokens.
+
 ## [0.12.2.0] - 2026-11-07
 
 ### Ajouté
