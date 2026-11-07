@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.6.0] - 2026-11-07
+
+### Ajouté
+- `DESIGN.md` (Layout) place désormais la marque dans la barre de contrôle, comme la composition A, et `CLAUDE.md` référence le dossier `docs/maquettes/`.
+- Une maquette de la mise en page cible, `docs/maquettes/arb-28-mise-en-page.html` (ARB-28) : la barre de contrôle de 48 px en haut sur toute la largeur, la barre latérale étendue, compacte ou masquée (rappelée au survol du bord gauche), et la page dans un cadre arrondi. Elle se feuillette en Dark et en Light, avec les quatre espaces de travail. La composition A (barre de contrôle pleine largeur) est validée ; la composition B (barre latérale pleine hauteur) est écartée.
+
+### Limites connues
+- La maquette est une page statique, sans effet sur l'application. Elle simule un survol des boutons Windows et des infobulles que l'application réelle ne pourra pas reproduire à l'identique (`titleBarOverlay`, couche d'overlays).
 ## [0.12.5.0] - 2026-11-07
 
 ### Ajouté

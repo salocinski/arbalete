@@ -258,12 +258,13 @@ fenêtre Windows sont traités à part des dimensions internes des composants.
 
 Trois zones ; la surface de contenu garde toujours la priorité visuelle.
 
-- **A — Barre latérale** : identité, sélecteur d'espace, navigation principale, onglets, favoris, actions
-  secondaires.
-- **B — Barre de contrôle**, en haut : précédent, suivant, recharger, adresse, sécurité, actions
-  contextuelles, accès aux commandes. *Décision du 2026-11-03 : elle reste en haut ; l'adresse ne migre pas
-  dans la barre latérale (ARB-31).* Fenêtre sans cadre, boutons Windows via `titleBarOverlay` alignés sur ses
-  48 px (ARB-30).
+- **A — Barre latérale** : sélecteur d'espace, navigation principale, onglets, favoris, actions secondaires.
+- **B — Barre de contrôle**, en haut, sur toute la largeur de la fenêtre : marque (à gauche, au-dessus de la
+  colonne de la barre latérale), précédent, suivant, recharger, adresse, sécurité, actions contextuelles, accès
+  aux commandes. *Décision du 2026-11-03 : elle reste en haut ; l'adresse ne migre pas dans la barre latérale
+  (ARB-31).* *Décision du 2026-11-07 (ARB-28) : composition A de la maquette `docs/maquettes/arb-28-mise-en-page.html`,
+  la barre latérale et le contenu se placent sous la barre de contrôle.* Fenêtre sans cadre, boutons Windows via
+  `titleBarOverlay` alignés sur ses 48 px (ARB-30).
 - **C — Surface de contenu** : pages web, vues divisées, panneaux secondaires, états de chargement et d'erreur.
 
 **Barre latérale** : *décision du 2026-11-03*, trois états au choix (ARB-123) : étendue (250 px, largeur
