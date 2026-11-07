@@ -962,6 +962,47 @@ test('C48 : les polices embarquées se chargent sous la CSP de l’interface', a
   expect(resultat).toEqual({ chargees: ['Inter', 'JetBrains Mono', 'Manrope'], violations: [] })
 })
 
+// Value: protects=barre de contrôle rendue (ARB-31) : 48 px, gap et padding par tokens, champ de 40 px, ordre Épingle →
+//   navigation → adresse → actions, et parcours au Tab qui suit cet ordre en sautant les boutons désactivés;
+//   fails_when=un contrôle change de place, le gap ou le padding quittent les tokens, la hauteur du champ ou de la barre dérive;
+//   why_new=controls.test.ts ne lit que le texte du CSS, pas le rendu; seam=none;
+//   no_claim=ne couvre ni le rendu Dark/Light (visuel), ni la mise à l'échelle Windows, ni l'état sans onglet actif.
+test('C51 : la barre de contrôle est rendue à 48 px, dans l’ordre prévu, et se parcourt au Tab', async () => {
+  const mesure = await ui.evaluate(() => {
+    const barre = document.querySelector<HTMLElement>('.toolbar')!
+    const style = getComputedStyle(barre)
+    const jeton = (nom: string) => getComputedStyle(document.documentElement).getPropertyValue(nom).trim()
+    const etiquette = (el: Element) => el.getAttribute('title') ?? el.getAttribute('aria-label') ?? ''
+    const champ = barre.querySelector<HTMLElement>('.ui-field')!
+    const controles = [...barre.querySelectorAll<HTMLElement>('button, input')]
+    return {
+      hauteur: barre.getBoundingClientRect().height,
+      hauteurJeton: jeton('--size-control-bar'),
+      gap: style.columnGap, gapJeton: jeton('--space-2'),
+      padding: [style.paddingLeft, style.paddingRight], paddingJeton: jeton('--space-4'),
+      hauteurChamp: champ.getBoundingClientRect().height,
+      ordre: controles.map(etiquette),
+      activables: controles.filter((el) => !(el as HTMLButtonElement).disabled).map(etiquette)
+    }
+  })
+  expect(mesure.hauteur).toBe(parseFloat(mesure.hauteurJeton))
+  expect(mesure.hauteurChamp).toBe(40)
+  expect(mesure.gap).toBe(mesure.gapJeton)
+  expect(mesure.padding).toEqual([mesure.paddingJeton, mesure.paddingJeton])
+  expect(mesure.ordre[0]).toMatch(/^(Épingler|Libérer) la barre latérale/)
+  expect(mesure.ordre.slice(1, 4)).toEqual(['Précédent (Alt+←)', 'Suivant (Alt+→)', 'Recharger'])
+  expect(mesure.ordre.slice(4)).toEqual(['Adresse ou recherche', 'Ajouter aux favoris', 'Nouvel onglet', 'Thème : changer le mode'])
+
+  // Le Tab part du premier contrôle et visite chaque contrôle activable, dans l'ordre du DOM.
+  await ui.locator('.toolbar button').first().focus()
+  const parcours: string[] = []
+  for (let i = 0; i < mesure.activables.length; i++) {
+    parcours.push(await ui.evaluate(() => document.activeElement?.getAttribute('title') ?? document.activeElement?.getAttribute('aria-label') ?? ''))
+    await ui.keyboard.press('Tab')
+  }
+  expect(parcours).toEqual(mesure.activables)
+})
+
 // Value: protects=vérification de l'émetteur IPC (ARB-14) : une page qui obtient le preload hors de l'interface ne pilote rien;
 //   fails_when=un canal n'appelle plus emetteurAutorise, ou le contrôle accepte une autre fenêtre ou une autre URL;
 //   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
