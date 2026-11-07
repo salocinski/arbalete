@@ -2,6 +2,13 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.0.3] - 2026-11-07
+
+### Documentation
+- Le README et la politique de sécurité décrivent l'état réel d'Arbalète (version 0.12 en développement, session des onglets et historique déjà enregistrés), et le README racine renvoie vers celui de l'application.
+- Le README de l'application ne contredit plus le mode système du thème, et ses prochaines étapes ne listent plus ce qui est fait.
+- La description du test C31 dans `CLAUDE.md` mentionne le focus clavier laissé à la page.
+
 ## [0.12.0.2] - 2026-11-07
 
 ### Modifié
