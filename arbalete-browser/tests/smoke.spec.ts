@@ -938,6 +938,22 @@ test('C13 : l’interface refuse les scripts inline (Content-Security-Policy)', 
   expect(resultat).toMatch(/^script-src/)
 })
 
+// Value: protects=polices embarquées de l'interface (ARB-121) : Inter, Manrope et JetBrains Mono se chargent hors ligne,
+//   sous la CSP stricte (font-src 'self'), sans violation;
+//   fails_when=un @font-face pointe vers un fichier absent du build, ou la CSP bloque les polices;
+//   why_new=C13 ne regarde que les scripts inline; seam=none;
+//   no_claim=ne couvre ni le rendu à 125 % / 150 % de mise à l'échelle Windows, ni les glyphes hors latin.
+test('C48 : les polices embarquées se chargent sous la CSP de l’interface', async () => {
+  const resultat = await ui.evaluate(async () => {
+    const violations: string[] = []
+    document.addEventListener('securitypolicyviolation', (e) => violations.push(e.violatedDirective))
+    await Promise.all(['Inter', 'Manrope', 'JetBrains Mono'].map((f) => document.fonts.load(`14px "${f}"`, 'Aa')))
+    const chargees = [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replaceAll('"', ''))
+    return { chargees: [...new Set(chargees)].sort(), violations }
+  })
+  expect(resultat).toEqual({ chargees: ['Inter', 'JetBrains Mono', 'Manrope'], violations: [] })
+})
+
 // Value: protects=vérification de l'émetteur IPC (ARB-14) : une page qui obtient le preload hors de l'interface ne pilote rien;
 //   fails_when=un canal n'appelle plus emetteurAutorise, ou le contrôle accepte une autre fenêtre ou une autre URL;
 //   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
