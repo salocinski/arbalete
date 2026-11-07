@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARB-28 · Maquette de la mise en page cible</title>
+<!-- Maquette statique (ARB-28). Aucune couleur en dur : tout vient de tokens.css. À ouvrir depuis le dépôt (chemin relatif). -->
+<link rel="stylesheet" href="../../arbalete-browser/src/renderer/src/design-system/tokens.css">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--font-size-body)/1.4 var(--font-ui); background: var(--color-background); color: var(--color-text-primary); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* ---- Panneau de contrôle de la maquette (hors maquette) ---- */
+.bench { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); align-items: center; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); font-size: var(--font-size-label); color: var(--color-text-secondary); }
+.bench b { color: var(--color-text-primary); font-family: var(--font-display); font-size: var(--font-size-h3); font-weight: 600; margin-right: auto; }
+.seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--color-surface); border-radius: var(--radius-button); }
+.seg button { padding: 5px 10px; border-radius: var(--radius-sm); font-size: var(--font-size-label); font-weight: 500; color: var(--color-text-secondary); transition: background var(--duration-hover-focus) var(--ease-standard); }
+.seg button:hover { background: var(--color-surface-hover); }
+.seg button[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+.stage { padding: var(--space-4); display: grid; gap: var(--space-4); }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3); font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
+.notes div { background: var(--color-surface); border-radius: var(--radius-card); padding: var(--space-3) var(--space-4); }
+.notes h3 { margin: 0 0 var(--space-1); font: 600 var(--font-size-label)/1.3 var(--font-ui); color: var(--color-text-primary); }
+.notes code { font-family: var(--font-mono); font-size: var(--font-size-mono); color: var(--color-text-primary); }
+
+/* ---- La fenêtre Arbalète (1280 x 760 de référence) ---- */
+.window { position: relative; width: min(100%, 1280px); height: 760px; margin: 0 auto; background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; display: grid;
+  --ws: var(--color-workspace-development); }
+.window[data-ws="personal"] { --ws: var(--color-workspace-personal); }
+.window[data-ws="work"] { --ws: var(--color-workspace-work); }
+.window[data-ws="research"] { --ws: var(--color-workspace-research); }
+
+/* Variante A : barre de contrôle pleine largeur en haut, barre latérale et contenu dessous. */
+.window[data-layout="a"] { grid-template-rows: var(--size-control-bar) 1fr; grid-template-columns: auto 1fr; grid-template-areas: "bar bar" "side content"; }
+/* Variante B : barre latérale sur toute la hauteur, barre de contrôle au-dessus du contenu seul. */
+.window[data-layout="b"] { grid-template-rows: var(--size-control-bar) 1fr; grid-template-columns: auto 1fr; grid-template-areas: "side bar" "side content"; }
+
+/* ---- Zone B : barre de contrôle (48 px, zone de déplacement de la fenêtre) ---- */
+.bar { grid-area: bar; display: flex; align-items: center; gap: var(--space-2); padding-left: var(--space-3); background: var(--color-background); position: relative; z-index: var(--z-chrome); }
+.brand { display: none; align-items: center; gap: var(--space-2); font: 600 var(--font-size-h3)/1 var(--font-display); }
+.window[data-layout="a"] .brand { display: flex; width: calc(var(--size-sidebar-expanded) - var(--space-3) - var(--space-2)); }
+.window[data-layout="a"][data-side="compact"] .brand { width: calc(var(--size-sidebar-compact) - var(--space-3) - var(--space-2)); }
+.window[data-layout="a"][data-side="compact"] .brand span { display: none; }
+.mark { width: 24px; height: 24px; border-radius: var(--radius-sm); background: var(--color-accent); color: var(--color-on-accent); display: grid; place-items: center; font: 700 14px/1 var(--font-display); flex: none; }
+.nav { display: flex; gap: var(--space-1); }
+.ib { width: var(--size-button); height: var(--size-button); border-radius: var(--radius-button); display: grid; place-items: center; color: var(--color-text-secondary); transition: background var(--duration-hover-focus) var(--ease-standard), color var(--duration-hover-focus) var(--ease-standard); }
+.ib:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.ib[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+.address { flex: 1; max-width: 720px; margin: 0 auto; height: var(--size-search-field); display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); background: var(--color-surface); border-radius: var(--radius-md); color: var(--color-text-secondary); }
+.address:hover { background: var(--color-surface-hover); }
+.address .url { flex: 1; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.address .url i { font-style: normal; color: var(--color-text-secondary); }
+.address svg.ok { color: var(--color-success); }
+.address .star:hover { color: var(--color-accent); }
+.actions { display: flex; gap: var(--space-1); padding-right: var(--space-2); }
+/* Emplacement des boutons Windows (titleBarOverlay : 3 x 46 px, hauteur alignée sur la barre de contrôle) */
+.caption { display: flex; height: var(--size-control-bar); }
+.caption span { width: 46px; display: grid; place-items: center; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.caption span:last-child:hover { background: var(--color-error); color: var(--color-on-accent); }
+.caption span:hover { background: var(--color-surface-hover); }
+
+/* ---- Zone A : barre latérale ---- */
+.side { grid-area: side; width: var(--size-sidebar-expanded); background: var(--color-sidebar); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-2); border-top: 2px solid var(--ws); transition: width var(--duration-panel-open) var(--ease-enter); overflow: hidden; z-index: var(--z-sidebar); }
+.window[data-layout="a"] .side { border-top: 0; border-radius: 0 var(--radius-card) 0 0; box-shadow: inset 2px 0 0 var(--ws); }
+.window[data-side="compact"] .side { width: var(--size-sidebar-compact); align-items: center; }
+.window[data-side="hidden"] .side { position: absolute; left: 0; top: 0; bottom: 0; transform: translateX(-100%); transition: transform var(--duration-panel-close) var(--ease-exit); box-shadow: var(--shadow-floating); border-radius: 0 var(--radius-floating) var(--radius-floating) 0; }
+.window[data-layout="a"][data-side="hidden"] .side { top: var(--size-control-bar); }
+.window[data-side="hidden"][data-hover="1"] .side { transform: none; transition-timing-function: var(--ease-enter); transition-duration: var(--duration-panel-open); }
+.window[data-side="hidden"] { grid-template-columns: 0 1fr; }
+.side .head { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2); height: var(--size-button); font: 600 var(--font-size-h3)/1 var(--font-display); }
+.window[data-layout="a"] .side .head { display: none; }
+.ws { display: flex; align-items: center; gap: var(--space-2); height: var(--size-search-field); padding: 0 var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); width: 100%; }
+.ws .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ws); flex: none; }
+.ws .name { flex: 1; text-align: left; font-weight: 500; }
+.ws svg { color: var(--color-text-secondary); }
+.item { display: flex; align-items: center; gap: var(--space-3); height: var(--size-button); padding: 0 var(--space-3); border-radius: var(--radius-button); color: var(--color-text-secondary); width: 100%; text-align: left; transition: background var(--duration-hover-focus) var(--ease-standard); position: relative; }
+.item:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.item kbd { margin-left: auto; font: 500 var(--font-size-caption)/1 var(--font-ui); color: var(--color-text-secondary); }
+.label { padding: var(--space-3) var(--space-3) var(--space-1); font-size: var(--font-size-caption); font-weight: 500; color: var(--color-text-secondary); display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.tabs { display: grid; gap: 2px; width: 100%; }
+.tab { height: var(--size-tab); display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-3); border-radius: var(--radius-button); color: var(--color-text-secondary); position: relative; }
+.tab .fav { width: 16px; height: 16px; border-radius: 4px; background: var(--color-surface-hover); flex: none; }
+.tab .ttl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--font-size-body-small); }
+.tab .x { opacity: 0; width: 20px; height: 20px; border-radius: var(--radius-sm); display: grid; place-items: center; }
+.tab:hover { background: var(--color-surface-hover); }
+.tab:hover .x { opacity: 1; }
+.tab[aria-current="true"] { background: var(--color-surface); color: var(--color-text-primary); }
+.tab[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--color-accent); }
+.tab.load .fav { background: transparent; border: 2px solid var(--color-border); border-top-color: var(--color-accent); border-radius: 50%; }
+.tab.err .fav { background: var(--color-error); }
+.tab.err .ttl { color: var(--color-error); }
+.spacer { flex: 1; }
+.me { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-border); width: 100%; }
+.me .av { width: 24px; height: 24px; border-radius: 50%; background: var(--color-surface); display: grid; place-items: center; font-size: var(--font-size-caption); font-weight: 600; flex: none; }
+/* Mode compact : on ne garde que les icônes */
+.window[data-side="compact"] .side :is(.name, .item span, .item kbd, .tab .ttl, .tab .x, .label span, .me span, .head span, .ws svg) { display: none; }
+.window[data-side="compact"] :is(.item, .tab, .ws) { justify-content: center; padding: 0; width: var(--size-button); }
+.window[data-side="compact"] .ws { width: var(--size-search-field); }
+.window[data-side="compact"] .label { padding: var(--space-2) 0; justify-content: center; }
+.tip { display: none; position: absolute; left: calc(100% + var(--space-2)); top: 50%; transform: translateY(-50%); padding: 4px 8px; border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: var(--shadow-floating); font-size: var(--font-size-label); color: var(--color-text-primary); white-space: nowrap; z-index: var(--z-overlay); }
+.window[data-side="compact"] .item:hover .tip, .window[data-side="compact"] .tab:hover .tip { display: block; }
+.strip { display: none; position: absolute; left: 0; top: var(--size-control-bar); bottom: 0; width: 8px; z-index: var(--z-sidebar); }
+.window[data-side="hidden"] .strip { display: block; }
+
+/* ---- Zone C : surface de contenu (cadre arrondi avec marge, ARB-32) ---- */
+.content { grid-area: content; padding: 0 var(--space-2) var(--space-2) 0; min-width: 0; min-height: 0; display: flex; }
+.window[data-side="hidden"] .content { padding-left: var(--space-2); }
+.window[data-layout="a"] .content { padding-left: var(--space-2); }
+.frame { flex: 1; border-radius: var(--radius-md); overflow: hidden; background: var(--color-surface); border: 1px solid var(--color-border); display: grid; grid-template-rows: auto 1fr; }
+.page-banner { padding: var(--space-2) var(--space-4); background: var(--color-surface-hover); color: var(--color-text-secondary); font-size: var(--font-size-label); display: flex; justify-content: space-between; }
+.page { padding: var(--space-8); display: grid; gap: var(--space-4); align-content: start; color: var(--color-text-secondary); }
+.page h2 { margin: 0; font: 600 var(--font-size-h1)/1.2 var(--font-display); color: var(--color-text-primary); }
+.page .ln { height: 10px; border-radius: 5px; background: var(--color-surface-hover); }
+.hover-url { position: absolute; left: var(--space-4); bottom: var(--space-4); padding: 3px 10px; border-radius: var(--radius-sm); background: var(--color-sidebar); border: 1px solid var(--color-border); font: var(--font-size-mono)/1.4 var(--font-mono); color: var(--color-text-primary); }
+.frame { position: relative; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 900px) { .window { height: 620px; } .address { max-width: none; } .actions .hide-sm, .caption { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="bench" role="toolbar" aria-label="Réglages de la maquette">
+  <b>ARB-28 · Mise en page cible</b>
+  <span>Thème <span class="seg" data-ctl="theme"><button aria-pressed="true" data-v="dark">Dark</button><button aria-pressed="false" data-v="light">Light</button></span></span>
+  <span>Barre latérale <span class="seg" data-ctl="side"><button aria-pressed="true" data-v="expanded">Étendue</button><button aria-pressed="false" data-v="compact">Compacte</button><button aria-pressed="false" data-v="hidden">Masquée</button></span></span>
+  <span>Composition <span class="seg" data-ctl="layout"><button aria-pressed="true" data-v="a">A · Barre en haut</button><button aria-pressed="false" data-v="b">B · Latérale pleine hauteur</button></span></span>
+  <span>Espace <span class="seg" data-ctl="ws"><button aria-pressed="false" data-v="personal">Personal</button><button aria-pressed="true" data-v="development">Development</button><button aria-pressed="false" data-v="work">Work</button><button aria-pressed="false" data-v="research">Research</button></span></span>
+</div>
+
+<div class="stage">
+  <div class="window" id="w" data-layout="a" data-side="expanded" data-ws="development">
+
+    <!-- Zone B : barre de contrôle -->
+    <header class="bar">
+      <div class="brand"><div class="mark">a</div><span>arbalète</span></div>
+      <div class="nav">
+        <button class="ib" aria-label="Précédent"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="ib" aria-label="Suivant" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="ib" aria-label="Recharger"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+      </div>
+      <div class="address" role="search">
+        <svg class="ok" viewBox="0 0 24 24" aria-label="Connexion sécurisée"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <span class="url"><i>https://</i>github.com<i>/salocinski/arbalete</i></span>
+        <button class="ib star" aria-label="Ajouter aux favoris" style="width:28px;height:28px"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
+      </div>
+      <div class="actions">
+        <button class="ib hide-sm" aria-label="Téléchargements"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></button>
+        <button class="ib" aria-label="Commandes (Ctrl K)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+      </div>
+      <div class="caption" aria-label="Boutons Windows (titleBarOverlay, 48 px)"><span>—</span><span>▢</span><span>✕</span></div>
+    </header>
+
+    <!-- Zone A : barre latérale -->
+    <div class="strip" id="strip"></div>
+    <aside class="side" id="side">
+      <div class="head"><div class="mark">a</div><span>arbalète</span></div>
+      <button class="ws" aria-label="Espace de travail"><i class="dot"></i><span class="name" id="wsname">Development</span><svg viewBox="0 0 24 24"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span>Rechercher</span><kbd>Ctrl K</kbd><i class="tip">Rechercher · Ctrl K</i></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Favoris</span><i class="tip">Favoris</i></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Historique</span><i class="tip">Historique</i></button>
+      <div class="label"><span>Onglets</span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+      <div class="tabs">
+        <div class="tab" aria-current="true"><i class="fav"></i><span class="ttl">salocinski/arbalete</span><span class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span><i class="tip">salocinski/arbalete</i></div>
+        <div class="tab"><i class="fav"></i><span class="ttl">Documentation Electron</span><span class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span><i class="tip">Documentation Electron</i></div>
+        <div class="tab load"><i class="fav"></i><span class="ttl">Chargement…</span><span class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span><i class="tip">Chargement…</i></div>
+        <div class="tab err"><i class="fav"></i><span class="ttl">Page injoignable</span><span class="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span><i class="tip">Page injoignable</i></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg><span>Téléchargements</span><i class="tip">Téléchargements</i></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Paramètres</span><i class="tip">Paramètres</i></button>
+      <div class="me"><div class="av">N</div><span>Profil local</span></div>
+    </aside>
+
+    <!-- Zone C : surface de contenu -->
+    <main class="content">
+      <div class="frame">
+        <div class="page-banner"><span>Aperçu : la page web occupe ce cadre (WebContentsView, coins de 10 px, marge de 8 px)</span><span>Ctrl Maj B · barre latérale</span></div>
+        <div class="page">
+          <h2>La page garde la priorité visuelle</h2>
+          <div class="ln" style="width:70%"></div><div class="ln" style="width:90%"></div><div class="ln" style="width:55%"></div>
+          <div class="ln" style="width:80%"></div><div class="ln" style="width:40%"></div>
+        </div>
+        <span class="hover-url">https://github.com/salocinski/arbalete/issues</span>
+      </div>
+    </main>
+  </div>
+
+  <div class="notes">
+    <div><h3>Zones</h3>A <code>--size-sidebar-expanded</code> 250 px (réglable), <code>--size-sidebar-compact</code> 68 px, masquée rappelée au survol du bord gauche (bande de 8 px). B <code>--size-control-bar</code> 48 px, champ d'adresse 40 px, boutons 34 px. C : cadre de 10 px de rayon, marge de 8 px.</div>
+    <div><h3>Fenêtre sans cadre (ARB-30)</h3>La barre B est la zone de déplacement. Les boutons Windows (3 × 46 px) sont ceux de <code>titleBarOverlay</code>, hauteur 48 px, couleurs suivies sur le thème actif.</div>
+    <div><h3>Composition A (validée le 2026-11-07)</h3>Barre de contrôle pleine largeur, marque à gauche au-dessus de la barre latérale. Écarte la silhouette « barre latérale pleine hauteur » du §14 et regroupe tous les contrôles de navigation à un seul endroit.</div>
+    <div><h3>Composition B (écartée)</h3>Barre latérale pleine hauteur, barre de contrôle au-dessus du contenu seul. Plus proche de la composition d'Arc : à éviter selon DESIGN.md §14 (Originality). Gardée pour comparaison.</div>
+    <div><h3>Espace actif</h3>La couleur de l'espace teinte un filet de la barre latérale et la pastille du sélecteur (ARB-63). Amber reste réservé aux interactions : onglet actif, focus, survol de l'étoile.</div>
+    <div><h3>Onglets</h3>Actif : surface discrète et barre Amber. Chargement : anneau sur le favicon. Erreur : favicon et titre en Error. En mode compact : favicon seul, titre en infobulle.</div>
+  </div>
+</div>
+
+<script>
+const w = document.getElementById('w');
+const names = { personal: 'Personal', development: 'Development', work: 'Work', research: 'Research' };
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  const k = seg.dataset.ctl, v = b.dataset.v;
+  if (k === 'theme') document.documentElement.dataset.theme = v;
+  else if (k === 'ws') { w.dataset.ws = v; document.getElementById('wsname').textContent = names[v]; }
+  else w.dataset[k] = v;
+  w.dataset.hover = '';
+}));
+// Barre masquée : rappel au survol du bord gauche, retrait à la sortie.
+const side = document.getElementById('side'), strip = document.getElementById('strip');
+strip.addEventListener('mouseenter', () => { w.dataset.hover = '1'; });
+side.addEventListener('mouseleave', () => { w.dataset.hover = ''; });
+</script>
+</body>
+</html>
