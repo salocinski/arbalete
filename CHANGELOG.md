@@ -2,6 +2,20 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.5.0] - 2026-11-07
+
+### Ajouté
+- Chaque onglet de la barre latérale affiche le favicon du site (ARB-35). Le processus principal écoute `page-favicon-updated` et ne transmet que les adresses `https:` et les images `data:` (PNG, JPEG, GIF, WebP, ICO) de 32 Ko au plus. Le favicon disparaît à la navigation vers un autre document, mais pas à un changement de fragment, et l'icône générique revient quand le site n'en annonce pas. L'icône d'erreur ou de chargement garde la priorité sur l'image.
+- Un test (C50) vérifie que le favicon s'affiche sans violation de la CSP, qu'il survit à un changement de fragment et qu'il est retiré à la navigation suivante, et un test unitaire couvre le filtre des adresses acceptées.
+
+### Modifié
+- La CSP de l'interface autorise désormais `img-src 'self' data: https:` (ARB-106) pour charger les favicons ; `script-src` et `style-src` restent stricts, et C50 épingle ces trois directives.
+
+### Limites connues
+- Un favicon en `http:` n'est pas affiché (icône générique).
+- L'interface charge elle-même le favicon `https:` choisi par la page : l'hôte voit la requête de l'interface, hors du cloisonnement de la session de l'onglet. À durcir en récupérant le favicon dans le processus principal pour le renvoyer en `data:`, ce qui permettrait de retirer `https:` de la CSP.
+- Le favicon est aussi effacé quand une navigation démarre sans aboutir (téléchargement, réponse 204).
+
 ## [0.12.4.0] - 2026-11-07
 
 ### Ajouté
