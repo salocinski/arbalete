@@ -1,4 +1,6 @@
 import { ArrowRight, Command, GitBranch, Globe2, Layers3, Plus, Search, Sparkles } from 'lucide-react'
+import { Button } from './ui/Button'
+import { Input } from './ui/Input'
 
 type WelcomeCardProps = {
   address: string
@@ -17,9 +19,15 @@ export function WelcomeCard({ address, onAddressChange, onAddressFocus, onNaviga
       <h1>Le web, <span>à votre façon.</span></h1>
       <p className="welcome-description">Arbalète rassemble vos onglets, vos projets et vos habitudes dans un espace de navigation calme et personnalisé.</p>
       <form className="welcome-search" onSubmit={(event) => { event.preventDefault(); onNavigate() }}>
-        <Search size={18}/>
-        <input value={address} onChange={(event) => onAddressChange(event.target.value)} onFocus={onAddressFocus} placeholder="Rechercher ou saisir une adresse"/>
-        <button type="submit">Explorer <ArrowRight size={15}/></button>
+        <Input
+          value={address}
+          onChange={(event) => onAddressChange(event.target.value)}
+          onFocus={onAddressFocus}
+          placeholder="Rechercher ou saisir une adresse"
+          aria-label="Rechercher ou saisir une adresse"
+          leading={<Search size={20}/>}
+          trailing={<Button type="submit" variant="primary" icon={<ArrowRight size={16}/>} className="welcome-submit">Explorer</Button>}
+        />
       </form>
       <div className="quick-links">
         <button onClick={() => onOpenUrl('https://github.com')}><span className="quick-icon github"><GitBranch size={18}/></span><span>GitHub</span></button>

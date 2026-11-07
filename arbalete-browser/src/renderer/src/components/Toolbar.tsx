@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Monitor, Moon, Plus, RotateCw, Sun } from 'lucid
 import type { BrowserTab, ThemeChoice } from '../../../shared/types'
 import { AddressBar } from './AddressBar'
 import { PinButton } from './PinButton'
+import { IconButton } from './ui/IconButton'
 
 const nextTheme: Record<ThemeChoice, ThemeChoice> = { system: 'dark', dark: 'light', light: 'system' }
 
@@ -22,16 +23,16 @@ export function Toolbar({ activeTab, sidebarPinned, themeChoice, onNavigate, ...
   return (
     <header className="toolbar">
       <div className="nav-controls">
-        <PinButton pinned={sidebarPinned} className="icon-button" />
-        <button className="icon-button" title="Précédent (Alt+←)" onClick={() => void window.arbalete.goBack()} disabled={!activeTab?.canGoBack}><ArrowLeft size={17}/></button>
-        <button className="icon-button" title="Suivant (Alt+→)" onClick={() => void window.arbalete.goForward()} disabled={!activeTab?.canGoForward}><ArrowRight size={17}/></button>
-        <button className="icon-button" title="Recharger" onClick={() => void window.arbalete.reload()}><RotateCw size={15}/></button>
+        <PinButton pinned={sidebarPinned} />
+        <IconButton title="Précédent (Alt+←)" onClick={() => void window.arbalete.goBack()} disabled={!activeTab?.canGoBack}><ArrowLeft size={16}/></IconButton>
+        <IconButton title="Suivant (Alt+→)" onClick={() => void window.arbalete.goForward()} disabled={!activeTab?.canGoForward}><ArrowRight size={16}/></IconButton>
+        <IconButton title="Recharger" onClick={() => void window.arbalete.reload()}><RotateCw size={16}/></IconButton>
       </div>
       <AddressBar {...address} onSubmit={onNavigate} />
-      <button className="icon-button toolbar-action" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={18}/></button>
-      <button className="icon-button toolbar-action" title="Thème : changer le mode" onClick={() => void window.arbalete.setTheme(nextTheme[themeChoice])}>
+      <IconButton variant="secondary" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={16}/></IconButton>
+      <IconButton variant="secondary" title="Thème : changer le mode" onClick={() => void window.arbalete.setTheme(nextTheme[themeChoice])}>
         {themeChoice === 'system' ? <Monitor size={16}/> : themeChoice === 'dark' ? <Moon size={16}/> : <Sun size={16}/>}
-      </button>
+      </IconButton>
     </header>
   )
 }

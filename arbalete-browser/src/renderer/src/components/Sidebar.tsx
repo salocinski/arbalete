@@ -4,6 +4,7 @@ import type { BrowserState, SidebarState } from '../../../shared/types'
 import { useOverlay } from '../state'
 import { MenuOverlay } from './Overlay'
 import { PinButton } from './PinButton'
+import { IconButton } from './ui/IconButton'
 import { TabList } from './TabList'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
@@ -62,7 +63,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
           <div className="brand-row">
             <div className="brand-mark">a<span>.</span></div>
             <span className="brand-name">arbalète</span>
-            <PinButton pinned={sidebar.pinned} className="icon-button sidebar-toggle" />
+            <PinButton pinned={sidebar.pinned} className="sidebar-toggle" />
           </div>
 
           <WorkspaceSwitcher workspace={workspace} onWorkspaceChange={setWorkspace} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} />
@@ -73,7 +74,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
             <button className="nav-item"><Clock3 size={16} /><span>Historique</span></button>
           </nav>
 
-          <div className="section-heading"><span>ONGLETS</span><button className="tiny-icon" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={15}/></button></div>
+          <div className="section-heading"><span>ONGLETS</span><IconButton size="sm" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={14}/></IconButton></div>
           <TabList state={state} onMenu={ouvrirMenuOnglet} />
           <button className="new-tab-button" onClick={() => void window.arbalete.createTab()}><Plus size={16}/><span>Nouvel onglet</span><kbd>Ctrl T</kbd></button>
           <div className="sidebar-spacer" />

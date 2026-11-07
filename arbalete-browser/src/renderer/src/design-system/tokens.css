@@ -4,7 +4,7 @@
    Jumelles de --color-background : FOND_FENETRE dans src/main/index.ts, à changer ensemble. */
 
 :root {
-  /* Typographie : Inter, Manrope et JetBrains Mono seront embarquées (ARB-121) ; d'ici là, repli Windows. */
+  /* Typographie : Inter, Manrope et JetBrains Mono sont embarquées (fonts.css, ARB-121) ; repli sur les polices Windows. */
   --font-ui: Inter, 'Segoe UI', sans-serif;
   --font-display: Manrope, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
