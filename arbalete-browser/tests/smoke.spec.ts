@@ -1614,6 +1614,38 @@ test('C43 : une base illisible est mise de côté, remplacée, et l’utilisateu
   }
 })
 
+// Value: protects=ARB-131 : une base corrompue est remplacée par la dernière copie de secours, qui rend la session, et
+//   l'utilisateur est prévenu que des changements récents ont pu être perdus; la base abîmée reste de côté;
+//   fails_when=l'app repart d'une base vide malgré une copie saine, la copie n'est pas écrite à la fermeture normale, ou
+//   l'avertissement annonce des données neuves;
+//   why_new=C43 part d'un profil sans copie de secours; seam=fermeture normale d'une première instance, puis arbalete.db
+//   remplacé par du texte avant le second lancement; no_claim=ne simule pas une corruption partielle de pages.
+test('C52 : une base corrompue revient de la copie de secours, session comprise', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const pageA = `${origine}/page-a.html`
+  const lancer = (args: string[] = []) =>
+    electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer(['--', pageA])
+  try {
+    await expect.poll(() => sessionSurDisque(autreProfil).map((onglet) => onglet.url), { timeout: 10_000 }).toEqual([pageA])
+    await autreApp.close()
+    expect(existsSync(join(autreProfil, 'arbalete.db.sauvegarde'))).toBe(true)
+
+    writeFileSync(join(autreProfil, 'arbalete.db'), Buffer.from('pas une base SQLite '.repeat(10)))
+    rmSync(join(autreProfil, 'arbalete.db-wal'), { force: true })
+    rmSync(join(autreProfil, 'arbalete.db-shm'), { force: true })
+    autreApp = await lancer()
+    const fenetre = await fenetreInterface(autreApp)
+    const incident = await fenetre.evaluate(() => window.arbalete.getDataIncident())
+    expect(incident).toMatchObject({ kind: 'corrupted', restored: true })
+    await expect(fenetre.getByTestId('data-incident-banner')).toContainText('copie de secours')
+    await expect.poll(async () => (await ongletsDe(fenetre)).map((onglet) => onglet.url), { timeout: 10_000 }).toEqual([pageA])
+  } finally {
+    await autreApp.close().catch(() => {})
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
 // Value: protects=ARB-119 : une base d'une version plus récente n'est ni renommée ni modifiée, et l'utilisateur est
 //   prévenu que rien ne sera conservé;
 //   fails_when=une base plus récente est prise pour illisible et mise de côté, modifiée, ou ignorée sans avertissement;

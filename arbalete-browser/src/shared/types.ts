@@ -34,7 +34,7 @@ export type RestoreAnswer = 'restore' | 'dismiss'
 
 // Incident de la base à l'ouverture (ARB-119) : illisible et mise de côté sous le nom backup, plus récente que cette
 // version d'Arbalète, ou indisponible. Dans les deux derniers cas, rien n'est conservé pendant la session.
-export type DataIncident = { kind: 'corrupted', backup: string } | { kind: 'newer' } | { kind: 'unavailable' }
+export type DataIncident = { kind: 'corrupted', backup: string, restored: boolean } | { kind: 'newer' } | { kind: 'unavailable' }
 
 export type BrowserAPI = {
   getState: () => Promise<BrowserState>

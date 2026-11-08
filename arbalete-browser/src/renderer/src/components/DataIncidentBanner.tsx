@@ -5,7 +5,9 @@ import { Button } from './ui/Button'
 function message(incident: DataIncident): string {
   switch (incident.kind) {
     case 'corrupted':
-      return `Les données d'Arbalète étaient illisibles : elles ont été mises de côté (${incident.backup}) et remplacées par des données neuves. La session précédente n'a pas pu être restaurée.`
+      return incident.restored
+        ? `Les données d'Arbalète étaient illisibles : elles ont été mises de côté (${incident.backup}) et remplacées par la dernière copie de secours. Les changements récents ont pu être perdus.`
+        : `Les données d'Arbalète étaient illisibles : elles ont été mises de côté (${incident.backup}) et remplacées par des données neuves. La session précédente n'a pas pu être restaurée.`
     case 'newer':
       return "Les données d'Arbalète viennent d'une version plus récente : elles restent intactes, mais rien ne sera conservé pendant cette session."
     case 'unavailable':
