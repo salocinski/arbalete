@@ -1011,6 +1011,8 @@ test('C51 : la barre de contrôle est rendue à 48 px, dans l’ordre prévu, et
 //   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
 //   no_claim=ne couvre pas un iframe dans l'interface (bloqué en amont par la CSP et ARB-12).
 test('C14 : un appel IPC venant d’une autre page que l’interface est refusé', async () => {
+  // Le premier onglet charge google.com : tant qu'il charge, son URL passe de « …com » à « …com/ » et fausse la comparaison.
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
   const avant = await etat()
   const resultats = await app.evaluate(async ({ BrowserWindow }, { preload, url }) => {
     const intruse = new BrowserWindow({ show: false, webPreferences: { preload, contextIsolation: true, sandbox: true } })
