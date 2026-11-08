@@ -27,13 +27,22 @@ test('chaque action est épinglée par une empreinte de commit complète', () =>
   }
 })
 
-test('la CI tourne sur Windows, sur main et sur les PR, avec typecheck, tests unitaires et build', () => {
-  ok(/runs-on: windows-latest/.test(ci))
+test('la CI tourne sur Windows, sur main et sur les PR, avec typecheck, tests unitaires, build et smoke', () => {
+  strictEqual((ci.match(/runs-on: windows-latest/g) ?? []).length, 2, 'deux jobs, tous deux sur windows-latest')
   ok(/^ {2}push:\s*\r?\n {4}branches: \[main\]/m.test(ci), 'push sur main')
   ok(/^ {2}pull_request:/m.test(ci), 'pull_request')
-  const commandes = lignes.filter((ligne) => /^\s*- run:/.test(ligne)).map((ligne) => ligne.replace(/^\s*- run:\s*/, '').trim())
+  const commandes = lignes.filter((ligne) => /^\s*(- )?run:\s*\S/.test(ligne)).map((ligne) => ligne.replace(/^\s*(- )?run:\s*/, '').trim())
   strictEqual(
     commandes.join(' | '),
-    'npm ci | npx install-electron | npm run typecheck | npm run test:unit | npm run build'
+    'npm ci | npx install-electron | npm run typecheck | npm run test:unit | npm run build | ' +
+      'npm ci | npx install-electron | npm run test:smoke'
   )
+})
+
+// Un échec doit rester un échec : ni test rejoué jusqu'à passer, ni étape qui échoue sans arrêter le job.
+test('aucune étape de la CI ne masque un échec', () => {
+  // Commentaires retirés : une explication qui cite ces mots ne doit pas faire échouer le test.
+  const sansCommentaires = ci.replace(/^\s*#.*$/gm, '')
+  ok(!/continue-on-error/.test(sansCommentaires), 'continue-on-error rendrait un smoke rouge vert')
+  ok(!/\bretries?\b/i.test(sansCommentaires), 'pas de nouvel essai automatique')
 })

@@ -42,8 +42,8 @@ travailler sur l'interface sans redémarrer Electron.
    npm run test:unit
    npm run test:smoke
    ```
-   La CI (GitHub Actions, Windows) relance `typecheck`, `test:unit` et `build` sur chaque PR ; le test de fumée
-   (`test:smoke`) n'y tourne pas encore, lance-le toi-même.
+   La CI (GitHub Actions, Windows) relance `typecheck`, `test:unit`, `build` et le test de fumée (`test:smoke`) sur
+   chaque PR ; lancer ces commandes chez toi avant d'envoyer évite un aller-retour.
 4. Ouvre une **pull request** vers `main` en remplissant le modèle. Mentionne l'issue (`Fixes #42`).
 5. Une PR est fusionnée par un mainteneur après revue, en *squash* (un commit par PR).
 

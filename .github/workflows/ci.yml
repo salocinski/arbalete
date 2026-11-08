@@ -1,5 +1,5 @@
-# Intégration continue d'Arbalète (ARB-8, phase 1) : typecheck, tests unitaires et build sur Windows, à chaque push sur
-# main et à chaque pull request. Le smoke test (Playwright, fenêtres Electron) n'est pas ici : phase 2.
+# Intégration continue d'Arbalète (ARB-8) : sur Windows, à chaque push sur main et à chaque pull request, un job
+# vérifie typecheck, tests unitaires et build (phase 1), un autre lance le smoke test Playwright/Electron (phase 2).
 name: CI
 
 on:
@@ -42,3 +42,33 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run build
+
+  # Phase 2 : le smoke test lance Arbalète pour de bon (fenêtres Electron pilotées par Playwright) sur la session
+  # graphique du poste Windows. Un job à part : ses échecs ne masquent pas ceux du typecheck et des tests unitaires.
+  # Aucun nouvel essai automatique : un test instable doit se voir et se corriger, pas se rejouer jusqu'à passer.
+  smoke:
+    name: Smoke test (Electron)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: arbalete-browser/package-lock.json
+      - run: npm ci
+      - run: npx install-electron
+      # test:smoke compile puis lance Playwright ; le premier onglet charge google.com, le poste doit avoir le réseau.
+      - run: npm run test:smoke
+      # Contexte d'erreur des tests (test-results/), gardé 7 jours, seulement quand le smoke échoue ; un dossier vide
+      # laisse un avertissement plutôt que de passer sous silence.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: smoke-test-results
+          path: arbalete-browser/test-results/
+          retention-days: 7
+          if-no-files-found: warn
