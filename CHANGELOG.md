@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.10.1] - 2026-11-08
+
+### Ajouté
+- Le README affiche un badge CI qui montre si le dernier envoi sur `main` passe (ARB-8, troisième phase).
+
+### Modifié
+- La règle de protection de `main` (le ruleset `PR-Rule`) exige désormais les deux contrôles de la CI, « Typecheck, tests unitaires, build » et « Smoke test (Electron) » : une PR ne peut plus être fusionnée avec l'un d'eux rouge ou absent. Le réglage vit sur GitHub, pas dans le dépôt.
+
 ## [0.12.10.0] - 2026-11-08
 
 ### Ajouté
