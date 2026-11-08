@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.6.3] - 2026-11-08
+
+### Corrigé
+- Le test C42 (invite de restauration après un arrêt forcé) ne dépend plus de la charge de la machine (ARB-129) : sous forte charge il échouait 11 fois sur 12, il passe maintenant 12 fois sur 12. Trois causes, toutes dans le test : la lecture de la session pendant que l'app l'écrit (« database is locked »), un relancement trop rapide qui se fermait comme une seconde instance, et un profil encore tenu par Windows après l'arrêt forcé, qui faisait démarrer l'app sans base et sans invite.
+
+### Limites connues
+- Une base momentanément inaccessible au démarrage (redémarrage très rapide après un plantage, machine chargée) fait toujours démarrer l'app sans persistance ni invite de restauration ; ce comportement de l'app n'est pas traité ici.
+
 ## [0.12.6.2] - 2026-11-08
 
 ### Corrigé
@@ -9,7 +17,7 @@ Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MIN
 - C14 attend la fin du chargement du premier onglet avant de comparer son adresse, qui passait de `https://www.google.com` à `https://www.google.com/` en cours de chargement et faisait échouer le test par intermittence.
 
 ### Limites connues
-- C42 (invite de restauration après un arrêt forcé) reste suspect d'instabilité : l'échec relevé au ship d'ARB-125 n'a pas été reproduit (30 réussites sur 30 en relance isolée), sa cause n'est pas identifiée et ARB-129 reste ouvert pour lui.
+- C42 (invite de restauration après un arrêt forcé) restait suspect d'instabilité ; corrigé en 0.12.6.3.
 
 ## [0.12.6.1] - 2026-11-07
 
