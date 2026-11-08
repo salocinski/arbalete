@@ -157,11 +157,13 @@ modifier `DESIGN.md` qu'après validation.
 - Dépendances : `electron` est épinglé en version exacte (sans `^`), pour que le Chromium livré se lise dans
   `package.json` ; les autres dépendances gardent `^`, le `package-lock.json` fige l'installation.
   `@types/node` suit la majeure de Node embarquée par Electron (Node 24 pour Electron 45).
-- CI (`.github/workflows/ci.yml`, ARB-8 phase 1) : à chaque push sur `main` et chaque PR, sur `windows-latest`,
-  `npm ci`, `npx install-electron`, `npm run typecheck`, `npm run test:unit` et `npm run build` ; droits en lecture
-  seule, actions épinglées par empreinte (Dependabot les met à jour). Le smoke test n'y est pas encore (phase 2).
-- PR Dependabot : la CI couvre typecheck, tests unitaires et build. Avant de fusionner, récupérer la branche puis lancer
-  dans `arbalete-browser/` `npm ci`, `npx install-electron` et `npm run test:smoke`.
+- CI (`.github/workflows/ci.yml`, ARB-8) : à chaque push sur `main` et chaque PR, sur `windows-latest`, deux jobs.
+  `verifier` (phase 1) : `npm ci`, `npx install-electron`, `npm run typecheck`, `npm run test:unit` et `npm run build`.
+  `smoke` (phase 2) : `npm ci`, `npx install-electron` et `npm run test:smoke`, sans nouvel essai automatique ; en cas
+  d'échec, `arbalete-browser/test-results/` est gardé 7 jours dans l'artefact `smoke-test-results`. Droits en lecture
+  seule, actions épinglées par empreinte (Dependabot les met à jour), `continue-on-error` et les nouveaux essais
+  interdits par `src/ci.test.ts`.
+- PR Dependabot : la CI couvre typecheck, tests unitaires, build et smoke ; fusionner une PR dont les deux jobs sont verts.
 
 ## Cycle de travail avec gstack
 
