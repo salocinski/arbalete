@@ -61,6 +61,9 @@ test.beforeAll(async () => {
   app = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest() })
   ui = await fenetreInterface(app)
   barreUi = await vueBarre(app)
+  // Le vrai curseur de l'utilisateur ne doit pas interférer : la barre s'ouvre au survol réel du bord gauche (onMouseEnter).
+  // Les événements de Playwright (CDP) et de sendInputEvent ne passent pas par la souris du système, donc restent actifs.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setIgnoreMouseEvents(true))
 })
 
 test.afterAll(async () => {
@@ -1008,6 +1011,8 @@ test('C51 : la barre de contrôle est rendue à 48 px, dans l’ordre prévu, et
 //   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
 //   no_claim=ne couvre pas un iframe dans l'interface (bloqué en amont par la CSP et ARB-12).
 test('C14 : un appel IPC venant d’une autre page que l’interface est refusé', async () => {
+  // Le premier onglet charge google.com : tant qu'il charge, son URL passe de « …com » à « …com/ » et fausse la comparaison.
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
   const avant = await etat()
   const resultats = await app.evaluate(async ({ BrowserWindow }, { preload, url }) => {
     const intruse = new BrowserWindow({ show: false, webPreferences: { preload, contextIsolation: true, sandbox: true } })
