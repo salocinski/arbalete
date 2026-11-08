@@ -1,6 +1,7 @@
-import { existsSync, renameSync } from 'node:fs'
+import { copyFileSync, existsSync, renameSync, rmSync } from 'node:fs'
 import { basename } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { SUFFIXE_PRECEDENTE, SUFFIXE_SAUVEGARDE } from './sauvegarde.ts'
 import { BasePlusRecente, appliquerMigrations, refuserBasePlusRecente } from './migrations.ts'
 
 // Attente maximale d'une base verrouillée par une autre connexion (autre instance d'Arbalète) avant d'échouer.
@@ -40,15 +41,22 @@ function estCorrompue(erreur: unknown): boolean {
 
 // Fichier momentanément tenu (redémarrage juste après un plantage, antivirus, processus tué qui lâche ses fichiers) :
 // SQLite répond « disk I/O error », que le délai de verrou ci-dessus ne couvre pas. On réessaie avant de renoncer à la
-// persistance. Seule cette erreur d'E/S (SQLITE_IOERR, 10) est réessayée : une base corrompue, plus récente, déjà
-// attendue en vain (BUSY) ou inaccessible pour de bon (droits, dossier absent) ne se règle pas en attendant, et
+// persistance (ARB-130). Une base jugée corrompue est rouverte avant d'être mise de côté (ARB-131) : une vraie
+// corruption se reproduit à chaque ouverture, une lecture gênée passe au bout d'un moment. Les autres erreurs (base plus
+// récente, verrou déjà attendu en vain, droits, dossier absent) ne se règlent pas en attendant : un seul essai, car
 // chaque essai bloque le processus principal avant l'ouverture de la fenêtre.
 const ESSAIS_OUVERTURE = 5
+const ESSAIS_CONFIRMATION = 3
 const PAUSE_ENTRE_ESSAIS_MS = 500
 
 function estErreurES(erreur: unknown): boolean {
   const code = (erreur as { errcode?: unknown } | null)?.errcode
   return typeof code === 'number' && (code & 0xff) === 10
+}
+
+function essaisPermis(erreur: unknown): number {
+  if (estErreurES(erreur)) return ESSAIS_OUVERTURE
+  return estCorrompue(erreur) ? ESSAIS_CONFIRMATION : 1
 }
 
 function dormir(ms: number): void {
@@ -60,21 +68,43 @@ function ouvrirAvecReessais(chemin: string, ouvrir: (chemin: string) => Database
     try {
       return ouvrir(chemin)
     } catch (erreur) {
-      if (essai === ESSAIS_OUVERTURE || !estErreurES(erreur)) throw erreur
-      console.error(`Ouverture de la base échouée (essai ${essai}/${ESSAIS_OUVERTURE}), nouvel essai :`, erreur)
+      const permis = essaisPermis(erreur)
+      if (essai >= permis) throw erreur
+      console.error(`Ouverture de la base échouée (essai ${essai}/${permis}), nouvel essai :`, erreur)
       pause(PAUSE_ENTRE_ESSAIS_MS)
     }
   }
 }
 
+// Remet en place la dernière copie saine (puis la précédente) à la place de la base mise de côté. Une copie qui ne
+// s'ouvre pas est écartée. null si aucune ne convient : l'appelant repart d'une base neuve.
+// La copie remise en place s'ouvre avec les mêmes réessais que la base : un échec d'E/S passager ne doit pas écarter une
+// bonne copie au profit d'une base vide.
+function restaurerSauvegarde(chemin: string, ouvrir: (chemin: string) => DatabaseSync, pause: (ms: number) => void): DatabaseSync | null {
+  for (const source of [chemin + SUFFIXE_SAUVEGARDE, chemin + SUFFIXE_SAUVEGARDE + SUFFIXE_PRECEDENTE]) {
+    if (!existsSync(source)) continue
+    try {
+      copyFileSync(source, chemin)
+      return ouvrirAvecReessais(chemin, ouvrir, pause)
+    } catch (erreur) {
+      console.error(`Copie de secours inutilisable (${basename(source)}) :`, erreur)
+      for (const suffixe of ['', '-wal', '-shm']) {
+        try { rmSync(chemin + suffixe, { force: true }) } catch (echec) { console.error('Copie écartée non supprimée :', echec) }
+      }
+    }
+  }
+  return null
+}
+
 // Ce que l'ouverture de la base a dû faire, pour en prévenir l'utilisateur (ARB-119).
 export type IncidentBase =
-  | { type: 'corrompue', copie: string }
+  | { type: 'corrompue', copie: string, restauree: boolean }
   | { type: 'plus-recente' }
   | { type: 'indisponible' }
 
 // Ouvre la base comme ouvrirBase, sans lever d'erreur. Une base illisible est mise de côté sous
-// arbalete.db.corrompue-<date>, avec ses fichiers -wal et -shm, et remplacée par une base neuve. Une base plus récente
+// arbalete.db.corrompue-<date>, avec ses fichiers -wal et -shm, et remplacée par la dernière copie de secours saine
+// (ARB-131) ou, à défaut, par une base neuve. Une base plus récente
 // ou verrouillée n'est jamais renommée : db vaut alors null et le navigateur marche sans persistance.
 export function ouvrirBaseOuRecuperer(
   chemin: string,
@@ -102,7 +132,8 @@ export function ouvrirBaseOuRecuperer(
     for (const suffixe of ['-wal', '-shm']) {
       if (existsSync(chemin + suffixe)) renameSync(chemin + suffixe, copie + suffixe)
     }
-    return { db: ouvrirBase(chemin), incident: { type: 'corrompue', copie: basename(copie) } }
+    const restauree = restaurerSauvegarde(chemin, ouvrir, pause)
+    return { db: restauree ?? ouvrirBase(chemin), incident: { type: 'corrompue', copie: basename(copie), restauree: restauree !== null } }
   } catch (erreur) {
     console.error('Base illisible non remplacée, aucune donnée ne sera conservée :', erreur)
     return { db: null, incident: { type: 'indisponible' } }

@@ -7,6 +7,7 @@ import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
+import { sauvegarderBase } from './donnees/sauvegarde.ts'
 import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historique.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
@@ -28,6 +29,8 @@ let mainWindow: BrowserWindow | null = null
 let base: DatabaseSync | null = null
 // Ce que l'ouverture de la base a dû faire (ARB-119), affiché dans la fenêtre jusqu'à ce que l'utilisateur le ferme.
 let incidentBase: DataIncident | null = null
+let cheminBase: string | null = null
+let copiesSuspendues = false
 // Barre latérale (ARB-33) : vue native au-dessus de l'onglet, car une WebContentsView masque tout HTML de la fenêtre
 // (règle 4). Masquée, elle n'est qu'une bande transparente au bord gauche qui détecte le survol.
 let barreView: WebContentsView | null = null
@@ -656,9 +659,18 @@ function createWindow(adresses: readonly string[] = []) {
 
 function versIncident(incident: IncidentBase): DataIncident {
   switch (incident.type) {
-    case 'corrompue': return { kind: 'corrupted', backup: incident.copie }
+    case 'corrompue': return { kind: 'corrupted', backup: incident.copie, restored: incident.restauree }
     case 'plus-recente': return { kind: 'newer' }
     case 'indisponible': return { kind: 'unavailable' }
+  }
+}
+
+function copieDeSecours(options: { seulementSiAncienne?: boolean } = {}) {
+  if (!base || !cheminBase || copiesSuspendues) return
+  try {
+    sauvegarderBase(base, cheminBase, options)
+  } catch (erreur) {
+    console.error('Copie de secours de la base non écrite :', erreur)
   }
 }
 
@@ -674,7 +686,8 @@ app.whenReady().then(() => {
   // d'Arbalète passent par l'interface ou le processus principal, pas par ce menu.
   Menu.setApplicationMenu(null)
 
-  const ouverture = ouvrirBaseOuRecuperer(join(app.getPath('userData'), 'arbalete.db'))
+  cheminBase = join(app.getPath('userData'), 'arbalete.db')
+  const ouverture = ouvrirBaseOuRecuperer(cheminBase)
   base = ouverture.db
   incidentBase = ouverture.incident && versIncident(ouverture.incident)
   if (base) {
@@ -683,6 +696,12 @@ app.whenReady().then(() => {
     } catch (erreur) {
       console.error('Ouverture de la session non notée :', erreur)
     }
+    // Une base neuve mise à la place d'une base corrompue sans copie utilisable ne doit pas écraser les copies qui
+    // existent encore : aucune copie pendant cette session.
+    copiesSuspendues = ouverture.incident?.type === 'corrompue' && !ouverture.incident.restauree
+    // Copie de secours peu après le démarrage, si la dernière a plus de 24 h : une session qui ne se ferme jamais
+    // normalement en a une, et la première fenêtre n'attend pas la copie.
+    setTimeout(() => copieDeSecours({ seulementSiAncienne: true }), 30_000)
   }
 
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
@@ -794,6 +813,7 @@ app.on('will-quit', () => {
   } catch (erreur) {
     console.error('Fermeture de la session non notée :', erreur)
   }
+  copieDeSecours()
   base?.close()
   base = null
 })
