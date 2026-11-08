@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.11.0] - 2026-11-08
+
+### Ajouté
+- La fenêtre d'Arbalète n'a plus de barre de titre Windows : sa barre de contrôle (précédent, suivant, adresse) en tient lieu. On déplace la fenêtre en la saisissant par un espace vide de cette barre, et les boutons réduire, agrandir et fermer de Windows restent à droite, à la même hauteur que la barre (ARB-30).
+- Les boutons de fenêtre suivent le thème : leurs couleurs changent avec le choix sombre, clair ou celui de Windows.
+
+### Limites connues
+- Le déplacement réel de la fenêtre, le survol des boutons Windows et leur accès pendant qu'un menu d'onglet est ouvert n'ont pas été vérifiés à la main : les tests automatiques ne peuvent pas les voir.
+- Un clic sur un espace vide de la barre de contrôle ne referme plus la barre latérale non épinglée ; elle se referme toujours quand la souris la quitte. Un clic droit au même endroit ouvre le menu système de Windows.
+- Aucun essai à 125 % ou 150 % de mise à l'échelle de Windows.
+
 ## [0.12.10.1] - 2026-11-08
 
 ### Ajouté
