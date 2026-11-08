@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.6.2] - 2026-11-08
+
+### Corrigé
+- Les smoke tests ne dépendent plus de la position du curseur de l'utilisateur (ARB-129) : la fenêtre de test ignore la souris système, si bien que le survol réel du bord gauche n'ouvre plus la barre latérale pendant C33 et C34. Les événements de test (Playwright, `sendInputEvent`) restent actifs.
+- C14 attend la fin du chargement du premier onglet avant de comparer son adresse, qui passait de `https://www.google.com` à `https://www.google.com/` en cours de chargement et faisait échouer le test par intermittence.
+
+### Limites connues
+- C42 (invite de restauration après un arrêt forcé) reste suspect d'instabilité : l'échec relevé au ship d'ARB-125 n'a pas été reproduit (30 réussites sur 30 en relance isolée), sa cause n'est pas identifiée et ARB-129 reste ouvert pour lui.
+
 ## [0.12.6.1] - 2026-11-07
 
 ### Modifié
