@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
@@ -1390,7 +1390,8 @@ test('C39 : une instance lancée sur un autre profil démarre au lieu de se ferm
 function sessionSurDisque(dossier: string): Array<{ url: string, titre: string, actif: number }> {
   const chemin = join(dossier, 'arbalete.db')
   if (!existsSync(chemin)) return []
-  const db = new DatabaseSync(chemin, { readOnly: true })
+  // timeout : l'app écrit la session en parallèle ; sans délai d'attente, SQLite répond « database is locked » (ARB-129).
+  const db = new DatabaseSync(chemin, { readOnly: true, timeout: 3_000 })
   try {
     return db.prepare('SELECT url, titre, actif FROM onglet ORDER BY position').all() as Array<{ url: string, titre: string, actif: number }>
   } catch (erreur) {
@@ -1498,8 +1499,18 @@ test('C42 : après un arrêt forcé, une invite propose de restaurer la session 
   const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
   const pageA = `${origine}/page-a.html`
   const pageB = `${origine}/page-b.html`
-  const lancer = (args: string[] = []) =>
-    electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  // Windows libère le verrou du profil un instant après la fin des processus : un lancement trop rapide se ferme
+  // comme une seconde instance (ECONNRESET). On réessaie, le profil restant celui du test (ARB-129).
+  const lancer = async (args: string[] = []) => {
+    for (let essai = 1; ; essai++) {
+      try {
+        return await electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+      } catch (erreur) {
+        if (essai === 5) throw erreur
+        await new Promise((fini) => setTimeout(fini, 1_000))
+      }
+    }
+  }
   // Fin de tâche de l'arborescence, comme le Gestionnaire des tâches : les processus enfants d'Electron tenus par un
   // processus principal tué garderaient sinon le verrou d'instance unique, et le lancement suivant se fermerait.
   const arreterDeForce = async (electronApp: ElectronApplication) => {
@@ -1507,6 +1518,19 @@ test('C42 : après un arrêt forcé, une invite propose de restaurer la session 
     const fin = new Promise((done) => processus.once('exit', done))
     spawnSync('taskkill', ['/pid', String(processus.pid), '/t', '/f'], { stdio: 'ignore' })
     await fin
+    // Sous charge, Windows garde des fichiers du profil ouverts quelques secondes après la fin des processus : la base
+    // s'ouvrirait alors en « disk I/O error » et l'invite n'apparaîtrait pas (ARB-129). Un dossier ne se renomme que
+    // lorsque plus aucun de ses fichiers n'est tenu.
+    const provisoire = `${autreProfil}-libre`
+    await expect.poll(() => {
+      try {
+        renameSync(autreProfil, provisoire)
+        renameSync(provisoire, autreProfil)
+        return true
+      } catch {
+        return false
+      }
+    }, { timeout: 20_000 }).toBe(true)
   }
   const offre = (fenetre: Page) => fenetre.evaluate(() => window.arbalete.getRestoreOffer())
   let autreApp = await lancer(['--', pageA, pageB])
