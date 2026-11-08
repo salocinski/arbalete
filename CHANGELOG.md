@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.10.0] - 2026-11-08
+
+### Ajouté
+- Le test de fumée (les vraies fenêtres d'Arbalète pilotées par Playwright) tourne maintenant dans la CI Windows (ARB-8, deuxième phase) : un second job, 50 tests en une minute environ lors de la première exécution. Il n'a aucun nouvel essai automatique, pour qu'un test instable se voie et se corrige. En cas d'échec, le contexte d'erreur des tests est gardé 7 jours dans l'artefact `smoke-test-results`, et un dossier vide laisse un avertissement. Le test de garde de la CI interdit aussi `continue-on-error` et les nouveaux essais.
+
+### Limites connues
+- Le premier onglet charge google.com : une page de consentement ou une panne de réseau sur le poste de GitHub peut faire échouer le test de fumée sans changement de code, et aucune page de départ de test n'existe encore. Les durées des tests n'ont été observées que sur une exécution.
+- La règle qui impose la CI verte avant la fusion sur `main` n'est pas posée (phase 3) ; tant qu'elle ne l'est pas, une PR peut être fusionnée avec un test de fumée rouge. Les noms des deux jobs seront les identifiants à exiger.
+
 ## [0.12.9.0] - 2026-11-08
 
 ### Ajouté
