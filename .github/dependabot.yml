@@ -20,3 +20,9 @@ updates:
       # @types/node suit la majeure de Node embarquée par Electron : on la monte à la main avec Electron.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+
+  # Les actions de la CI (ARB-8) sont épinglées par empreinte : Dependabot en propose les mises à jour.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
