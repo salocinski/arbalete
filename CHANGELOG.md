@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.8.0] - 2026-11-08
+
+### Ajouté
+- Arbalète garde une copie de secours de ses données (ARB-131) : écrite à la fermeture normale et, 30 secondes après le démarrage, si la dernière a plus de 24 h. Une deuxième copie, d'au moins 24 h de plus, est conservée à côté. Si les données sont vraiment illisibles, elles sont remplacées par cette copie au lieu de repartir de zéro, et l'avertissement l'indique (les changements récents ont pu être perdus).
+
+### Corrigé
+- Des données jugées illisibles ne sont plus mises de côté sur une seule lecture ratée : Arbalète les rouvre 3 fois, à 500 ms d'intervalle, avant de conclure à une vraie corruption (ARB-131).
+
+### Limites connues
+- La copie de secours se fait sur le fil principal, sans borne de taille ni de durée : un très gros historique la rendrait lente à la fermeture. Le bandeau n'indique pas l'âge de la copie restaurée, et les échecs d'écriture de la copie ne sont visibles que dans la console. Les copies et les données mises de côté gardent un historique supprimé depuis.
+
 ## [0.12.7.0] - 2026-11-08
 
 ### Corrigé
