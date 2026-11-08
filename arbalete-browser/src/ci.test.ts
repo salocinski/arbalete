@@ -31,7 +31,7 @@ test('la CI tourne sur Windows, sur main et sur les PR, avec typecheck, tests un
   strictEqual((ci.match(/runs-on: windows-latest/g) ?? []).length, 2, 'deux jobs, tous deux sur windows-latest')
   ok(/^ {2}push:\s*\r?\n {4}branches: \[main\]/m.test(ci), 'push sur main')
   ok(/^ {2}pull_request:/m.test(ci), 'pull_request')
-  const commandes = lignes.filter((ligne) => /^\s*(- )?run:/.test(ligne)).map((ligne) => ligne.replace(/^\s*(- )?run:\s*/, '').trim())
+  const commandes = lignes.filter((ligne) => /^\s*(- )?run:\s*\S/.test(ligne)).map((ligne) => ligne.replace(/^\s*(- )?run:\s*/, '').trim())
   strictEqual(
     commandes.join(' | '),
     'npm ci | npx install-electron | npm run typecheck | npm run test:unit | npm run build | ' +
