@@ -61,6 +61,9 @@ test.beforeAll(async () => {
   app = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest() })
   ui = await fenetreInterface(app)
   barreUi = await vueBarre(app)
+  // Le vrai curseur de l'utilisateur ne doit pas interférer : la barre s'ouvre au survol réel du bord gauche (onMouseEnter).
+  // Les événements de Playwright (CDP) et de sendInputEvent ne passent pas par la souris du système, donc restent actifs.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setIgnoreMouseEvents(true))
 })
 
 test.afterAll(async () => {
