@@ -46,9 +46,23 @@ let choixTheme: ThemeChoice = 'system'
 // Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
 // --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
 const FOND_FENETRE = { dark: '#111820', light: '#F3F5F7' } as const
+// Symboles des boutons Windows (titleBarOverlay, ARB-30) : jumeaux de --color-text-primary, sur le fond de la barre de
+// contrôle. Hauteur : jumelle de --size-control-bar (48 px).
+const SYMBOLES_FENETRE = { dark: '#E8EDF2', light: '#202B36' } as const
+const HAUTEUR_BARRE_CONTROLE = 48
 function themeEffectif(): 'dark' | 'light' {
   if (choixTheme !== 'system') return choixTheme
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+}
+function overlayBoutons() {
+  const theme = themeEffectif()
+  return { color: FOND_FENETRE[theme], symbolColor: SYMBOLES_FENETRE[theme], height: HAUTEUR_BARRE_CONTROLE }
+}
+// Fond natif et boutons Windows suivent le thème effectif.
+function appliquerThemeFenetre() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setBackgroundColor(FOND_FENETRE[themeEffectif()])
+  mainWindow.setTitleBarOverlay(overlayBoutons())
 }
 const tabs = new Map<string, TabRecord>()
 let activeTabId: string | null = null
@@ -614,6 +628,11 @@ function createWindow(adresses: readonly string[] = []) {
     minHeight: 640,
     backgroundColor: FOND_FENETRE[themeEffectif()],
     title: 'Arbalète',
+    // Fenêtre sans cadre (ARB-30) : 'hidden' garde le bord redimensionnable et les dispositions d'accrochage de Windows,
+    // que frame: false perdrait ; les boutons natifs sont ceux de titleBarOverlay. La barre de contrôle sert de zone de
+    // déplacement (styles.css).
+    titleBarStyle: 'hidden',
+    titleBarOverlay: overlayBoutons(),
     icon: CHEMIN_ICONE,
     autoHideMenuBar: true,
     webPreferences: PREFERENCES_INTERFACE
@@ -729,14 +748,14 @@ app.whenReady().then(() => {
   traiter('browser:get-system-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
   nativeTheme.on('updated', () => {
     envoyerAuxInterfaces('browser:system-theme', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
-    mainWindow?.setBackgroundColor(FOND_FENETRE[themeEffectif()])
+    appliquerThemeFenetre()
   })
   // Le thème choisi est tenu ici pour que la fenêtre et la barre latérale l'affichent ensemble.
   traiter('browser:get-theme', () => choixTheme)
   traiter('browser:set-theme', (valeur) => {
     choixTheme = exigerChoix(valeur, ['system', 'dark', 'light'] as const)
     envoyerAuxInterfaces('browser:theme', choixTheme)
-    mainWindow?.setBackgroundColor(FOND_FENETRE[themeEffectif()])
+    appliquerThemeFenetre()
   })
   traiter('browser:get-sidebar', () => ({ ...barre }))
   traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin'] as const)))

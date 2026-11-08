@@ -436,31 +436,47 @@ test('C34 : la vue de la barre ne navigue pas, n’ouvre pas de fenêtre et pilo
 //   themeSource pilote le thème système); no_claim=ne vérifie ni les couleurs rendues ni le thème réel de Windows.
 // Étendu par l'audit /ship (ARB-34) : protects=setBackgroundColor suit set-theme et nativeTheme 'updated';
 //   fails_when=un des deux appels setBackgroundColor ou themeEffectif() est retiré ou faux; seam=none.
+// Étendu (ARB-30) : protects=les boutons Windows (titleBarOverlay) reçoivent les couleurs et la hauteur du thème effectif à
+//   chaque changement; fails_when=appliquerThemeFenetre n'appelle plus setTitleBarOverlay ou lui passe le mauvais thème;
+//   seam=none (espion posé sur l'instance de la fenêtre); no_claim=ne prouve pas que Windows affiche ces couleurs.
 test('C35 : le thème s’applique à la fenêtre et à la barre ; set-theme et set-sidebar valident leur argument', async () => {
   // data-theme sur <html> choisit la palette de design-system/tokens.css (ARB-34).
   const themes = async () => [
     await ui.locator('html').getAttribute('data-theme'),
     await barreUi.locator('html').getAttribute('data-theme'),
     // Fond natif de la fenêtre (FOND_FENETRE, ARB-34) : suit le thème effectif, choisi ou système.
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor().toLowerCase())
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor().toLowerCase()),
+    // Boutons Windows (titleBarOverlay, ARB-30) : dernières couleurs et hauteur envoyées par appliquerThemeFenetre, relevées
+    // par l'espion posé ci-dessous (Playwright ne peut pas les relire sur la fenêtre).
+    await app.evaluate(() => {
+      const dernier = (globalThis as unknown as { __overlays: { color: string, symbolColor: string, height: number }[] }).__overlays.at(-1)
+      return dernier && `${dernier.color}/${dernier.symbolColor}/${dernier.height}`.toLowerCase()
+    })
   ]
+  await app.evaluate(({ BrowserWindow }) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    const relevees: unknown[] = []
+    ;(globalThis as unknown as { __overlays: unknown[] }).__overlays = relevees
+    const original = fenetre.setTitleBarOverlay.bind(fenetre)
+    fenetre.setTitleBarOverlay = (options) => { relevees.push(options); original(options) }
+  })
   const choix = () => barreUi.evaluate(() => window.arbalete.getTheme())
   const bouton = ui.getByTitle('Thème : changer le mode')
   expect(await choix()).toBe('system')
   try {
     await bouton.click()
     await expect.poll(choix).toBe('dark')
-    await expect.poll(themes).toEqual(['dark', 'dark', '#111820'])
+    await expect.poll(themes).toEqual(['dark', 'dark', '#111820', '#111820/#e8edf2/48'])
     await bouton.click()
     await expect.poll(choix).toBe('light')
-    await expect.poll(themes).toEqual(['light', 'light', '#f3f5f7'])
+    await expect.poll(themes).toEqual(['light', 'light', '#f3f5f7', '#f3f5f7/#202b36/48'])
     await bouton.click()
     await expect.poll(choix).toBe('system')
     // Thème système : un changement de nativeTheme atteint la fenêtre et la barre.
     await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'light' })
-    await expect.poll(themes).toEqual(['light', 'light', '#f3f5f7'])
+    await expect.poll(themes).toEqual(['light', 'light', '#f3f5f7', '#f3f5f7/#202b36/48'])
     await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'dark' })
-    await expect.poll(themes).toEqual(['dark', 'dark', '#111820'])
+    await expect.poll(themes).toEqual(['dark', 'dark', '#111820', '#111820/#e8edf2/48'])
   } finally {
     await app.evaluate(({ nativeTheme }) => { nativeTheme.themeSource = 'system' })
   }
@@ -982,7 +998,8 @@ test('C51 : la barre de contrôle est rendue à 48 px, dans l’ordre prévu, et
       hauteur: barre.getBoundingClientRect().height,
       hauteurJeton: jeton('--size-control-bar'),
       gap: style.columnGap, gapJeton: jeton('--space-2'),
-      padding: [style.paddingLeft, style.paddingRight], paddingJeton: jeton('--space-4'),
+      // À droite, la place des boutons Windows (titleBarOverlay, ARB-30) s'ajoute : voir C53.
+      paddingGauche: style.paddingLeft, paddingJeton: jeton('--space-4'),
       hauteurChamp: champ.getBoundingClientRect().height,
       ordre: controles.map(etiquette),
       activables: controles.filter((el) => !(el as HTMLButtonElement).disabled).map(etiquette)
@@ -991,7 +1008,7 @@ test('C51 : la barre de contrôle est rendue à 48 px, dans l’ordre prévu, et
   expect(mesure.hauteur).toBe(parseFloat(mesure.hauteurJeton))
   expect(mesure.hauteurChamp).toBe(40)
   expect(mesure.gap).toBe(mesure.gapJeton)
-  expect(mesure.padding).toEqual([mesure.paddingJeton, mesure.paddingJeton])
+  expect(mesure.paddingGauche).toBe(mesure.paddingJeton)
   expect(mesure.ordre[0]).toMatch(/^(Épingler|Libérer) la barre latérale/)
   expect(mesure.ordre.slice(1, 4)).toEqual(['Précédent (Alt+←)', 'Suivant (Alt+→)', 'Recharger'])
   expect(mesure.ordre.slice(4)).toEqual(['Adresse ou recherche', 'Ajouter aux favoris', 'Nouvel onglet', 'Thème : changer le mode'])
@@ -1004,6 +1021,61 @@ test('C51 : la barre de contrôle est rendue à 48 px, dans l’ordre prévu, et
     await ui.keyboard.press('Tab')
   }
   expect(parcours).toEqual(mesure.activables)
+})
+
+// Value: protects=fenêtre sans cadre (ARB-30) : pas de barre de titre native (la zone cliente couvre la fenêtre), les boutons
+//   Windows de titleBarOverlay font 48 px de haut, la barre de contrôle leur laisse la place et déplace la fenêtre sans
+//   voler le clic de ses boutons ni de son champ;
+//   fails_when=titleBarStyle redevient 'default', la hauteur de l'overlay quitte --size-control-bar, le remplissage droit de
+//   la barre ne suit plus la zone des boutons (adresse sous les boutons), ou un contrôle devient une zone de déplacement;
+//   why_new=aucun test ne regardait le cadre de la fenêtre; seam=none;
+//   no_claim=ne déplace pas réellement la fenêtre, ne vérifie ni les couleurs des boutons ni leur survol (natifs).
+test('C53 : la fenêtre est sans cadre, la barre de contrôle laisse la place aux boutons Windows et déplace la fenêtre', async () => {
+  const cadre = await app.evaluate(({ BrowserWindow }) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    return { fenetre: fenetre.getSize(), client: fenetre.getContentSize() }
+  })
+  // À 1 px près : la mise à l'échelle de Windows (125 %, 150 %) arrondit les tailles en pixels physiques.
+  expect(Math.abs(cadre.client[0] - cadre.fenetre[0])).toBeLessThanOrEqual(1)
+  expect(Math.abs(cadre.client[1] - cadre.fenetre[1])).toBeLessThanOrEqual(1)
+
+  const mesurer = () => ui.evaluate(() => {
+    const barre = document.querySelector<HTMLElement>('.toolbar')!
+    const zone = (navigator as Navigator & { windowControlsOverlay: { visible: boolean, getTitlebarAreaRect(): DOMRect } }).windowControlsOverlay
+    const region = (el: Element) => getComputedStyle(el).getPropertyValue('-webkit-app-region')
+    const rect = zone.getTitlebarAreaRect()
+    return {
+      visible: zone.visible,
+      hauteur: rect.height,
+      droiteLibre: window.innerWidth - (rect.x + rect.width),
+      remplissageDroit: parseFloat(getComputedStyle(barre).paddingRight),
+      barre: region(barre),
+      boutons: [...barre.querySelectorAll('button')].map(region),
+      champ: region(barre.querySelector('input')!),
+      groupeChamp: region(barre.querySelector('.ui-field-group')!)
+    }
+  })
+  const mesure = await mesurer()
+  expect(mesure.visible).toBe(true)
+  expect(mesure.hauteur).toBe(48)
+  expect(mesure.droiteLibre).toBeGreaterThan(0)
+  expect(Math.abs(mesure.remplissageDroit - mesure.droiteLibre)).toBeLessThan(1)
+  expect(mesure.barre).toBe('drag')
+  expect(mesure.boutons.every((r) => r === 'no-drag')).toBe(true)
+  expect(mesure.champ).toBe('no-drag')
+  expect(mesure.groupeChamp).toBe('no-drag')
+
+  // Le remplissage suit la zone des boutons après un redimensionnement (calculé en direct, pas une fois).
+  const taille = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getSize())
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1100, 760))
+    await expect.poll(async () => {
+      const apres = await mesurer()
+      return Math.abs(apres.remplissageDroit - apres.droiteLibre) < 1 && apres.droiteLibre > 0
+    }).toBe(true)
+  } finally {
+    await app.evaluate(({ BrowserWindow }, [largeur, hauteur]) => BrowserWindow.getAllWindows()[0].setSize(largeur, hauteur), taille)
+  }
 })
 
 // Value: protects=vérification de l'émetteur IPC (ARB-14) : une page qui obtient le preload hors de l'interface ne pilote rien;

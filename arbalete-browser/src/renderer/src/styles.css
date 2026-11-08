@@ -82,6 +82,14 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .profile-copy span { font-size: 9px; color: var(--color-text-secondary); }
 .browser-column { min-width: 0; flex: 1; display: flex; flex-direction: column; position: relative; }
 .toolbar { height: var(--size-control-bar); flex-shrink: 0; display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); background: var(--color-background); border-bottom: var(--size-border) solid var(--color-border); position: relative; z-index: var(--z-chrome); }
+/* Fenêtre sans cadre (ARB-30) : la barre de contrôle déplace la fenêtre, ses contrôles non. Les boutons Windows
+   (titleBarOverlay) occupent la droite : le remplissage laisse leur place ; hors Electron (aperçu web), les variables
+   env() n'existent pas et le remplissage reste celui d'origine.
+   shortcut: un clic sur une zone vide de la barre n'atteint plus la page (Windows le prend pour un déplacement) et ne
+   retire donc plus la barre latérale non épinglée ; elle se retire déjà à la sortie de la souris. À reprendre avec
+   'will-move' si ce clic doit la retirer. */
+.toolbar { -webkit-app-region: drag; padding-right: max(var(--space-4), calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))); }
+.toolbar button, .toolbar input, .toolbar .ui-field-group { -webkit-app-region: no-drag; }
 .nav-controls { display: flex; align-items: center; gap: var(--space-1); }
 .address-bar { display: flex; flex: 1; min-width: 120px; }
 .address-bar .ui-field-group { flex: 1; }

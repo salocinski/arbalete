@@ -46,6 +46,23 @@ test('le fond natif de la fenêtre suit --color-background de chaque thème', ()
   strictEqual(fond[2].toLowerCase(), clair.get('--color-background')?.toLowerCase())
 })
 
+test('les boutons Windows (titleBarOverlay) suivent les tokens de chaque thème et la hauteur de la barre de contrôle', () => {
+  const principal = lire('src/main/index.ts')
+  const symboles = /const SYMBOLES_FENETRE = \{ dark: '(#\w+)', light: '(#\w+)' \}/.exec(principal)
+  ok(symboles, 'SYMBOLES_FENETRE introuvable dans src/main/index.ts')
+  strictEqual(symboles[1].toLowerCase(), sombre.get('--color-text-primary')?.toLowerCase())
+  strictEqual(symboles[2].toLowerCase(), clair.get('--color-text-primary')?.toLowerCase())
+  const hauteur = /const HAUTEUR_BARRE_CONTROLE = (\d+)/.exec(principal)
+  ok(hauteur, 'HAUTEUR_BARRE_CONTROLE introuvable dans src/main/index.ts')
+  strictEqual(`${hauteur[1]}px`, tokens.match(/--size-control-bar:\s*(\w+);/)?.[1])
+})
+
+test('la barre de contrôle déplace la fenêtre, ses boutons et champs non', () => {
+  const styles = lire('src/renderer/src/styles.css')
+  ok(/\.toolbar \{[^}]*-webkit-app-region: drag/.test(styles), 'la barre de contrôle doit être une zone de déplacement')
+  ok(/\.toolbar button, \.toolbar input[^{]*\{ -webkit-app-region: no-drag/.test(styles), 'ses contrôles doivent rester cliquables')
+})
+
 test('les polices embarquées couvrent les familles des tokens, fichiers présents', () => {
   const polices = lire('src/renderer/src/design-system/fonts.css')
   const declarees = new Set([...polices.matchAll(/font-family: '([^']+)'/g)].map((m) => m[1]))
