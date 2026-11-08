@@ -63,11 +63,12 @@ jobs:
       - run: npx install-electron
       # test:smoke compile puis lance Playwright ; le premier onglet charge google.com, le poste doit avoir le réseau.
       - run: npm run test:smoke
-      # Rapports d'échec (captures et contexte des tests), gardés 7 jours, seulement quand le smoke échoue.
+      # Contexte d'erreur des tests (test-results/), gardé 7 jours, seulement quand le smoke échoue ; un dossier vide
+      # laisse un avertissement plutôt que de passer sous silence.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: smoke-test-results
           path: arbalete-browser/test-results/
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: warn
