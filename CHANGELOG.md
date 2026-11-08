@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.9.0] - 2026-11-08
+
+### Ajouté
+- Une intégration continue vérifie chaque modification (ARB-8, première phase) : sur un poste Windows neuf, à chaque envoi sur `main` et à chaque pull request, GitHub lance le contrôle des types, les tests unitaires et la compilation. Le workflow est en lecture seule et ses actions sont épinglées par empreinte de commit, que Dependabot met à jour. Un test unitaire protège ces deux propriétés et la liste des étapes.
+
+### Limites connues
+- Le smoke test (fenêtres Electron) ne tourne pas encore dans la CI : seconde phase. Il n'y a pas de contrôle de style (« lint »), faute de script. La règle qui impose la CI avant fusion sur `main` n'est pas posée. Pour limiter les abus sur un dépôt public, activer dans les réglages GitHub l'approbation des exécutions pour tous les contributeurs externes.
+
 ## [0.12.8.1] - 2026-11-08
 
 ### Corrigé

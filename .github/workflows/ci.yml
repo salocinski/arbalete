@@ -1,0 +1,44 @@
+# Intégration continue d'Arbalète (ARB-8, phase 1) : typecheck, tests unitaires et build sur Windows, à chaque push sur
+# main et à chaque pull request. Le smoke test (Playwright, fenêtres Electron) n'est pas ici : phase 2.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Lecture seule : aucune étape n'écrit dans le dépôt ni ne publie.
+permissions:
+  contents: read
+
+# Une exécution plus récente de la même PR annule la précédente ; sur main, chaque push va au bout.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: arbalete-browser
+
+jobs:
+  verifier:
+    name: Typecheck, tests unitaires, build
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      # Actions épinglées par empreinte de commit (version en commentaire) ; Dependabot les met à jour.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      # Node 24 : la majeure embarquée par Electron 45 (voir CLAUDE.md, Conventions).
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: arbalete-browser/package-lock.json
+      - run: npm ci
+      # Depuis Electron 42, npm ci ne télécharge plus le binaire : les tests unitaires tournent sous le Node d'Electron.
+      - run: npx install-electron
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run build
