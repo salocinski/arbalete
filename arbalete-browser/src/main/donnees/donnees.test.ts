@@ -202,3 +202,53 @@ test('une base plus récente n’est ni renommée ni modifiée ; une base saine 
   strictEqual(existsSync(saine), true)
   db!.close()
 })
+
+const erreurES = () => Object.assign(new Error('disk I/O error'), { errcode: 10 })
+
+// ARB-130 : un fichier momentanément tenu fait répondre SQLite « disk I/O error » ; l'ouverture réessaie avant de
+// renoncer à la persistance.
+test('une ouverture qui échoue puis réussit récupère la base, après des pauses', () => {
+  const chemin = join(dossier, 'reessai.db')
+  let appels = 0
+  const pauses: number[] = []
+  const ouvrir = (c: string) => {
+    if (++appels <= 2) throw erreurES()
+    return ouvrirBase(c)
+  }
+  const { db, incident } = ouvrirBaseOuRecuperer(chemin, undefined, ouvrir, (ms) => pauses.push(ms))
+  strictEqual(incident, null)
+  strictEqual(appels, 3)
+  strictEqual(pauses.length, 2)
+  db!.close()
+})
+
+test('une ouverture qui échoue toujours reste indisponible après 5 essais, sans rien renommer', () => {
+  const sous = mkdtempSync(join(dossier, 'tenue-'))
+  const chemin = join(sous, 'arbalete.db')
+  writeFileSync(chemin, 'contenu')
+  let appels = 0
+  const resultat = ouvrirBaseOuRecuperer(chemin, undefined, () => { appels++; throw erreurES() }, () => {})
+  deepStrictEqual(resultat, { db: null, incident: { type: 'indisponible' } })
+  strictEqual(appels, 5)
+  deepStrictEqual(readdirSync(sous), ['arbalete.db'])
+})
+
+test('une base illisible n’est pas réessayée : un seul essai, puis mise de côté', () => {
+  const sous = mkdtempSync(join(dossier, 'illisible-'))
+  const chemin = join(sous, 'arbalete.db')
+  writeFileSync(chemin, 'pas une base SQLite '.repeat(10))
+  let appels = 0
+  const { db, incident } = ouvrirBaseOuRecuperer(chemin, DATE_INCIDENT, (c) => { appels++; return ouvrirBase(c) }, () => { throw new Error('pause inattendue') })
+  strictEqual(appels, 1)
+  strictEqual(incident?.type, 'corrompue')
+  db!.close()
+})
+
+test('une erreur autre que d’E/S (verrou occupé, droits) n’est pas réessayée', () => {
+  for (const errcode of [5, 8, 14]) {
+    let appels = 0
+    const resultat = ouvrirBaseOuRecuperer(join(dossier, 'x.db'), undefined, () => { appels++; throw Object.assign(new Error('refus'), { errcode }) }, () => { throw new Error('pause inattendue') })
+    deepStrictEqual(resultat, { db: null, incident: { type: 'indisponible' } })
+    strictEqual(appels, 1)
+  }
+})

@@ -38,6 +38,35 @@ function estCorrompue(erreur: unknown): boolean {
   return typeof code === 'number' && [11, 26].includes(code & 0xff)
 }
 
+// Fichier momentanément tenu (redémarrage juste après un plantage, antivirus, processus tué qui lâche ses fichiers) :
+// SQLite répond « disk I/O error », que le délai de verrou ci-dessus ne couvre pas. On réessaie avant de renoncer à la
+// persistance. Seule cette erreur d'E/S (SQLITE_IOERR, 10) est réessayée : une base corrompue, plus récente, déjà
+// attendue en vain (BUSY) ou inaccessible pour de bon (droits, dossier absent) ne se règle pas en attendant, et
+// chaque essai bloque le processus principal avant l'ouverture de la fenêtre.
+const ESSAIS_OUVERTURE = 5
+const PAUSE_ENTRE_ESSAIS_MS = 500
+
+function estErreurES(erreur: unknown): boolean {
+  const code = (erreur as { errcode?: unknown } | null)?.errcode
+  return typeof code === 'number' && (code & 0xff) === 10
+}
+
+function dormir(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function ouvrirAvecReessais(chemin: string, ouvrir: (chemin: string) => DatabaseSync, pause: (ms: number) => void): DatabaseSync {
+  for (let essai = 1; ; essai++) {
+    try {
+      return ouvrir(chemin)
+    } catch (erreur) {
+      if (essai === ESSAIS_OUVERTURE || !estErreurES(erreur)) throw erreur
+      console.error(`Ouverture de la base échouée (essai ${essai}/${ESSAIS_OUVERTURE}), nouvel essai :`, erreur)
+      pause(PAUSE_ENTRE_ESSAIS_MS)
+    }
+  }
+}
+
 // Ce que l'ouverture de la base a dû faire, pour en prévenir l'utilisateur (ARB-119).
 export type IncidentBase =
   | { type: 'corrompue', copie: string }
@@ -47,9 +76,14 @@ export type IncidentBase =
 // Ouvre la base comme ouvrirBase, sans lever d'erreur. Une base illisible est mise de côté sous
 // arbalete.db.corrompue-<date>, avec ses fichiers -wal et -shm, et remplacée par une base neuve. Une base plus récente
 // ou verrouillée n'est jamais renommée : db vaut alors null et le navigateur marche sans persistance.
-export function ouvrirBaseOuRecuperer(chemin: string, maintenant = new Date()): { db: DatabaseSync | null, incident: IncidentBase | null } {
+export function ouvrirBaseOuRecuperer(
+  chemin: string,
+  maintenant = new Date(),
+  ouvrir: (chemin: string) => DatabaseSync = ouvrirBase,
+  pause: (ms: number) => void = dormir
+): { db: DatabaseSync | null, incident: IncidentBase | null } {
   try {
-    return { db: ouvrirBase(chemin), incident: null }
+    return { db: ouvrirAvecReessais(chemin, ouvrir, pause), incident: null }
   } catch (erreur) {
     if (erreur instanceof BasePlusRecente) {
       console.error('Base d’une version plus récente d’Arbalète, laissée intacte :', erreur)

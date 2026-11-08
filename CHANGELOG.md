@@ -2,13 +2,21 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.7.0] - 2026-11-08
+
+### Corrigé
+- Arbalète ne perd plus sa session ni l'invite de restauration quand Windows tient encore les fichiers de la base juste après un plantage ou un redémarrage très rapide (ARB-130) : l'ouverture de la base réessaie jusqu'à 5 fois, à 500 ms d'intervalle, avant de démarrer sans sauvegarde. Seule l'erreur d'entrée-sortie « disk I/O error » est réessayée, pour ne pas retarder l'ouverture de la fenêtre quand le problème ne passera pas (base corrompue ou plus récente, droits, verrou déjà attendu 5 s).
+
+### Limites connues
+- Une lecture qui échoue par intermittence pendant la vérification de la base peut encore la faire prendre pour corrompue et la mettre de côté (comportement d'ARB-119, inchangé).
+
 ## [0.12.6.3] - 2026-11-08
 
 ### Corrigé
 - Le test C42 (invite de restauration après un arrêt forcé) ne dépend plus de la charge de la machine (ARB-129) : sous forte charge il échouait 11 fois sur 12, il passe maintenant 12 fois sur 12. Trois causes, toutes dans le test : la lecture de la session pendant que l'app l'écrit (« database is locked »), un relancement trop rapide qui se fermait comme une seconde instance, et un profil encore tenu par Windows après l'arrêt forcé, qui faisait démarrer l'app sans base et sans invite.
 
 ### Limites connues
-- Une base momentanément inaccessible au démarrage (redémarrage très rapide après un plantage, machine chargée) fait toujours démarrer l'app sans persistance ni invite de restauration ; ce comportement de l'app n'est pas traité ici.
+- Une base momentanément inaccessible au démarrage faisait démarrer l'app sans persistance ni invite de restauration ; traité en 0.12.7.0.
 
 ## [0.12.6.2] - 2026-11-08
 
