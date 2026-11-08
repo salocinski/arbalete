@@ -160,8 +160,8 @@ modifier `DESIGN.md` qu'après validation.
 - CI (`.github/workflows/ci.yml`, ARB-8) : à chaque push sur `main` et chaque PR, sur `windows-latest`, deux jobs.
   `verifier` (phase 1) : `npm ci`, `npx install-electron`, `npm run typecheck`, `npm run test:unit` et `npm run build`.
   `smoke` (phase 2) : `npm ci`, `npx install-electron` et `npm run test:smoke`, sans nouvel essai automatique ; en cas
-  d'échec, `arbalete-browser/test-results/` est gardé 7 jours dans l'artefact `smoke-test-results`. Droits en lecture
-  seule, actions épinglées par empreinte (Dependabot les met à jour), `continue-on-error` et les nouveaux essais
+  d'échec, `arbalete-browser/test-results/` est gardé 7 jours dans l'artefact `smoke-test-results` (simple avertissement
+  si le dossier est absent ou vide). Droits en lecture seule, actions épinglées par empreinte (Dependabot les met à jour), `continue-on-error` et les nouveaux essais
   interdits par `src/ci.test.ts`.
 - PR Dependabot : la CI couvre typecheck, tests unitaires, build et smoke ; fusionner une PR dont les deux jobs sont verts.
 
