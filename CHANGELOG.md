@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.8.1] - 2026-11-08
+
+### Corrigé
+- Les réessais d'ouverture de la base de la version 0.12.7.0 portent désormais le ticket ARB-132 dans le code, le test, le CHANGELOG et CLAUDE.md : ils étaient notés ARB-130, numéro déjà pris par le ticket des droits du logo. Le message de la version 0.12.7.0 sur GitHub garde l'ancien numéro.
+
 ## [0.12.8.0] - 2026-11-08
 
 ### Ajouté
@@ -16,7 +21,7 @@ Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MIN
 ## [0.12.7.0] - 2026-11-08
 
 ### Corrigé
-- Arbalète ne perd plus sa session ni l'invite de restauration quand Windows tient encore les fichiers de la base juste après un plantage ou un redémarrage très rapide (ARB-130) : l'ouverture de la base réessaie jusqu'à 5 fois, à 500 ms d'intervalle, avant de démarrer sans sauvegarde. Seule l'erreur d'entrée-sortie « disk I/O error » est réessayée, pour ne pas retarder l'ouverture de la fenêtre quand le problème ne passera pas (base corrompue ou plus récente, droits, verrou déjà attendu 5 s).
+- Arbalète ne perd plus sa session ni l'invite de restauration quand Windows tient encore les fichiers de la base juste après un plantage ou un redémarrage très rapide (ARB-132) : l'ouverture de la base réessaie jusqu'à 5 fois, à 500 ms d'intervalle, avant de démarrer sans sauvegarde. Seule l'erreur d'entrée-sortie « disk I/O error » est réessayée, pour ne pas retarder l'ouverture de la fenêtre quand le problème ne passera pas (base corrompue ou plus récente, droits, verrou déjà attendu 5 s).
 
 ### Limites connues
 - Une lecture qui échoue par intermittence pendant la vérification de la base peut encore la faire prendre pour corrompue et la mettre de côté (comportement d'ARB-119, inchangé).

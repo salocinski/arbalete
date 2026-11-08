@@ -41,7 +41,7 @@ function estCorrompue(erreur: unknown): boolean {
 
 // Fichier momentanément tenu (redémarrage juste après un plantage, antivirus, processus tué qui lâche ses fichiers) :
 // SQLite répond « disk I/O error », que le délai de verrou ci-dessus ne couvre pas. On réessaie avant de renoncer à la
-// persistance (ARB-130). Une base jugée corrompue est rouverte avant d'être mise de côté (ARB-131) : une vraie
+// persistance (ARB-132). Une base jugée corrompue est rouverte avant d'être mise de côté (ARB-131) : une vraie
 // corruption se reproduit à chaque ouverture, une lecture gênée passe au bout d'un moment. Les autres erreurs (base plus
 // récente, verrou déjà attendu en vain, droits, dossier absent) ne se règlent pas en attendant : un seul essai, car
 // chaque essai bloque le processus principal avant l'ouverture de la fenêtre.
