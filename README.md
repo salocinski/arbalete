@@ -4,6 +4,8 @@
 Barre latérale, espaces de travail, organisation des onglets : une ergonomie inspirée d'Arc, dans un
 projet communautaire sous licence GPL-3.0.
 
+[![CI](https://github.com/salocinski/arbalete/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/salocinski/arbalete/actions/workflows/ci.yml)
+
 > **Statut : en développement (0.12).** La navigation, les onglets, la restauration de session, l'historique et les
 > thèmes Dark, Light et System fonctionnent, mais Arbalète n'est pas encore prêt pour un usage quotidien.
 > Favoris, espaces de travail, téléchargements et extensions sont en cours de construction. Détails techniques :

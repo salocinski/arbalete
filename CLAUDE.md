@@ -163,6 +163,9 @@ modifier `DESIGN.md` qu'après validation.
   d'échec, `arbalete-browser/test-results/` est gardé 7 jours dans l'artefact `smoke-test-results` (simple avertissement
   si le dossier est absent ou vide). Droits en lecture seule, actions épinglées par empreinte (Dependabot les met à jour), `continue-on-error` et les nouveaux essais
   interdits par `src/ci.test.ts`.
+  Phase 3 : le badge CI du `README.md` suit `main`, et le ruleset GitHub `PR-Rule` (réglage du dépôt, hors Git) exige les deux
+  contrôles « Typecheck, tests unitaires, build » et « Smoke test (Electron) » avant fusion. Renommer un job du workflow
+  oblige à mettre à jour ce ruleset, sinon plus aucune PR ne fusionne.
 - PR Dependabot : la CI couvre typecheck, tests unitaires, build et smoke ; fusionner une PR dont les deux jobs sont verts.
 
 ## Cycle de travail avec gstack
