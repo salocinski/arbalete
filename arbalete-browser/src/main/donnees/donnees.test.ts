@@ -206,7 +206,7 @@ test('une base plus récente n’est ni renommée ni modifiée ; une base saine 
 
 const erreurES = () => Object.assign(new Error('disk I/O error'), { errcode: 10 })
 
-// ARB-130 : un fichier momentanément tenu fait répondre SQLite « disk I/O error » ; l'ouverture réessaie avant de
+// ARB-132 : un fichier momentanément tenu fait répondre SQLite « disk I/O error » ; l'ouverture réessaie avant de
 // renoncer à la persistance.
 test('une ouverture qui échoue puis réussit récupère la base, après des pauses', () => {
   const chemin = join(dossier, 'reessai.db')
