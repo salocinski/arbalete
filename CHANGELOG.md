@@ -2,6 +2,22 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.19.0] - 2026-11-09
+
+### Ajouté
+- Ctrl+Tab passe à l'onglet suivant et Ctrl+Maj+Tab au précédent (Ctrl+PageDown et Ctrl+PageUp aussi), en boucle, dans l'ordre de la barre latérale. Ctrl+1 à Ctrl+8 ouvrent le premier à huitième onglet et Ctrl+9 le dernier, sur les touches physiques du clavier, AZERTY compris (ARB-19).
+- F5 et Ctrl+R rechargent la page de l'onglet actif ; Ctrl+F5, Maj+F5 et Ctrl+Maj+R la rechargent sans le cache. Tous ces raccourcis marchent que le clavier soit dans la page, la barre latérale ou la fenêtre, et la page ne les reçoit pas (ARB-21).
+
+### Modifié
+- L'interface n'affiche plus le symbole ⌘ de Mac : la recherche indique « Ctrl K » et l'espace « Développement » une icône losange (ARB-22).
+
+### Limites connues
+- Ctrl+K ne fait encore rien : seul l'affichage a changé.
+- Sur un clavier AZERTY, Ctrl+6 réduit encore le zoom au lieu d'ouvrir le sixième onglet.
+- Avec le pavé numérique sans VerrNum, Ctrl+chiffre peut changer d'onglet au lieu de déplacer le curseur.
+- F5 et Ctrl+R ne rechargent plus l'interface elle-même en développement (`npm run dev`) : ils rechargent la page de l'onglet actif.
+- Le contournement du cache et un vrai clavier AZERTY n'ont pas été essayés à la main ; les tests simulent les touches.
+
 ## [0.12.18.0] - 2026-11-09
 
 ### Corrigé
