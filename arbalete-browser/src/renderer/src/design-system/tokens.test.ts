@@ -57,6 +57,16 @@ test('les boutons Windows (titleBarOverlay) suivent les tokens de chaque thème 
   strictEqual(`${hauteur[1]}px`, tokens.match(/--size-control-bar:\s*(\w+);/)?.[1])
 })
 
+test('le cadre de page (ARB-32) a une marge de --space-2 et le rayon --radius-md, jumeau de RAYON_PAGE', () => {
+  const rayon = /const RAYON_PAGE = (\d+)/.exec(lire('src/main/index.ts'))
+  ok(rayon, 'RAYON_PAGE introuvable dans src/main/index.ts')
+  strictEqual(`${rayon[1]}px`, tokens.match(/--radius-md:\s*(\w+);/)?.[1])
+  ok(/view\.setBorderRadius\(RAYON_PAGE\)/.test(lire('src/main/index.ts')), 'chaque vue web doit être arrondie')
+  const cadre = /\.web-content \{([^}]*)\}/.exec(lire('src/renderer/src/styles.css'))?.[1] ?? ''
+  ok(/inset: 0 var\(--space-2\) var\(--space-2\)/.test(cadre), 'marge de --space-2 sur les côtés et en bas')
+  ok(/border-radius: var\(--radius-md\)/.test(cadre), 'coins en --radius-md')
+})
+
 test('la barre de contrôle déplace la fenêtre, ses boutons et champs non', () => {
   const styles = lire('src/renderer/src/styles.css')
   ok(/\.toolbar \{[^}]*-webkit-app-region: drag/.test(styles), 'la barre de contrôle doit être une zone de déplacement')

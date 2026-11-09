@@ -50,6 +50,8 @@ const FOND_FENETRE = { dark: '#111820', light: '#F3F5F7' } as const
 // contrôle. Hauteur : jumelle de --size-control-bar (48 px).
 const SYMBOLES_FENETRE = { dark: '#E8EDF2', light: '#202B36' } as const
 const HAUTEUR_BARRE_CONTROLE = 48
+// Coins du cadre de page (ARB-32) : jumeau de --radius-md (10 px) dans tokens.css, appliqué à chaque vue web.
+const RAYON_PAGE = 10
 function themeEffectif(): 'dark' | 'light' {
   if (choixTheme !== 'system') return choixTheme
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
@@ -69,7 +71,7 @@ let activeTabId: string | null = null
 let nextTabNumber = 1
 // Bornes de la vue web avant que l'interface envoie les siennes : pleine largeur sous la barre de contrôle (48 px, --size-control-bar),
 // la barre latérale étant masquée à l'ouverture (ARB-33).
-let contentBounds = { x: 0, y: 48, width: 900, height: 600 }
+let contentBounds = { x: 8, y: 48, width: 884, height: 544 }
 
 // Une seule instance d'Arbalète (ARB-117) : deux instances partageraient arbalete.db et écraseraient la session l'une
 // de l'autre. Un second lancement transmet ses adresses à la première instance, puis se ferme sans ouvrir la base.
@@ -413,6 +415,7 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
       session: session.defaultSession
     }
   })
+  view.setBorderRadius(RAYON_PAGE)
 
   const record: TabRecord = {
     data: {

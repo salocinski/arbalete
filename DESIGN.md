@@ -266,6 +266,8 @@ Trois zones ; la surface de contenu garde toujours la priorité visuelle.
   la barre latérale et le contenu se placent sous la barre de contrôle.* Fenêtre sans cadre, boutons Windows via
   `titleBarOverlay` alignés sur ses 48 px (ARB-30).
 - **C — Surface de contenu** : pages web, vues divisées, panneaux secondaires, états de chargement et d'erreur.
+  La page s'affiche dans un cadre de 10 px de rayon (`--radius-md`), à 8 px (`--space-2`) des bords gauche, droit et bas
+  (ARB-32) ; la vue native web suit ce cadre (`setBorderRadius`).
 
 **Barre latérale** : *décision du 2026-11-03*, trois états au choix (ARB-123) : étendue (250 px, largeur
 réglable dans des limites définies), compacte (68 px, icônes et infobulles), masquée et rappelée au survol du
