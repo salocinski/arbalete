@@ -34,6 +34,7 @@ npm run dev:web   # http://localhost:5180
 - Fermer l'onglet actif : `Ctrl+W`
 - Focus sur la barre d'adresse : `Ctrl+L`
 - Précédent / suivant : `Alt+←` / `Alt+→`
+- Zoom de la page de l'onglet actif : `Ctrl+=` (plus), `Ctrl+-` (moins), `Ctrl+0` (100 %) ; plein écran : `F11`
 - Ces raccourcis agissent aussi depuis une page web ou la barre latérale (interceptés par le processus principal)
 - Navigation Chromium réelle via `WebContentsView`
 - Onglets créés, sélectionnés et fermés
