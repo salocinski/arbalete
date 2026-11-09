@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DataIncidentBanner } from '../components/DataIncidentBanner'
 import { RestoreBanner } from '../components/RestoreBanner'
-import { StatusBar } from '../components/StatusBar'
 import { Sidebar } from '../components/Sidebar'
 import { Toolbar } from '../components/Toolbar'
 import { StageFooter, WelcomeCard } from '../components/WelcomeCard'
@@ -10,8 +9,7 @@ import { isPreviewMode } from '../previewApi'
 import { handleTabShortcut } from '../shortcuts'
 import { useBrowserState, useDataIncident, useRestoreOffer, useSidebar, useTheme } from '../state'
 
-// Document de la fenêtre : barre d'outils, emplacement de la page web (vue native alignée sur contentRef) et
-// barre d'état.
+// Document de la fenêtre : barre d'outils et emplacement de la page web (vue native alignée sur contentRef).
 export function MainView() {
   const state = useBrowserState()
   const sidebar = useSidebar()
@@ -123,7 +121,6 @@ export function MainView() {
           </div>
           {isDemo && <StageFooter />}
         </div>
-        <StatusBar activeTab={activeTab} />
       </section>
     </main>
   )

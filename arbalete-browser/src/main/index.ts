@@ -7,6 +7,7 @@ import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
 import { ongletVoisin } from './voisin.ts'
 import { borner } from './bornes.ts'
+import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
@@ -68,6 +69,7 @@ function appliquerThemeFenetre() {
   if (!mainWindow || mainWindow.isDestroyed()) return
   mainWindow.setBackgroundColor(FOND_FENETRE[themeEffectif()])
   mainWindow.setTitleBarOverlay(overlayBoutons())
+  dessinerApercu()
 }
 const tabs = new Map<string, TabRecord>()
 let activeTabId: string | null = null
@@ -166,6 +168,7 @@ function broadcastState() {
 
 function setActiveView() {
   if (!mainWindow || mainWindow.isDestroyed()) return
+  retirerApercu()
   for (const [id, record] of tabs) {
     try {
       mainWindow.contentView.removeChildView(record.view)
@@ -251,6 +254,74 @@ function masquerAuClic(contenu: WebContents) {
   contenu.on('before-mouse-event', (_event, souris) => {
     if (souris.type === 'mouseDown') agirSurBarre('hide')
   })
+}
+
+// Aperçu de l'adresse d'un lien survolé (ARB-36, décision 0003) : petite vue native, créée au premier survol, posée
+// au bas de la page. Sans script ni IPC : le processus principal y écrit le texte (apercuUrl.ts).
+let apercuView: WebContentsView | null = null
+let apercuCharge = false
+let apercuVisible = false
+let apercuTexte = ''
+let apercuCote: CoteApercu = 'gauche'
+
+function creerApercu(): WebContentsView {
+  const vue = new WebContentsView({
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true }
+  })
+  vue.setBackgroundColor('#00000000')
+  vue.setBorderRadius(RAYON_APERCU)
+  const contenu = vue.webContents
+  contenu.on('will-navigate', (event) => event.preventDefault())
+  contenu.setWindowOpenHandler(() => ({ action: 'deny' }))
+  contenu.on('did-finish-load', () => {
+    apercuCharge = true
+    dessinerApercu()
+  })
+  // La bulle gêne le lien qu'elle recouvre : sous la souris, elle passe de l'autre côté de la page (comme Chrome).
+  contenu.on('before-mouse-event', (_event, souris) => {
+    if (souris.type !== 'mouseMove' || !apercuVisible) return
+    apercuCote = apercuCote === 'gauche' ? 'droite' : 'gauche'
+    placerApercuVue()
+  })
+  void contenu.loadURL(pageApercu())
+  return vue
+}
+
+function dessinerApercu() {
+  if (!apercuView || !apercuCharge) return
+  apercuView.webContents.executeJavaScript(scriptApercu(apercuTexte, themeEffectif())).catch(() => {})
+}
+
+function placerApercuVue() {
+  if (apercuView && apercuVisible) apercuView.setBounds(placerApercu(contentBounds, apercuTexte, apercuCote))
+}
+
+function retirerApercu() {
+  apercuTexte = ''
+  apercuCote = 'gauche'
+  if (!apercuVisible || !apercuView) return
+  apercuVisible = false
+  dessinerApercu()
+  try {
+    mainWindow?.contentView.removeChildView(apercuView)
+  } catch {
+    // La vue peut déjà être détachée.
+  }
+}
+
+function afficherApercu(url: unknown) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  apercuTexte = texteApercu(url)
+  if (!apercuTexte) return retirerApercu()
+  apercuView ??= creerApercu()
+  dessinerApercu()
+  const etaitVisible = apercuVisible
+  apercuVisible = true
+  placerApercuVue()
+  if (etaitVisible) return
+  mainWindow.contentView.addChildView(apercuView)
+  // La barre et ses overlays restent au-dessus de la bulle.
+  if (barreView) mainWindow.contentView.addChildView(barreView)
 }
 
 function updateTabFromView(id: string) {
@@ -505,6 +576,13 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
     record.data = { ...record.data, error: false, favicon: undefined }
     updateTabFromView(id)
   })
+  view.webContents.on('update-target-url', (_event, url) => {
+    if (id === activeTabId) afficherApercu(url)
+  })
+  // Le lien survolé disparaît avec la page qui le portait.
+  view.webContents.on('did-start-navigation', (details) => {
+    if (id === activeTabId && details.isMainFrame && !details.isSameDocument) retirerApercu()
+  })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
   view.webContents.setWindowOpenHandler(({ url }) => {
@@ -722,6 +800,9 @@ function createWindow(adresses: readonly string[] = []) {
   mainWindow.on('closed', () => {
     mainWindow = null
     barreView = null
+    apercuView = null
+    apercuCharge = false
+    apercuVisible = false
     overlayOuvert = false
   })
   // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
@@ -880,6 +961,7 @@ app.whenReady().then(() => {
     if (!borne) return
     contentBounds = borne
     activeRecord()?.view.setBounds(contentBounds)
+    placerApercuVue()
   })
 
   createWindow(adressesAuLancement)

@@ -30,6 +30,9 @@ const pages: Record<string, string> = {
     <a id="vide" href="about:blank">vide</a>
     <iframe id="cadre" srcdoc="<p>cadre</p>"></iframe>`,
   '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>',
+  // Un grand lien à position connue (ARB-36) : le survol à (200, 150) le touche, (600, 400) non.
+  '/page-survol.html': `<!doctype html><title>Page survol</title><body style="margin:0">
+    <a href="/page-b.html?q=survol" style="position:absolute;left:100px;top:100px;width:300px;height:100px;display:block">lien</a>`,
   // Favicon data: de 1 pixel (ARB-35) ; page-b n'en déclare pas.
   '/page-icone.html': `<!doctype html><title>Page icône</title>
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">`
@@ -2044,4 +2047,147 @@ test('C58 : la barre rechargée en arrière-plan rend le focus à la page au ret
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('focus'))
   await expect.poll(pageFocalisee).toBe(true)
   expect(await ecouteurs()).toBe(avant)
+})
+
+// Aperçu de l'adresse d'un lien survolé (ARB-36, décision 0003) : une petite vue native au bas de la page, au-dessous
+// de la barre, retirée quand le survol cesse. La barre d'état n'existe plus.
+// Vue de la bulle : la seule vue enfant dont l'adresse est un document data: (la page, elle, est http).
+function bulle() {
+  return app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const vues = BrowserWindow.getAllWindows()[0].contentView.children as InstanceType<typeof WebContentsView>[]
+    const vue = vues.find((enfant) => enfant.webContents.getURL().startsWith('data:text/html'))
+    if (!vue) return null
+    const { x, y, width, height } = vue.getBounds()
+    return { x, y, width, height, dernier: vues.at(-1)!.webContents.getURL().includes('vue=barre') }
+  })
+}
+function texteBulle() {
+  return app.evaluate(async ({ BrowserWindow, WebContentsView }) => {
+    const vue = (BrowserWindow.getAllWindows()[0].contentView.children as InstanceType<typeof WebContentsView>[])
+      .find((enfant) => enfant.webContents.getURL().startsWith('data:text/html'))
+    return vue ? vue.webContents.executeJavaScript("document.getElementById('t').textContent") : null
+  })
+}
+// Survol simulé dans la page de l'onglet actif (coordonnées de la page).
+function survolerPage(x: number, y: number) {
+  return app.evaluate(({ BrowserWindow, WebContentsView }, { x, y }) => {
+    const vue = (BrowserWindow.getAllWindows()[0].contentView.children as InstanceType<typeof WebContentsView>[])
+      .find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre')
+        && !enfant.webContents.getURL().startsWith('data:')) as InstanceType<typeof WebContentsView>
+    vue.webContents.sendInputEvent({ type: 'mouseMove', x, y })
+  }, { x, y })
+}
+async function bulleAffichee() {
+  await survolerPage(200, 150)
+  await expect.poll(texteBulle).toBe(`${origine}/page-b.html?q=survol`)
+}
+
+// Value: protects=survol d'un lien -> bulle avec son adresse en bas à gauche de la page, retirée à la sortie du lien;
+//   fails_when=update-target-url n'est plus écouté, la bulle recouvre la barre ou reste affichée;
+//   why_new=aucun test ne touchait à une vue native sans interface; seam=none; no_claim=ne couvre pas le rendu des pixels.
+test('C60 : survoler un lien affiche son adresse dans une bulle au bas de la page, retirée à la sortie', async () => {
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await expect(ui.locator('.statusbar')).toHaveCount(0)
+
+  expect(await bulle()).toBeNull()
+  await bulleAffichee()
+  const posee = (await bulle())!
+  const zone = (await boundsVueActive())!
+  expect(posee.dernier).toBe(true)
+  expect(posee.x).toBeGreaterThanOrEqual(zone.x)
+  expect(posee.x + posee.width).toBeLessThanOrEqual(zone.x + zone.width)
+  expect(posee.y + posee.height).toBeLessThanOrEqual(zone.y + zone.height)
+  expect(posee.y).toBeGreaterThan(zone.y + zone.height / 2)
+
+  await survolerPage(600, 400)
+  await expect.poll(bulle).toBeNull()
+})
+
+// Value: protects=la bulle disparaît avec la page qui portait le lien, qu'elle navigue ou que l'onglet change;
+//   fails_when=did-start-navigation ou retirerApercu dans setActiveView est retiré (bulle collée sur une autre page);
+//   why_new=C60 ne couvre que la sortie du lien; seam=none; no_claim=ne couvre ni un onglet inactif ni le rendu.
+test('C61 : la bulle est retirée à la navigation de la page et au changement d’onglet', async () => {
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await bulleAffichee()
+  await dansOngletActif("location.href = '/page-b.html'")
+  await expect.poll(bulle).toBeNull()
+
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await bulleAffichee()
+  const avant = (await etat()).tabs.length
+  const idNouveau = await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-b.html`)
+  await expect.poll(bulle).toBeNull()
+  await ui.evaluate((id) => window.arbalete.closeTab(id), idNouveau)
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant)
+})
+
+// Value: protects=la bulle suit le thème de la fenêtre et le rectangle de la page quand la barre est épinglée;
+//   fails_when=dessinerApercu n'est plus appelée au changement de thème ou placerApercuVue à set-content-bounds;
+//   why_new=aucun test ne regardait la bulle après un changement d'interface; seam=none; no_claim=pixels exacts.
+test('C62 : la bulle suit le thème et la place de la page quand la barre est épinglée', async () => {
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await bulleAffichee()
+  const classe = () => app.evaluate(async ({ BrowserWindow, WebContentsView }) => {
+    const vue = (BrowserWindow.getAllWindows()[0].contentView.children as InstanceType<typeof WebContentsView>[])
+      .find((enfant) => enfant.webContents.getURL().startsWith('data:text/html'))
+    return vue ? vue.webContents.executeJavaScript('document.body.className') : null
+  })
+  const themeInitial = await ui.evaluate(() => window.arbalete.getTheme())
+  try {
+    await ui.evaluate(() => window.arbalete.setTheme('light'))
+    await expect.poll(classe).toBe('light')
+    await ui.evaluate(() => window.arbalete.setTheme('dark'))
+    await expect.poll(classe).toBe('dark')
+  } finally {
+    await ui.evaluate((choix) => window.arbalete.setTheme(choix), themeInitial)
+  }
+
+  const avantX = (await bulle())!.x
+  await epinglerBarre(true)
+  try {
+    await attendreVueAlignee()
+    const zone = (await boundsVueActive())!
+    await expect.poll(async () => (await bulle())?.x).toBe(zone.x + 8)
+    expect(zone.x + 8).toBeGreaterThan(avantX)
+  } finally {
+    await epinglerBarre(false)
+  }
+})
+
+// Value: protects=la vue de la bulle est sandboxée, ne navigue pas, n'ouvre pas de fenêtre, et passe de l'autre côté
+//   sous la souris; fails_when=un des gardes de creerApercu est retiré ou before-mouse-event ne bascule plus;
+//   why_new=aucun test ne touchait à cette vue native (règle 1 : sandbox sur toutes les vues); seam=none;
+//   no_claim=mouvement simulé par sendInputEvent, pas par la vraie souris.
+test('C63 : la vue de la bulle est verrouillée et passe de côté sous la souris', async () => {
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await bulleAffichee()
+  const sonde = await app.evaluate(async ({ BrowserWindow, WebContentsView }) => {
+    const vue = (BrowserWindow.getAllWindows()[0].contentView.children as InstanceType<typeof WebContentsView>[])
+      .find((enfant) => enfant.webContents.getURL().startsWith('data:text/html'))!
+    const prefs = (vue.webContents as unknown as { getLastWebPreferences: () => { sandbox: boolean, contextIsolation: boolean, nodeIntegration: boolean } }).getLastWebPreferences()
+    const ouverte = await vue.webContents.executeJavaScript("window.open('https://example.com') === null")
+    vue.webContents.executeJavaScript("location.href = 'https://example.com/'").catch(() => {})
+    await new Promise((resolution) => setTimeout(resolution, 300))
+    return { sandbox: prefs.sandbox, isolation: prefs.contextIsolation, node: prefs.nodeIntegration, ouverte,
+      adresse: vue.webContents.getURL().slice(0, 15), fenetres: BrowserWindow.getAllWindows().length }
+  })
+  expect(sonde).toEqual({ sandbox: true, isolation: true, node: false, ouverte: true, adresse: 'data:text/html;', fenetres: 1 })
+
+  const zone = (await boundsVueActive())!
+  const gauche = (await bulle())!
+  expect(gauche.x).toBe(zone.x + 8)
+  const bouger = () => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const vue = (BrowserWindow.getAllWindows()[0].contentView.children as InstanceType<typeof WebContentsView>[])
+      .find((enfant) => enfant.webContents.getURL().startsWith('data:text/html'))!
+    vue.webContents.sendInputEvent({ type: 'mouseMove', x: 10, y: 10 })
+  })
+  await bouger()
+  await expect.poll(async () => { const b = await bulle(); return b ? b.x + b.width : 0 }).toBe(zone.x + zone.width - 8)
+  await bouger()
+  await expect.poll(async () => (await bulle())?.x).toBe(zone.x + 8)
 })
