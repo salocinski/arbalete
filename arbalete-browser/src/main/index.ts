@@ -4,7 +4,10 @@ import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
+import { estAboutBlank, retourPermis } from './aboutBlank.ts'
+import { borner } from './bornes.ts'
 import { faviconAcceptable } from './favicon.ts'
+import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
@@ -457,6 +460,28 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
     record.data = { ...record.data, error: true }
     updateTabFromView(id)
   })
+  // ARB-97 : ni will-navigate ni will-frame-navigate ne sont émis pour about:blank, donc rien à annuler en amont.
+  // Le chargement initial de l'onglet passe lui aussi par about:blank, mais sans cadre initiateur : seule une navigation
+  // lancée par une page (initiator) est défaite, par un retour en arrière une fois validée (stop() ici plante Electron).
+  // Chaque démarrage de navigation du cadre principal réécrit le drapeau : une navigation vers about:blank qui n'aboutit
+  // pas ne laisse rien derrière elle.
+  // shortcut: la page about:blank s'affiche un instant avant le retour ; une navigation de script vers about:blank remplace
+  // la page dans l'historique, le retour va donc avant elle. Plafond des retours : aboutBlank.ts.
+  let blancDePage = false
+  let retoursBlanc: number[] = []
+  view.webContents.on('did-start-navigation', (details) => {
+    if (!details.isMainFrame || details.isSameDocument) return
+    blancDePage = !!details.initiator && estAboutBlank(details.url)
+  })
+  view.webContents.on('did-navigate', (_event, url) => {
+    const aDefaire = blancDePage && estAboutBlank(url)
+    blancDePage = false
+    if (!aDefaire || !view.webContents.navigationHistory.canGoBack()) return
+    const suite = retourPermis(retoursBlanc, performance.now())
+    if (!suite) return
+    retoursBlanc = suite
+    view.webContents.navigationHistory.goBack()
+  })
   // Une navigation du cadre principal vers un autre document efface l'erreur ; un changement de fragment ne l'efface pas.
   view.webContents.on('did-start-navigation', (_event, _url, dansPage, cadrePrincipal) => {
     if (!cadrePrincipal || dansPage) return
@@ -561,16 +586,16 @@ function activeRecord(): TabRecord | undefined {
 }
 
 // L'interface est servie par Vite en développement (ELECTRON_RENDERER_URL) et depuis out/renderer en build.
-// Une app empaquetée ignore la variable : sinon elle chargerait, avec le preload, l'URL qu'on lui désigne.
-const URL_DEV = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL
+// Lue une seule fois (ARB-105) ; une app empaquetée ignore la variable.
+const URL_DEV = lireUrlDev(process.env.ELECTRON_RENDERER_URL, app.isPackaged)
+const CHEMIN_URL_INTERFACE = pathToFileURL(CHEMIN_INTERFACE).pathname
 
 function estUrlInterface(url: string): boolean {
   let adresse: URL
   try { adresse = new URL(url) } catch { return false }
-  if (URL_DEV) return adresse.origin === new URL(URL_DEV).origin
+  if (URL_DEV) return adresse.origin === URL_DEV.origin
   // L'hôte vide écarte un chemin UNC (file://serveur/...) de même chemin que l'interface.
-  return adresse.protocol === 'file:' && adresse.host === ''
-    && adresse.pathname === pathToFileURL(CHEMIN_INTERFACE).pathname
+  return adresse.protocol === 'file:' && adresse.host === '' && adresse.pathname === CHEMIN_URL_INTERFACE
 }
 
 // Seul le cadre principal des vues de l'interface (fenêtre et barre latérale) pilote le processus principal (ARB-14) :
@@ -800,13 +825,11 @@ app.whenReady().then(() => {
   traiter('browser:answer-restore-offer', (valeur) => repondreRestauration(exigerChoix(valeur, ['restore', 'dismiss'] as const)))
   ipcMain.on('browser:set-content-bounds', (event, bounds) => {
     if (!emetteurAutorise(event)) return
-    if (![bounds?.x, bounds?.y, bounds?.width, bounds?.height].every(Number.isFinite)) return
-    contentBounds = {
-      x: Math.max(0, Math.round(bounds.x)),
-      y: Math.max(0, Math.round(bounds.y)),
-      width: Math.max(0, Math.round(bounds.width)),
-      height: Math.max(0, Math.round(bounds.height))
-    }
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    const { width, height } = mainWindow.getContentBounds()
+    const borne = borner(bounds, width, height)
+    if (!borne) return
+    contentBounds = borne
     activeRecord()?.view.setBounds(contentBounds)
   })
 

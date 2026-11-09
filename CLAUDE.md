@@ -29,6 +29,7 @@ propose de créer `TODOS.md`, répondre **Skip** et signaler les éléments à a
 arbalete-browser/
   src/main/index.ts        processus principal : fenêtre, onglets (WebContentsView), navigation, IPC
   src/main/favicon.ts      filtre des favicons transmis à l'interface (https: ou data: image de 32 Ko au plus, ARB-35) ; test favicon.test.ts
+  src/main/bornes.ts       bornage du rectangle reçu par `browser:set-content-bounds` (ARB-104) ; urlDev.ts : lecture unique d'ELECTRON_RENDERER_URL, erreur claire si malformée (ARB-105) ; tests durcissement.test.ts
   src/main/donnees/        base SQLite (node:sqlite, décision 0001) : ouverture (réessais sur erreur d'E/S, ARB-132 ; confirmation de la corruption avant mise de côté et copie de secours `sauvegarde.ts`, ARB-131), migrations, dépôts, écriture différée ; tests *.test.ts
   src/preload/index.ts     pont IPC minimal exposé en window.arbalete
   src/shared/types.ts      types partagés main ↔ renderer (BrowserAPI, BrowserState)
