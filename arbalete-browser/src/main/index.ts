@@ -13,7 +13,8 @@ import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
 import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historique.ts'
-import { THEMES, ecrireTheme, lireTheme } from './donnees/preferences.ts'
+import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
+import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
@@ -39,14 +40,11 @@ let copiesSuspendues = false
 // Barre latérale (ARB-33) : vue native au-dessus de l'onglet, car une WebContentsView masque tout HTML de la fenêtre
 // (règle 4). Masquée, elle n'est qu'une bande transparente au bord gauche qui détecte le survol.
 let barreView: WebContentsView | null = null
-let barre: SidebarState = { open: false, pinned: false }
+let barre: SidebarState = { ...ETAT_BARRE_INITIAL }
 // Couche d'overlays (ARB-39, décision 0002) : menus et palettes s'affichent dans la vue de la barre, agrandie à toute
 // la fenêtre tant qu'un overlay est ouvert. Le contenu de l'overlay ne regarde que cette vue.
 let overlayOuvert = false
 let echapAvale = false
-// Jumelles de .sidebar / .sidebar-reserve (252) et .sidebar-hover-strip (6) dans styles.css : les changer ensemble.
-const LARGEUR_BARRE = 252
-const LARGEUR_BANDE = 6
 let choixTheme: ThemeChoice = 'system'
 // Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
 // --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
@@ -189,21 +187,36 @@ function setActiveView() {
 function placerBarre() {
   if (!mainWindow || mainWindow.isDestroyed() || !barreView) return
   const { width, height } = mainWindow.getContentBounds()
-  barreView.setBounds({ x: 0, y: 0, width: overlayOuvert ? width : barre.open ? LARGEUR_BARRE : LARGEUR_BANDE, height })
+  barreView.setBounds({ x: 0, y: 0, width: overlayOuvert ? width : largeurBarre(barre), height })
+}
+
+// Mode et largeur de la barre conservés au redémarrage (ARB-123).
+function enregistrerBarre() {
+  if (!base) return
+  try {
+    ecrireBarre(base, barre)
+  } catch (erreur) {
+    console.error('Barre latérale non enregistrée :', erreur)
+  }
+}
+
+// Différée : le glissement de la poignée envoie une largeur par mouvement du pointeur, une seule écriture suit.
+const sauvegardeBarre = creerEcritureDifferee(enregistrerBarre, 300, 2000)
+
+function appliquerBarre(suivant: SidebarState) {
+  if (suivant.open === barre.open && suivant.pinned === barre.pinned && suivant.compact === barre.compact && suivant.width === barre.width) return
+  const persistant = suivant.pinned !== barre.pinned || suivant.compact !== barre.compact || suivant.width !== barre.width
+  barre = suivant
+  if (persistant) sauvegardeBarre.demander()
+  placerBarre()
+  envoyerAuxInterfaces('browser:sidebar', barre)
 }
 
 // Masquer n'agit pas sur une barre épinglée ni pendant un overlay (la souris peut alors quitter la zone de la barre
 // sans la quitter) ; désépingler la referme.
 function agirSurBarre(action: SidebarAction) {
   if (action === 'hide' && overlayOuvert) return
-  const suivant: SidebarState =
-    action === 'open' ? { ...barre, open: true }
-      : action === 'hide' ? (barre.pinned ? barre : { open: false, pinned: false })
-        : barre.pinned ? { open: false, pinned: false } : { open: true, pinned: true }
-  if (suivant.open === barre.open && suivant.pinned === barre.pinned) return
-  barre = suivant
-  placerBarre()
-  envoyerAuxInterfaces('browser:sidebar', barre)
+  appliquerBarre(transitionBarre(barre, action))
 }
 
 function ouvrirOverlay() {
@@ -225,7 +238,7 @@ function fermerOverlay() {
   if (!mainWindow || mainWindow.isDestroyed() || barre.pinned) return
   const pointeur = screen.getCursorScreenPoint()
   const zone = mainWindow.getContentBounds()
-  const surLaBarre = pointeur.x >= zone.x && pointeur.x < zone.x + LARGEUR_BARRE && pointeur.y >= zone.y && pointeur.y < zone.y + zone.height
+  const surLaBarre = pointeur.x >= zone.x && pointeur.x < zone.x + largeurBarre({ ...barre, open: true }) &&pointeur.y >= zone.y && pointeur.y < zone.y + zone.height
   if (surLaBarre) return
   agirSurBarre('hide')
   // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page.
@@ -762,6 +775,12 @@ app.whenReady().then(() => {
     } catch (erreur) {
       console.error('Thème non relu :', erreur)
     }
+    // Mode et largeur de la barre latérale (ARB-123), lus avant la création de la fenêtre.
+    try {
+      barre = lireBarre(base)
+    } catch (erreur) {
+      console.error('Barre latérale non relue :', erreur)
+    }
     // Une base neuve mise à la place d'une base corrompue sans copie utilisable ne doit pas écraser les copies qui
     // existent encore : aucune copie pendant cette session.
     copiesSuspendues = ouverture.incident?.type === 'corrompue' && !ouverture.incident.restauree
@@ -812,7 +831,11 @@ app.whenReady().then(() => {
     appliquerThemeFenetre()
   })
   traiter('browser:get-sidebar', () => ({ ...barre }))
-  traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin'] as const)))
+  traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin', 'toggle-compact'] as const)))
+  traiter('browser:set-sidebar-width', (valeur) => {
+    if (typeof valeur !== 'number' || !Number.isFinite(valeur)) throw new Error('Argument IPC invalide : nombre attendu')
+    appliquerBarre({ ...barre, width: borneLargeurBarre(valeur) })
+  })
   traiter('browser:get-overlay', () => overlayOuvert)
   // Seule la vue de la barre rend les overlays : elle seule peut en ouvrir ou en fermer un (décision 0002).
   ipcMain.handle('browser:set-overlay', (event, valeur) => {
@@ -878,6 +901,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   sauvegardeSession.vider()
+  sauvegardeBarre.vider()
   // Après la dernière écriture : la note d'ouverture effacée, le prochain démarrage sait la fermeture normale (ARB-46).
   try {
     if (base) noterFermetureNormale(base)

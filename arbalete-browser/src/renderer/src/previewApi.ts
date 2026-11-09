@@ -1,3 +1,4 @@
+import { ETAT_BARRE_INITIAL, borneLargeurBarre, transitionBarre } from '../../shared/barre'
 import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
 /**
@@ -46,8 +47,13 @@ export function installPreviewApi(): boolean {
   let next = 1
   const stateListeners = new Set<(state: BrowserState) => void>()
   const themeListeners = new Set<(theme: 'dark' | 'light') => void>()
-  let sidebar: SidebarState = { open: false, pinned: false }
+  let sidebar: SidebarState = { ...ETAT_BARRE_INITIAL }
   const sidebarListeners = new Set<(state: SidebarState) => void>()
+  const setSidebarState = (next: SidebarState) => {
+    if (next.open === sidebar.open && next.pinned === sidebar.pinned && next.compact === sidebar.compact && next.width === sidebar.width) return
+    sidebar = next
+    sidebarListeners.forEach((fn) => fn({ ...sidebar }))
+  }
   // Dans l'aperçu, la barre est dans le même document que la page simulée : l'overlay n'a rien à agrandir.
   let overlay = false
   const overlayListeners = new Set<(open: boolean) => void>()
@@ -134,17 +140,10 @@ export function installPreviewApi(): boolean {
       stateListeners.add(callback)
       return () => stateListeners.delete(callback)
     },
-    // Mêmes transitions que agirSurBarre dans le processus principal.
+    // Mêmes transitions que agirSurBarre dans le processus principal (shared/barre.ts).
     getSidebar: async () => ({ ...sidebar }),
-    setSidebar: async (action) => {
-      const next: SidebarState =
-        action === 'open' ? { ...sidebar, open: true }
-          : action === 'hide' ? (sidebar.pinned ? sidebar : { open: false, pinned: false })
-            : sidebar.pinned ? { open: false, pinned: false } : { open: true, pinned: true }
-      if (next.open === sidebar.open && next.pinned === sidebar.pinned) return
-      sidebar = next
-      sidebarListeners.forEach((fn) => fn({ ...sidebar }))
-    },
+    setSidebar: async (action) => setSidebarState(transitionBarre(sidebar, action)),
+    setSidebarWidth: async (width) => setSidebarState({ ...sidebar, width: borneLargeurBarre(width) }),
     onSidebar: (callback) => {
       sidebarListeners.add(callback)
       return () => sidebarListeners.delete(callback)

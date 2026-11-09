@@ -18,14 +18,16 @@ export type BrowserState = {
   activeTabId: string | null
 }
 
-// Barre latérale (ARB-33) : masquée par défaut, ouverte par-dessus la page au survol du bord gauche ;
-// épinglée, elle reste ouverte et la page lui laisse sa place.
+// Barre latérale (ARB-33, ARB-123) : masquée par défaut, ouverte par-dessus la page au survol du bord gauche ;
+// épinglée, elle reste ouverte et la page lui laisse sa place, étendue (width) ou compacte (icônes seules).
 export type SidebarState = {
   open: boolean
   pinned: boolean
+  compact: boolean
+  width: number
 }
 
-export type SidebarAction = 'open' | 'hide' | 'toggle-pin'
+export type SidebarAction = 'open' | 'hide' | 'toggle-pin' | 'toggle-compact'
 
 export type ThemeChoice = 'system' | 'dark' | 'light'
 
@@ -52,6 +54,8 @@ export type BrowserAPI = {
   getSidebar: () => Promise<SidebarState>
   setSidebar: (action: SidebarAction) => Promise<void>
   onSidebar: (callback: (state: SidebarState) => void) => () => void
+  // Largeur de la barre étendue (ARB-123) : bornée côté processus principal, conservée au redémarrage.
+  setSidebarWidth: (width: number) => Promise<void>
   // Couche d'overlays (ARB-39) : vrai tant que la vue de la barre couvre la fenêtre pour un menu ou une palette. Seule
   // la vue de la barre peut l'ouvrir ou le fermer ; le processus principal le ferme aussi (Échap, raccourci, focus perdu).
   getOverlay: () => Promise<boolean>

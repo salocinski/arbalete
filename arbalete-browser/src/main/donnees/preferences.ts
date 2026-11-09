@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { ThemeChoice } from '../../shared/types.ts'
+import { ETAT_BARRE_INITIAL, borneLargeurBarre } from '../../shared/barre.ts'
+import type { SidebarState, ThemeChoice } from '../../shared/types.ts'
 
 // Préférences de l'utilisateur (ARB-59, EP-11), dans la table clé/valeur `etat` sous le préfixe `pref.` : pas de
 // migration. shortcut: une valeur texte par clé, sans typage ; passer à une table dédiée si une préférence devient
@@ -26,4 +27,23 @@ export function lireTheme(db: DatabaseSync): ThemeChoice {
 
 export function ecrireTheme(db: DatabaseSync, choix: ThemeChoice): void {
   ecrirePreference(db, 'theme', choix)
+}
+
+// Barre latérale (ARB-123) : mode (épinglée ou masquée, compacte ou étendue) et largeur étendue. Au démarrage, une barre
+// épinglée est ouverte ; une valeur absente ou inconnue redonne l'état initial (masquée, 252 px).
+export function lireBarre(db: DatabaseSync): SidebarState {
+  const pinned = lirePreference(db, 'barre.epinglee') === '1'
+  const largeur = lirePreference(db, 'barre.largeur')
+  return {
+    open: pinned,
+    pinned,
+    compact: lirePreference(db, 'barre.compacte') === '1',
+    width: largeur === undefined ? ETAT_BARRE_INITIAL.width : borneLargeurBarre(Number(largeur))
+  }
+}
+
+export function ecrireBarre(db: DatabaseSync, etat: SidebarState): void {
+  ecrirePreference(db, 'barre.epinglee', etat.pinned ? '1' : '0')
+  ecrirePreference(db, 'barre.compacte', etat.compact ? '1' : '0')
+  ecrirePreference(db, 'barre.largeur', String(etat.width))
 }

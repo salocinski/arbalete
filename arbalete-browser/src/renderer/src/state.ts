@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ETAT_BARRE_INITIAL } from '../../shared/barre'
 import type { BrowserState, DataIncident, SidebarState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
@@ -43,7 +44,7 @@ export function useDataIncident(): DataIncident | null {
 }
 
 export function useSidebar(): SidebarState {
-  const [sidebar, setSidebar] = useState<SidebarState>({ open: false, pinned: false })
+  const [sidebar, setSidebar] = useState<SidebarState>(ETAT_BARRE_INITIAL)
   useEffect(() => {
     void window.arbalete.getSidebar().then(setSidebar).catch(() => {})
     return window.arbalete.onSidebar(setSidebar)

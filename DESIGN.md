@@ -272,6 +272,11 @@ Trois zones ; la surface de contenu garde toujours la priorité visuelle.
 **Barre latérale** : *décision du 2026-11-03*, trois états au choix (ARB-123) : étendue (250 px, largeur
 réglable dans des limites définies), compacte (68 px, icônes et infobulles), masquée et rappelée au survol du
 bord gauche (ARB-33). Son état est conservé au redémarrage ; elle se pilote au clavier (Ctrl+Maj+B).
+*Mise en œuvre (ARB-123) :* largeur étendue de 200 à 400 px (252 px par défaut), réglable par une poignée au bord
+droit, à la souris ou au clavier (flèches, Début, Fin). En mode compact, le titre, la croix de fermeture, les
+indicateurs sonores et le bouton d'épinglage de la barre ne sont pas affichés : un onglet se ferme par le menu du
+clic droit ou Ctrl+W, la barre se libère par le bouton de la barre de contrôle ou Ctrl+Maj+B, le nom d'un onglet
+vient par l'infobulle. La barre rappelée au survol est toujours étendue.
 
 **Onglets** : verticaux, avec favicon, titre, indicateur de chargement, état actif, épinglé, indicateur sonore
 et fermeture. États : Default, Hover, Active, Pinned, Loading, Muted, Error. L'onglet actif se reconnaît

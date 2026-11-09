@@ -20,9 +20,23 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--color-focus
 .sidebar { width: 252px; height: 100%; background: var(--color-sidebar); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; padding: 17px 12px 10px; position: relative; overflow: hidden; }
 /* Barre latérale (ARB-33) : zone fixée au bord gauche, de la taille de sa vue native (ou par-dessus la page dans l'aperçu web). */
 .sidebar-zone { position: fixed; top: 0; left: 0; bottom: 0; z-index: var(--z-sidebar); display: flex; color: var(--color-text-primary); }
-/* Largeurs jumelles de LARGEUR_BANDE (6) et LARGEUR_BARRE (252) dans src/main/index.ts : les changer ensemble. */
+/* Largeurs jumelles de LARGEUR_BANDE (6) et LARGEUR_ETENDUE_DEFAUT (252) dans src/shared/barre.ts : les changer ensemble. */
 .sidebar-hover-strip { width: 6px; height: 100%; }
 .sidebar-reserve { flex: 0 0 252px; }
+/* Barre étendue (ARB-123) : largeur réglable, posée en ligne par Sidebar et MainView (shared/barre.ts) ; poignée au bord droit. */
+.sidebar-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: var(--space-2); cursor: col-resize; touch-action: none; }
+.sidebar-resizer:hover, .sidebar-resizer:focus-visible { background: var(--color-surface-hover); box-shadow: inset -2px 0 var(--color-accent); outline: none; }
+/* Barre compacte (68 px, jumelle de --size-sidebar-compact) : icônes seules, le nom vient par l'infobulle (title). */
+.sidebar--compact { padding-inline: var(--space-2); align-items: center; }
+.sidebar--compact .brand-row { flex-direction: column; height: auto; gap: var(--space-2); padding: 0; margin-bottom: var(--space-3); }
+.sidebar--compact .sidebar-toggle { margin-left: 0; }
+.sidebar--compact :is(.brand-name, .nav-item span, .nav-item kbd, .section-heading, .new-tab-button span, .new-tab-button kbd, .profile-copy, .profile-row > svg, .workspace-switcher > span:nth-child(2), .workspace-switcher > svg, .tab-title, .tab-audio, .tab-secure, .tab-pin, .tab-close) { display: none; }
+.sidebar--compact :is(.workspace-switcher, .nav-item, .new-tab-button) { justify-content: center; padding: 0; width: var(--size-button); }
+.sidebar--compact .sidebar-nav { margin-block: var(--space-3); }
+.sidebar--compact :is(.sidebar-nav, .sidebar-bottom, .tab-list) { justify-items: center; }
+.sidebar--compact .tab-item { width: var(--size-button); }
+.sidebar--compact .tab-select { justify-content: center; padding: 0; }
+.sidebar--compact .profile-row { justify-content: center; padding-inline: 0; }
 html.vue-barre, html.vue-barre body { background: transparent; min-width: 0; min-height: 0; }
 /* Dans sa vue native, la zone couvre toute la vue : élargie avant le rendu de la barre, la vue ne doit pas laisser
    un pointeur rapide « hors zone » (mouseleave puis fermeture aussitôt). Les bornes de la vue limitent déjà la barre. */
