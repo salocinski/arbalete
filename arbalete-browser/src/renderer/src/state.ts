@@ -5,14 +5,9 @@ import type { BrowserState, DataIncident, SidebarState, ThemeChoice } from '../.
 // puis suit ses mises à jour. La fenêtre et la vue de la barre latérale sont deux documents distincts : chacune
 // tient sa propre copie.
 
-const starterState: BrowserState = {
-  tabs: [
-    { id: 'demo-1', title: 'Bienvenue sur Arbalète', url: 'https://www.google.com', isLoading: false, canGoBack: false, canGoForward: false },
-    { id: 'demo-2', title: 'Documentation Electron', url: 'https://www.electronjs.org', isLoading: false, canGoBack: true, canGoForward: false },
-    { id: 'demo-3', title: 'React — bibliothèque UI', url: 'https://react.dev', isLoading: false, canGoBack: false, canGoForward: false }
-  ],
-  activeTabId: 'demo-1'
-}
+// Aucun onglet fictif avant la réponse du processus principal (ARB-115, ARB-9) : l'aperçu navigateur crée ses propres
+// onglets de démonstration dans previewApi.ts.
+const starterState: BrowserState = { tabs: [], activeTabId: null }
 
 export type ThemeState = { choice: ThemeChoice; effective: 'dark' | 'light' }
 

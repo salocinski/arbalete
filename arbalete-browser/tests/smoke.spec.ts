@@ -1930,3 +1930,63 @@ test('C56 : le thème choisi revient au redémarrage', async () => {
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })
+
+// Value: protects=ARB-37 : fermer l'onglet actif active son voisin de droite, et le précédent s'il était le dernier;
+//   fails_when=closeTab rend l'onglet actif au dernier de la liste (ancien comportement), ou ne rend aucun onglet actif;
+//   why_new=C36 ferme par Ctrl+W mais ne vérifie pas quel onglet devient actif; seam=none (getState, activateTab et
+//   closeTab de l'IPC); no_claim=ne couvre pas l'ordre de la liste affichée, tenu par voisin.test.ts.
+test('C57 : fermer l\'onglet actif active son voisin', async () => {
+  const ids: string[] = []
+  for (const page of ['page-a.html', 'page-b.html', 'page-a.html', 'page-b.html']) {
+    ids.push(await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/${page}`))
+  }
+  const actif = () => ui.evaluate(() => window.arbalete.getState().then((etat) => etat.activeTabId))
+  await ui.evaluate((id) => window.arbalete.activateTab(id), ids[1])
+  await ui.evaluate((id) => window.arbalete.closeTab(id), ids[1])
+  await expect.poll(actif).toBe(ids[2])
+  await ui.evaluate((id) => window.arbalete.closeTab(id), ids[3])
+  await ui.evaluate((id) => window.arbalete.activateTab(id), ids[2])
+  await ui.evaluate((id) => window.arbalete.closeTab(id), ids[2])
+  await expect.poll(actif).toBe(ids[0])
+  await ui.evaluate((id) => window.arbalete.closeTab(id), ids[0])
+})
+
+// Value: protects=ARB-112 et ARB-113 : une barre rechargée en arrière-plan ne rend pas le focus à la page (qui
+//   ramènerait la fenêtre au premier plan), le rend une fois la fenêtre revenue, et n'empile pas d'écouteurs;
+//   fails_when=did-finish-load appelle focus() sans regarder isFocused, ne s'exécute plus qu'une fois (once), ou
+//   ajoute un écouteur 'focus' par rechargement; why_new=C31 ne couvre que le premier chargement, fenêtre active;
+//   seam=isFocused de la fenêtre remplacé par un faux, Windows ne laissant pas Playwright quitter le premier plan;
+//   no_claim=ne prouve pas que Windows ramène la fenêtre au premier plan sans le correctif.
+test('C58 : la barre rechargée en arrière-plan rend le focus à la page au retour de la fenêtre, sans empiler d\'écouteurs', async () => {
+  const pageFocalisee = () => app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .some((enfant) => enfant instanceof WebContentsView && /^https?:/.test(enfant.webContents.getURL())
+      && enfant.webContents.isFocused()))
+  const ecouteurs = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].listenerCount('focus'))
+  const avant = await ecouteurs()
+  await app.evaluate(({ BrowserWindow }) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    ;(fenetre as unknown as { isFocused: () => boolean }).isFocused = () => false
+  })
+  try {
+    for (let i = 0; i < 3; i++) {
+      await app.evaluate(({ BrowserWindow, WebContentsView }) => {
+        const barre = BrowserWindow.getAllWindows()[0].contentView.children
+          .find((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+        barre.webContents.reload()
+      })
+      await expect.poll(() => app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+        .some((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre')
+          && !enfant.webContents.isLoading()))).toBe(true)
+    }
+    expect(await pageFocalisee()).toBe(false)
+    expect(await ecouteurs()).toBe(avant + 1)
+  } finally {
+    await app.evaluate(({ BrowserWindow }) => {
+      const fenetre = BrowserWindow.getAllWindows()[0] as unknown as { isFocused?: () => boolean }
+      delete fenetre.isFocused
+    })
+  }
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('focus'))
+  await expect.poll(pageFocalisee).toBe(true)
+  expect(await ecouteurs()).toBe(avant)
+})

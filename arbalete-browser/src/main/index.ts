@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
+import { ongletVoisin } from './voisin.ts'
 import { borner } from './bornes.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
@@ -569,12 +570,11 @@ function closeTab(id: string) {
     try { mainWindow.contentView.removeChildView(record.view) } catch {}
   }
   record.view.webContents.close()
+  const ordre = [...tabs.keys()]
   tabs.delete(id)
   ouvertures.delete(id)
 
-  if (activeTabId === id) {
-    activeTabId = [...tabs.keys()].at(-1) ?? null
-  }
+  if (activeTabId === id) activeTabId = ongletVoisin(ordre, id)
   if (!tabs.size) createTab()
   else {
     setActiveView()
@@ -675,9 +675,21 @@ function createWindow(adresses: readonly string[] = []) {
   verrouillerInterface(barreView.webContents)
   chargerInterface(barreView.webContents, 'barre')
   // Au démarrage, le focus clavier revient sinon à la dernière vue chargée, parfois la barre masquée (ARB-110) : on
-  // le rend à la page de l'onglet actif.
-  barreView.webContents.once('did-finish-load', () => {
+  // le rend à la page de l'onglet actif. À chaque chargement, pas seulement le premier : une vue rechargée (plantage,
+  // HMR) reprend sinon le clavier masquée (ARB-113). Si la fenêtre n'a pas le focus (l'utilisateur est passé à une
+  // autre application), focus() la ramènerait au premier plan sous Windows : on attend qu'elle le reprenne d'elle-même
+  // (ARB-112).
+  const rendreLeFocusALaPage = () => {
     if (!barre.open) activeRecord()?.view.webContents.focus()
+  }
+  barreView.webContents.on('did-finish-load', () => {
+    if (!mainWindow) return
+    if (mainWindow.isFocused()) rendreLeFocusALaPage()
+    else {
+      // Un seul écouteur en attente, même si la barre se recharge plusieurs fois en arrière-plan.
+      mainWindow.off('focus', rendreLeFocusALaPage)
+      mainWindow.once('focus', rendreLeFocusALaPage)
+    }
   })
   // Une vue de la barre rechargée ou plantée n'affiche plus l'overlay : il se ferme, sinon une vue transparente couvrirait
   // la fenêtre et prendrait tous les clics.
