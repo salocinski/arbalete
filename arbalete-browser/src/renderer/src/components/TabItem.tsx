@@ -15,7 +15,7 @@ export function TabItem({ tab, active, onSelect, onClose, onMenu }: { tab: Brows
     : son === 'son' ? <span className="tab-audio" title="Cet onglet joue du son"><Volume2 size={12}/></span> : null
   return (
     <div className={cx('tab-item', ...etats.map((etat) => `tab-item--${etat}`))} data-tab-id={tab.id} onContextMenu={(event) => { event.preventDefault(); onMenu(event.clientX, event.clientY) }}>
-      <button className="tab-select" aria-current={active ? 'page' : undefined} onClick={onSelect}>
+      <button className="tab-select" title={tab.title} aria-current={active ? 'page' : undefined} onClick={onSelect}>
         <span className="tab-favicon">{favicon === 'erreur' ? <AlertTriangle size={14}/> : favicon === 'chargement' ? <Loader2 size={14} className="tab-spinner"/> : tab.favicon ? <img className="tab-favicon-img" src={tab.favicon} alt="" width={14} height={14}/> : <Globe2 size={14}/>}</span>
         <span className="tab-title">{tab.title}</span>
         {sonore}

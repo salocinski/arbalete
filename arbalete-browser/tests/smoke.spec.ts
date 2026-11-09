@@ -128,8 +128,9 @@ async function verifierInterfaceIntacte(avant: BrowserState) {
   await attendreVueAlignee()
 }
 
+// Ouverte ou non, épinglée ou non : le mode compact et la largeur (ARB-123) ont leur propre test (C59).
 function etatBarre() {
-  return ui.evaluate(() => window.arbalete.getSidebar())
+  return ui.evaluate(() => window.arbalete.getSidebar().then(({ open, pinned }) => ({ open, pinned })))
 }
 
 function boundsBarre() {
@@ -1925,6 +1926,60 @@ test('C56 : le thème choisi revient au redémarrage', async () => {
     expect(await autreApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor().toLowerCase()))
       .toBe('#111820')
     expect(await (await vueBarre(autreApp)).evaluate(() => window.arbalete.getTheme())).toBe('dark')
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// Value: protects=ARB-123 : la barre épinglée passe de étendue (largeur bornée à 200-400 px) à compacte (68 px), la
+//   page suit chaque mode, et mode et largeur reviennent au redémarrage, la barre rouverte à sa taille;
+//   fails_when=toggle-compact ne change plus la largeur de la vue ou de la réserve, la largeur n'est plus bornée côté
+//   processus principal, ou le mode n'est pas écrit en base ni relu avant createWindow;
+//   why_new=C9 ne couvre que étendue/masquée; seam=deux lancements successifs sur un même profil temporaire;
+//   no_claim=ne couvre pas le glissement de la poignée (pointeur), les infobulles ni le rendu des icônes; la vue web
+//   est mesurée à 252, 68 et 300 px (x = 8 + largeur de la barre).
+test('C59 : barre latérale étendue, compacte, largeur réglable et conservée au redémarrage', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const lancer = () => electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  const largeurVue = (a: ElectronApplication) => a.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .find((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre'))?.getBounds().width)
+  // Bord gauche de la vue web de l'onglet actif : marge de 8 px (ARB-32) après la barre épinglée.
+  const xPage = (a: ElectronApplication) => a.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre'))?.getBounds().x)
+  let autreApp = await lancer()
+  try {
+    let fenetre = await fenetreInterface(autreApp)
+    const barre = () => fenetre.evaluate(() => window.arbalete.getSidebar())
+    expect(await barre()).toEqual({ open: false, pinned: false, compact: false, width: 252 })
+
+    await fenetre.evaluate(() => window.arbalete.setSidebar('toggle-compact'))
+    expect((await barre()).compact).toBe(false) // masquée : sans effet
+    await fenetre.evaluate(() => window.arbalete.setSidebar('toggle-pin'))
+    await expect.poll(() => largeurVue(autreApp)).toBe(252)
+    await expect.poll(() => xPage(autreApp)).toBe(260)
+
+    await fenetre.evaluate(() => window.arbalete.setSidebar('toggle-compact'))
+    await expect.poll(() => largeurVue(autreApp)).toBe(68)
+    await expect.poll(() => xPage(autreApp)).toBe(76)
+    await expect.poll(() => fenetre.locator('.sidebar-reserve').evaluate((el) => el.getBoundingClientRect().width)).toBe(68)
+
+    for (const [demande, obtenu] of [[300, 300], [10, 200], [1e9, 400], [250.6, 251]]) {
+      await fenetre.evaluate((largeur) => window.arbalete.setSidebarWidth(largeur), demande)
+      expect((await barre()).width).toBe(obtenu)
+    }
+    await expect(fenetre.evaluate(() => window.arbalete.setSidebarWidth('large' as never))).rejects.toThrow()
+    await fenetre.evaluate(() => window.arbalete.setSidebarWidth(300))
+    await autreApp.close()
+
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    expect(await barre()).toEqual({ open: true, pinned: true, compact: true, width: 300 })
+    await expect.poll(() => largeurVue(autreApp)).toBe(68)
+    await expect.poll(() => xPage(autreApp)).toBe(76)
+    await fenetre.evaluate(() => window.arbalete.setSidebar('toggle-compact'))
+    await expect.poll(() => largeurVue(autreApp)).toBe(300)
+    await expect.poll(() => xPage(autreApp)).toBe(308)
   } finally {
     await autreApp.close()
     rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })

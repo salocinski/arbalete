@@ -24,6 +24,7 @@ const api: BrowserAPI = {
   getSidebar: () => ipcRenderer.invoke('browser:get-sidebar'),
   setSidebar: (action) => ipcRenderer.invoke('browser:set-sidebar', action),
   onSidebar: (callback) => ecouter('browser:sidebar', callback),
+  setSidebarWidth: (width) => ipcRenderer.invoke('browser:set-sidebar-width', width),
   getOverlay: () => ipcRenderer.invoke('browser:get-overlay'),
   setOverlay: (open) => ipcRenderer.invoke('browser:set-overlay', open),
   onOverlay: (callback) => ecouter('browser:overlay', callback),

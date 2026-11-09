@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Clock3, Download, Plus, Search, Settings2, Star } from 'lucide-react'
+import { ChevronDown, Clock3, Download, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Star } from 'lucide-react'
+import { LARGEUR_ETENDUE_MAX, LARGEUR_ETENDUE_MIN, barreCompacte, largeurApresTouche, largeurBarre } from '../../../shared/barre'
 import type { BrowserState, SidebarState } from '../../../shared/types'
 import { useOverlay } from '../state'
 import { MenuOverlay } from './Overlay'
@@ -7,6 +8,24 @@ import { PinButton } from './PinButton'
 import { IconButton } from './ui/IconButton'
 import { TabList } from './TabList'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
+
+// Poignée du bord droit de la barre étendue (ARB-123) : glissée ou au clavier (flèches, Début, Fin). La capture du
+// pointeur garde le glissement quand la souris dépasse la vue ; le processus principal borne la largeur.
+function SidebarResizer({ width }: { width: number }) {
+  const regler = (valeur: number) => void window.arbalete.setSidebarWidth(valeur)
+  return (
+    <div className="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Largeur de la barre latérale" tabIndex={0}
+      aria-valuemin={LARGEUR_ETENDUE_MIN} aria-valuemax={LARGEUR_ETENDUE_MAX} aria-valuenow={width}
+      onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+      onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) regler(event.clientX) }}
+      onKeyDown={(event) => {
+        const valeur = largeurApresTouche(event.key, width)
+        if (valeur === undefined) return
+        event.preventDefault()
+        regler(valeur)
+      }} />
+  )
+}
 
 // Masquée, la barre n'est qu'une bande de survol au bord gauche ; ouverte, elle recouvre la page.
 // Elle se retire quand la souris la quitte, sauf si elle est épinglée ou si le focus y est (champ, menu).
@@ -19,6 +38,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
   const overlay = useOverlay()
   const [menuOnglet, setMenuOnglet] = useState<{ tabId: string; x: number; y: number } | null>(null)
   const ongletDuMenu = menuOnglet && state.tabs.find((tab) => tab.id === menuOnglet.tabId)
+  const compacte = barreCompacte(sidebar)
 
   useEffect(() => {
     if (!overlay) setMenuOnglet(null)
@@ -59,30 +79,36 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
       onMouseEnter={() => void window.arbalete.setSidebar('open')}
       onMouseLeave={onMouseLeave}>
       {!sidebar.open ? <div className="sidebar-hover-strip" data-testid="sidebar-hover-strip" /> : (
-        <aside className="sidebar">
+        <aside className={compacte ? 'sidebar sidebar--compact' : 'sidebar'} style={{ width: largeurBarre(sidebar) }}>
           <div className="brand-row">
             <div className="brand-mark">a<span>.</span></div>
             <span className="brand-name">arbalète</span>
-            <PinButton pinned={sidebar.pinned} className="sidebar-toggle" />
+            {sidebar.pinned && (
+              <IconButton className="sidebar-toggle" title={compacte ? 'Étendre la barre latérale' : 'Réduire la barre latérale'} onClick={() => void window.arbalete.setSidebar('toggle-compact')}>
+                {compacte ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </IconButton>
+            )}
+            {!compacte && <PinButton pinned={sidebar.pinned} className={sidebar.pinned ? undefined : 'sidebar-toggle'} />}
           </div>
 
-          <WorkspaceSwitcher workspace={workspace} onWorkspaceChange={setWorkspace} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} />
+          <WorkspaceSwitcher workspace={workspace} onWorkspaceChange={setWorkspace} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} />
 
           <nav className="sidebar-nav">
-            <button className="nav-item"><Search size={16} /><span>Rechercher</span><kbd>⌘ K</kbd></button>
-            <button className="nav-item"><Star size={16} /><span>Favoris</span></button>
-            <button className="nav-item"><Clock3 size={16} /><span>Historique</span></button>
+            <button className="nav-item" title="Rechercher"><Search size={16} /><span>Rechercher</span><kbd>⌘ K</kbd></button>
+            <button className="nav-item" title="Favoris"><Star size={16} /><span>Favoris</span></button>
+            <button className="nav-item" title="Historique"><Clock3 size={16} /><span>Historique</span></button>
           </nav>
 
           <div className="section-heading"><span>ONGLETS</span><IconButton size="sm" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={14}/></IconButton></div>
           <TabList state={state} onMenu={ouvrirMenuOnglet} />
-          <button className="new-tab-button" onClick={() => void window.arbalete.createTab()}><Plus size={16}/><span>Nouvel onglet</span><kbd>Ctrl T</kbd></button>
+          <button className="new-tab-button" title="Nouvel onglet (Ctrl T)" onClick={() => void window.arbalete.createTab()}><Plus size={16}/><span>Nouvel onglet</span><kbd>Ctrl T</kbd></button>
           <div className="sidebar-spacer" />
           <div className="sidebar-bottom">
-            <button className="nav-item"><Download size={16}/><span>Téléchargements</span></button>
-            <button className="nav-item"><Settings2 size={16}/><span>Paramètres</span></button>
-            <div className="profile-row"><div className="avatar">A</div><div className="profile-copy"><strong>Profil local</strong><span>Synchronisation inactive</span></div><ChevronDown size={14}/></div>
+            <button className="nav-item" title="Téléchargements"><Download size={16}/><span>Téléchargements</span></button>
+            <button className="nav-item" title="Paramètres"><Settings2 size={16}/><span>Paramètres</span></button>
+            <div className="profile-row" title="Profil local"><div className="avatar">A</div><div className="profile-copy"><strong>Profil local</strong><span>Synchronisation inactive</span></div><ChevronDown size={14}/></div>
           </div>
+          {sidebar.pinned && !compacte && <SidebarResizer width={sidebar.width} />}
         </aside>
       )}
       {overlay && menuOnglet && ongletDuMenu && (

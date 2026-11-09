@@ -5,6 +5,7 @@ import { StatusBar } from '../components/StatusBar'
 import { Sidebar } from '../components/Sidebar'
 import { Toolbar } from '../components/Toolbar'
 import { StageFooter, WelcomeCard } from '../components/WelcomeCard'
+import { largeurBarre } from '../../../shared/barre'
 import { isPreviewMode } from '../previewApi'
 import { handleTabShortcut } from '../shortcuts'
 import { useBrowserState, useDataIncident, useRestoreOffer, useSidebar, useTheme } from '../state'
@@ -49,7 +50,7 @@ export function MainView() {
       window.removeEventListener('resize', syncBounds)
       cancelAnimationFrame(raf)
     }
-  }, [syncBounds, sidebar.pinned])
+  }, [syncBounds, sidebar.pinned, sidebar.compact, sidebar.width])
 
   // Ctrl+L : le processus principal intercepte la touche où que soit le focus et demande la barre d'adresse (ARB-18).
   useEffect(() => window.arbalete.onFocusAddress(() => {
@@ -93,7 +94,7 @@ export function MainView() {
   return (
     <main className="app-shell">
       {/* Épinglée, la barre latérale (vue native au-dessus) prend cette place au lieu de recouvrir la page. */}
-      {sidebar.pinned && <div className="sidebar-reserve" />}
+      {sidebar.pinned && <div className="sidebar-reserve" style={{ flexBasis: largeurBarre(sidebar) }} />}
       {/* Aperçu web : pas de vue native, la barre est rendue ici, par-dessus la page. */}
       {isPreviewMode() && <Sidebar state={state} sidebar={sidebar} />}
 
