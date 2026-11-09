@@ -12,6 +12,7 @@ import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
 import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historique.ts'
+import { THEMES, ecrireTheme, lireTheme } from './donnees/preferences.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
@@ -743,6 +744,12 @@ app.whenReady().then(() => {
     } catch (erreur) {
       console.error('Ouverture de la session non notée :', erreur)
     }
+    // Thème choisi (ARB-59), lu avant la création de la fenêtre pour que son fond natif soit le bon dès le départ.
+    try {
+      choixTheme = lireTheme(base)
+    } catch (erreur) {
+      console.error('Thème non relu :', erreur)
+    }
     // Une base neuve mise à la place d'une base corrompue sans copie utilisable ne doit pas écraser les copies qui
     // existent encore : aucune copie pendant cette session.
     copiesSuspendues = ouverture.incident?.type === 'corrompue' && !ouverture.incident.restauree
@@ -781,7 +788,14 @@ app.whenReady().then(() => {
   // Le thème choisi est tenu ici pour que la fenêtre et la barre latérale l'affichent ensemble.
   traiter('browser:get-theme', () => choixTheme)
   traiter('browser:set-theme', (valeur) => {
-    choixTheme = exigerChoix(valeur, ['system', 'dark', 'light'] as const)
+    choixTheme = exigerChoix(valeur, THEMES)
+    if (base) {
+      try {
+        ecrireTheme(base, choixTheme)
+      } catch (erreur) {
+        console.error('Thème non enregistré :', erreur)
+      }
+    }
     envoyerAuxInterfaces('browser:theme', choixTheme)
     appliquerThemeFenetre()
   })
