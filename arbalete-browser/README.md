@@ -42,6 +42,7 @@ npm run dev:web   # http://localhost:5180
 - Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
 - Historique enregistré à chaque navigation vers une autre page
 - Favicon du site dans chaque onglet de la barre latérale (adresses `https:` et images `data:` seulement ; icône générique sinon)
+- Adresse d'un lien survolé dans une petite bulle au bas de la page, comme dans Arc (pas de barre d'état) ; elle passe de l'autre côté sous la souris et n'apparaît pas dans l'aperçu navigateur (`npm run dev:web`)
 
 ## État actuel et limites
 
@@ -59,6 +60,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/main/favicon.ts` : choix du favicon transmis à l'interface, dont la CSP n'autorise que `'self'`, `data:` et `https:` pour les images.
+- `src/main/apercuUrl.ts` : texte, placement et document de la bulle d'adresse du lien survolé, vue native dédiée (décision 0003).
 - `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
