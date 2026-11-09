@@ -29,7 +29,7 @@ npm run dev:web   # http://localhost:5180
 
 ## Interactions incluses
 
-- Barre latérale masquée à l'ouverture : elle apparaît par-dessus la page au survol du bord gauche ; `Ctrl+Shift+B` ou le bouton d'épingle la garde ouverte
+- Barre latérale masquée à l'ouverture : elle apparaît par-dessus la page au survol du bord gauche ; `Ctrl+Shift+B` ou le bouton d'épingle la garde ouverte, étendue (largeur réglable de 200 à 400 px en glissant son bord droit, ou au clavier avec les flèches, Début et Fin) ou compacte (68 px, icônes seules, bouton de la barre de contrôle) ; le mode et la largeur sont conservés au redémarrage
 - Nouvel onglet : `Ctrl+T`
 - Fermer l'onglet actif : `Ctrl+W`
 - Focus sur la barre d'adresse : `Ctrl+L`
@@ -59,7 +59,8 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/main/favicon.ts` : choix du favicon transmis à l'interface, dont la CSP n'autorise que `'self'`, `data:` et `https:` pour les images.
-- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi).
+- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi, mode et largeur de la barre latérale).
+- `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
 - `src/renderer/src/views/` et `src/renderer/src/components/` : interface et interactions.
