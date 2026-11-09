@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.17.0] - 2026-11-09
+
+### Ajouté
+- Quand vous survolez un lien, son adresse s'affiche dans une petite bulle au bas de la page, comme dans Arc. La bulle disparaît en quittant le lien, en changeant d'onglet ou en naviguant, passe de l'autre côté si la souris la touche, et suit le thème (ARB-36).
+
+### Supprimé
+- La barre d'état du bas de la fenêtre (nom du site, « Version prototype 0.1 », « Windows ») n'existe plus : la page prend sa place (ARB-36).
+
+### Limites connues
+- La bulle ne s'affiche pas dans l'aperçu navigateur (`npm run dev:web`), qui n'a pas de page native.
+- Le passage de la bulle de l'autre côté sous la vraie souris et son rendu n'ont pas été essayés à la main sous Windows ; ils sont couverts par des tests Electron qui simulent la souris.
+- La largeur de la bulle est estimée d'après la longueur de l'adresse : une adresse très large peut être coupée un peu tôt.
+
 ## [0.12.16.0] - 2026-11-09
 
 ### Ajouté
