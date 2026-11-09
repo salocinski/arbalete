@@ -234,7 +234,7 @@ test('C1 : l’app démarre avec le pont window.arbalete et un onglet', async ()
 // Value: protects=barre latérale masquée à l'ouverture (ARB-33) : la page web occupe toute la largeur, la vue de la
 //   barre n'est qu'une bande de survol de 6 px au bord gauche, au-dessus de la page;
 //   fails_when=l'état initial de la barre n'est plus masqué, placerBarre ne réduit plus la vue à la bande, la vue de
-//   la barre passe sous l'onglet, ou la zone de contenu ne part plus du bord gauche; why_new=ARB-33 remplace la
+//   la barre passe sous l'onglet, ou la zone de contenu ne part plus de la marge de 8 px du bord gauche; why_new=ARB-33 remplace la
 //   barre repliée d'ARB-109 (ancien C31); seam=none; no_claim=ne vérifie pas la transparence de la bande à l'écran.
 test('C31 : la barre latérale est masquée à l’ouverture et la page occupe toute la largeur', async () => {
   expect(await etatBarre()).toEqual({ open: false, pinned: false })
@@ -243,7 +243,16 @@ test('C31 : la barre latérale est masquée à l’ouverture et la page occupe t
   await expect(barreUi.locator('.sidebar')).toHaveCount(0)
   await expect(ui.locator('.sidebar')).toHaveCount(0)
   await attendreVueAlignee()
-  expect((await rectangleZoneContenu()).x).toBe(0)
+  // Cadre de page (ARB-32) : marge de 8 px (--space-2) de chaque côté, la vue web alignée dessus.
+  const zone = await rectangleZoneContenu()
+  expect(zone.x).toBe(8)
+  expect(zone.x + zone.width).toBe((await ui.evaluate(() => window.innerWidth)) - 8)
+  // Marge basse de 8 px sous la page et coins de 10 px (--radius-md), mesurés sur le rendu de l'interface.
+  const cadre = await ui.locator('.web-content').evaluate((el) => ({
+    bas: Math.round((el.parentElement as HTMLElement).getBoundingClientRect().bottom - el.getBoundingClientRect().bottom),
+    rayon: getComputedStyle(el).borderTopLeftRadius
+  }))
+  expect(cadre).toEqual({ bas: 8, rayon: '10px' })
   expect(await barreAuPremierPlan()).toBe(true)
   // Le focus clavier reste à la page (webContents.isFocused : Playwright émule document.hasFocus dans chaque page).
   expect(await app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
@@ -337,12 +346,12 @@ test('C32 : Ctrl+Maj+B depuis la page épingle puis libère la barre latérale',
 
   await presser()
   await expect.poll(etatBarre).toEqual({ open: true, pinned: true })
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(252)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(260)
   await attendreVueAlignee()
 
   await presser()
   await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(0)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(8)
   await attendreVueAlignee()
   expect(await resultatDansOngletActif<number>('window.touchesB')).toBe(0)
 
@@ -908,13 +917,13 @@ test('C45 : les vérifications de permission et l’accès aux périphériques s
 //   no_claim=ne couvre pas Ctrl+Maj+B (C32).
 test('C9 : épingler puis libérer la barre latérale réaligne la vue web', async () => {
   await epinglerBarre(true)
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(252)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(260)
   await attendreVueAlignee()
   expect(await boundsBarre()).toMatchObject({ x: 0, width: 252 })
 
   await barreUi.getByTitle('Libérer la barre latérale (Ctrl+Maj+B)').click()
   await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
-  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(0)
+  await expect.poll(async () => (await rectangleZoneContenu()).x).toBe(8)
   await attendreVueAlignee()
   expect(await boundsVueActive()).toEqual(await rectangleZoneContenu())
 })

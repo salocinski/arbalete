@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.12.0] - 2026-11-09
+
+### Ajouté
+- La page web s'affiche maintenant dans un cadre aux coins arrondis, avec une marge de 8 px à gauche, à droite et en bas, comme dans la maquette de mise en page (ARB-32). Barre latérale masquée, la page part à 8 px du bord ; épinglée, elle part juste après la barre.
+
+### Limites connues
+- L'arrondi des coins de la page elle-même (la vue native de Chromium) n'a pas été vérifié à l'écran : les tests automatiques mesurent la marge et le rayon de l'interface, pas la découpe réelle de la page sous Windows. À contrôler à la main dans `npm run dev`, thèmes sombre et clair, barre épinglée ou non, et à 125 % de mise à l'échelle.
+- Pendant un redimensionnement, la page peut déborder de la marge sur une image avant de se réaligner (comportement antérieur, plus visible avec la marge).
+
 ## [0.12.11.0] - 2026-11-08
 
 ### Ajouté
