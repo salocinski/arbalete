@@ -38,7 +38,7 @@ npm run dev:web   # http://localhost:5180
 - Navigation Chromium réelle via `WebContentsView`
 - Onglets créés, sélectionnés et fermés
 - Espaces de travail visuels
-- Thème manuel sombre / clair / système (le mode système est le défaut visuel initial)
+- Thème manuel sombre / clair / système (le mode système est le défaut initial ; le thème choisi est conservé au redémarrage)
 - Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
 - Historique enregistré à chaque navigation vers une autre page
 - Favicon du site dans chaque onglet de la barre latérale (adresses `https:` et images `data:` seulement ; icône générique sinon)
@@ -59,7 +59,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/main/favicon.ts` : choix du favicon transmis à l'interface, dont la CSP n'autorise que `'self'`, `data:` et `https:` pour les images.
-- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations et dépôts.
+- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi).
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
 - `src/renderer/src/views/` et `src/renderer/src/components/` : interface et interactions.
