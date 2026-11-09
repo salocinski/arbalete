@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.15.0] - 2026-11-09
+
+### Corrigé
+- Si vous passez à une autre application pendant le démarrage d'Arbalète, la fenêtre ne repasse plus d'elle-même au premier plan (ARB-112).
+- Quand la barre latérale masquée se recharge (plantage de l'interface, rechargement à chaud en développement), le clavier reste dans la page de l'onglet actif au lieu d'être repris par la barre (ARB-113).
+- La barre latérale n'affiche plus trois onglets fictifs le temps que les vrais arrivent, ni indéfiniment si leur lecture échoue (ARB-115, ARB-9).
+- Fermer l'onglet actif active l'onglet voisin à droite, ou celui de gauche s'il était le dernier, au lieu de sauter au dernier de la liste (ARB-37).
+
+### Limites connues
+- Si la barre se recharge pendant que vous tapez dans la barre d'adresse, le clavier retourne à la page.
+- Les onglets voisins suivent l'ordre d'ouverture, qui est l'ordre affiché : à revoir si la liste devient réordonnable.
+- Le comportement du focus sous Windows quand vous changez d'application n'a pas été essayé à la main ; il est couvert par des tests Electron qui simulent une fenêtre sans focus.
+
 ## [0.12.14.0] - 2026-11-09
 
 ### Ajouté
