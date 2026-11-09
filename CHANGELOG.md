@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.14.0] - 2026-11-09
+
+### Ajouté
+- Le thème choisi (système, sombre ou clair) est conservé : au redémarrage, Arbalète s'ouvre avec le thème que vous aviez choisi, fond de la fenêtre, boutons Windows et barre latérale compris, au lieu de revenir au thème du système (ARB-59).
+
+### Limites connues
+- Si l'écriture du choix échoue, le thème reste appliqué pendant la session mais revient à l'ancien au redémarrage ; seule la console en garde la trace.
+- Les trois chemins d'erreur de cette écriture et de cette lecture n'ont pas de test automatique (ils exigeraient d'ajouter un point d'injection de panne au code de production).
+- Rien n'a été essayé à la main dans `npm run dev` : les vérifications sont les tests unitaires et les tests Electron.
+
 ## [0.12.13.0] - 2026-11-09
 
 ### Modifié
