@@ -26,7 +26,9 @@ const pages: Record<string, string> = {
   '/page-a.html': `<!doctype html><title>Page A</title>
     <a id="suivante" href="/page-b.html">suivante</a>
     <a id="popup" href="/page-b.html" target="_blank">popup</a>
-    <a id="bloquee" href="arbalete-test:bloquee">bloquée</a>`,
+    <a id="bloquee" href="arbalete-test:bloquee">bloquée</a>
+    <a id="vide" href="about:blank">vide</a>
+    <iframe id="cadre" srcdoc="<p>cadre</p>"></iframe>`,
   '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>',
   // Favicon data: de 1 pixel (ARB-35) ; page-b n'en déclare pas.
   '/page-icone.html': `<!doctype html><title>Page icône</title>
@@ -779,14 +781,25 @@ test('C5 : un lien target=_blank ouvre un onglet, pas une fenêtre', async () =>
 })
 
 // Chromium refuse aussi un schéma inconnu : ce test protège le résultat (la page reste en place),
-// pas l'appel à will-navigate. about:blank n'émet pas will-navigate et passe, sous Electron 42 comme 45.
-test('C6 : une navigation de la page vers un schéma non http est bloquée', async () => {
+// pas l'appel au gestionnaire. about:blank n'émet ni will-navigate ni will-frame-navigate : depuis ARB-97, le processus
+// principal défait la navigation par un retour en arrière, pour le cadre principal seulement (un sous-cadre peut y
+// aller, comme le font beaucoup de sites).
+test('C6 : une navigation de la page vers un schéma non http ou vers about:blank est bloquée', async () => {
   await saisirAdresse(`${origine}/page-a.html`)
   await attendreUrlActive(`${origine}/page-a.html`)
 
   await dansOngletActif("document.getElementById('bloquee').click()")
   await ui.waitForTimeout(1_000)
   expect(ongletActif(await etat())?.url).toBe(`${origine}/page-a.html`)
+
+  await dansOngletActif("document.getElementById('vide').click()")
+  await ui.waitForTimeout(1_000)
+  expect(ongletActif(await etat())?.url).toBe(`${origine}/page-a.html`)
+  expect(await resultatDansOngletActif('document.title')).toBe('Page A')
+
+  // Un sous-cadre garde le droit d'aller sur about:blank.
+  await dansOngletActif("document.getElementById('cadre').contentWindow.location.replace('about:blank')")
+  await expect.poll(() => resultatDansOngletActif("document.getElementById('cadre').contentWindow.location.href")).toBe('about:blank')
 })
 
 // Value: protects=bouton Recharger -> pont reload -> webContents.reload() de l'onglet actif sous Electron 45;
@@ -1868,4 +1881,22 @@ test('C50 : l’onglet affiche le favicon du site sans violation de la CSP, et l
 
   expect(await barreUi.evaluate(() => (window as unknown as { __violationsCsp: string[] }).__violationsCsp)).toEqual([])
   await epinglerBarre(false)
+})
+
+// Value: protects=bornage de browser:set-content-bounds (ARB-104) : un rectangle aberrant venu de l'interface ne fait ni
+//   lever le processus principal ni sortir la vue de la fenêtre; fails_when=1e300 ou une valeur négative atteint setBounds
+//   (vue hors fenêtre) ou fait lever le listener, et la vue ne revient plus à la zone de contenu après un rectangle valide;
+//   why_new=C12 et C14 n'envoient que des rectangles valides ou refusés en amont; seam=none;
+//   no_claim=ne couvre pas le texte du message d'erreur ni un rectangle NaN (borné par les tests unitaires).
+test('C54 : un rectangle aberrant reçu par set-content-bounds est borné à la fenêtre', async () => {
+  const zone = await rectangleZoneContenu()
+  const fenetre = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentBounds())
+  try {
+    await ui.evaluate(() => window.arbalete.setContentBounds({ x: -50, y: 48, width: 1e300, height: 1e300 }))
+    await expect.poll(boundsVueActive).toEqual({ x: 0, y: 48, width: fenetre.width, height: fenetre.height - 48 })
+    expect(await ui.evaluate(() => window.arbalete.getState().then((etat) => etat.tabs.length))).toBeGreaterThan(0)
+  } finally {
+    await ui.evaluate((rectangle) => window.arbalete.setContentBounds(rectangle), zone)
+  }
+  await attendreVueAlignee()
 })

@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { createServer as createHttpServer } from 'node:http'
 import { mkdtempSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
@@ -230,5 +231,32 @@ test('C30 : en développement, F12 dans un onglet n’atteint pas la page', asyn
     expect(await compte('F12')).toBe(0)
   } finally {
     serveurPage.close()
+  }
+})
+
+// Value: protects=lecture unique d'ELECTRON_RENDERER_URL (ARB-105) : une valeur malformée échoue au démarrage de l'app avec
+//   un message clair, au lieu de lever à chaque message IPC; fails_when=l'analyse de l'URL retourne dans estUrlInterface
+//   ou l'exception est avalée (aucun message sur la sortie d'erreur); why_new=le test unitaire ne couvre que lireUrlDev,
+//   pas son appel au chargement du module; seam=none; no_claim=ne vérifie ni la boîte de dialogue d'erreur d'Electron
+//   ni l'app empaquetée, qui ignore la variable.
+test('C55 : une ELECTRON_RENDERER_URL malformée fait échouer le démarrage avec un message clair', async () => {
+  const profilIsole = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const enfant = spawn(require('electron') as unknown as string, ['.'], {
+    cwd: resolve(__dirname, '..'),
+    env: { ...process.env, ELECTRON_RENDERER_URL: 'pas une adresse', ARBALETE_PROFIL_TEST: profilIsole },
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  let sortie = ''
+  enfant.stdout.on('data', (morceau) => { sortie += morceau })
+  enfant.stderr.on('data', (morceau) => { sortie += morceau })
+  try {
+    await expect.poll(() => sortie, { timeout: 20_000 }).toContain('ELECTRON_RENDERER_URL invalide')
+  } finally {
+    // Une exception au chargement ouvre une boîte de dialogue d'Electron : le processus ne sort pas seul.
+    if (enfant.exitCode === null) {
+      enfant.kill()
+      await new Promise((fini) => enfant.once('exit', fini))
+    }
+    rmSync(profilIsole, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })

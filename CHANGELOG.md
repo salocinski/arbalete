@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.13.0] - 2026-11-09
+
+### Modifié
+- Un lien de page vers `about:blank` (avec ou sans `#` ou `?`) ne laisse plus l'onglet sur une page vide : Arbalète revient à la page précédente de l'onglet (ARB-97).
+- Le rectangle que l'interface donne à la page web est borné à la fenêtre : une valeur aberrante ne peut plus faire sortir la page de la fenêtre ni lever d'erreur dans le processus principal (ARB-104).
+- En développement, l'adresse de l'interface (`ELECTRON_RENDERER_URL`) est lue une seule fois au démarrage : une valeur malformée, ou qui n'est pas en `http` ou `https`, arrête Arbalète avec un message clair au lieu de faire échouer chaque message ensuite (ARB-105).
+
+### Limites connues
+- La page vide s'affiche un instant avant le retour en arrière. Un script qui navigue lui-même vers `about:blank` remplace sa page dans l'historique : le retour va alors à l'entrée d'avant, voire ne fait rien s'il n'y en a pas.
+- Le retour est limité à 2 par minute et par onglet : au-delà, l'onglet reste sur `about:blank`. Ce plafond est une garde contre une boucle, pas une frontière de sécurité, et aucun test ne reproduit une telle boucle.
+- Navigation du cadre principal seulement : un sous-cadre peut toujours aller sur `about:blank`.
+- Rien n'a été essayé à la main dans `npm run dev` ; les vérifications sont les tests unitaires et les tests Electron.
+
 ## [0.12.12.0] - 2026-11-09
 
 ### Ajouté
