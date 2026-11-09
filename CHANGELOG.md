@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.16.0] - 2026-11-09
+
+### Ajouté
+- La barre latérale a trois états : étendue, compacte (68 px, icônes seules avec leur nom en infobulle) ou masquée et rappelée au survol du bord gauche. Un bouton de la barre passe de l'étendue à la compacte, Ctrl+Maj+B l'épingle ou la libère comme avant, et la page s'aligne dans chaque état (ARB-123).
+- La largeur de la barre étendue se règle de 200 à 400 px en glissant son bord droit, ou au clavier avec les flèches, Début et Fin (ARB-123).
+- Le mode et la largeur de la barre sont conservés au redémarrage : une barre épinglée rouvre à la même taille (ARB-123).
+
+### Limites connues
+- En mode compact, un onglet se ferme par le clic droit ou Ctrl+W (pas de croix), et un clic sur l'espace de travail passe au suivant au lieu d'ouvrir le menu.
+- Le glissement du bord de la barre n'a pas été essayé à la main sous Windows ; la largeur réglée et le mode sont couverts par un test Electron.
+
 ## [0.12.15.0] - 2026-11-09
 
 ### Corrigé
