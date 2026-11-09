@@ -10,8 +10,15 @@ installPreviewApi()
 // défaut s'afficherait un instant sur le fond natif clair de la fenêtre (ARB-34). useTheme prend ensuite le relais.
 document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+// Thème choisi et enregistré (ARB-59) : lu avant le premier rendu, sinon un thème différent de celui du système
+// s'afficherait un instant. Sans réponse du processus principal, le rendu part avec le thème du système.
+void window.arbalete.getTheme()
+  .then((choix) => { if (choix !== 'system') document.documentElement.dataset.theme = choix })
+  .catch(() => {})
+  .then(() => {
+    createRoot(document.getElementById('root')!).render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    )
+  })

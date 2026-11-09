@@ -1900,3 +1900,33 @@ test('C54 : un rectangle aberrant reçu par set-content-bounds est borné à la 
   }
   await attendreVueAlignee()
 })
+
+// Value: protects=persistance du thème d'ARB-59 : le thème choisi est écrit en base dès le choix et revient au
+//   redémarrage, dans la fenêtre, dans la barre et sur le fond natif posé avant le rendu;
+//   fails_when=set-theme n'écrit plus en base, le thème n'est pas relu avant createWindow, ou la valeur relue ne
+//   passe plus par themeEffectif();
+//   why_new=C35 prouve le choix dans une session, pas son maintien; seam=deux lancements successifs sur un même profil
+//   temporaire; no_claim=ne couvre pas une valeur illisible en base (tests unitaires de preferences.test.ts) ni le
+//   thème système de Windows.
+test('C56 : le thème choisi revient au redémarrage', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const lancer = () => electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer()
+  try {
+    let fenetre = await fenetreInterface(autreApp)
+    expect(await fenetre.evaluate(() => window.arbalete.getTheme())).toBe('system')
+    await fenetre.evaluate(() => window.arbalete.setTheme('dark'))
+    await autreApp.close()
+
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    expect(await fenetre.evaluate(() => window.arbalete.getTheme())).toBe('dark')
+    await expect(fenetre.locator('html')).toHaveAttribute('data-theme', 'dark')
+    expect(await autreApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor().toLowerCase()))
+      .toBe('#111820')
+    expect(await (await vueBarre(autreApp)).evaluate(() => window.arbalete.getTheme())).toBe('dark')
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
