@@ -2191,3 +2191,97 @@ test('C63 : la vue de la bulle est verrouillée et passe de côté sous la souri
   await bouger()
   await expect.poll(async () => (await bulle())?.x).toBe(zone.x + 8)
 })
+
+// Zoom de page et plein écran (ARB-107) : les raccourcis que portait le menu d'application retiré (ARB-101) sont gérés
+// par le processus principal, comme ceux d'ARB-18, quel que soit le webContents qui a le focus.
+function presserSur(cible: 'onglet' | 'barre' | 'fenetre', keyCode: string, modifiers: Array<'control' | 'alt' | 'shift'>) {
+  return app.evaluate(({ BrowserWindow, WebContentsView }, { cible, keyCode, modifiers }) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    const contenu = cible === 'fenetre' ? fenetre.webContents
+      : (fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+        && !enfant.webContents.getURL().startsWith('data:')
+        && enfant.webContents.getURL().includes('vue=barre') === (cible === 'barre')) as InstanceType<typeof WebContentsView>).webContents
+    contenu.focus()
+    contenu.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+    contenu.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+  }, { cible, keyCode, modifiers })
+}
+function zoomDe(cible: 'onglet' | 'fenetre') {
+  return app.evaluate(({ BrowserWindow, WebContentsView }, cible) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    const contenu = cible === 'fenetre' ? fenetre.webContents
+      : (fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+        && !enfant.webContents.getURL().startsWith('data:') && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>).webContents
+    return Math.round(contenu.getZoomFactor() * 100) / 100
+  }, cible)
+}
+
+// Value: protects=Ctrl+= (et Ctrl+Maj+=), Ctrl+- et Ctrl+0 zooment la page de l'onglet actif d'un palier de Chrome, que le
+//   focus soit dans la page, la barre ou la fenêtre, sans toucher l'interface ni arriver à la page;
+//   fails_when=actionDuRaccourci ne reconnaît plus sensDuZoom, zoomerPage vise l'interface ou un autre onglet, ou la
+//   touche passe à la page; why_new=aucun test ne regardait le zoom depuis la suppression du menu (ARB-101);
+//   seam=none (sendInputEvent atteint before-input-event, comme C36); no_claim=ne couvre ni la conservation du zoom par
+//   site (ARB-71) ni un clavier AZERTY réel (les touches sont simulées par keyCode).
+test('C64 : Ctrl+=, Ctrl+- et Ctrl+0 zooment la page de l’onglet actif, d’où que vienne la touche', async () => {
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await resultatDansOngletActif(`window.touches = []
+    addEventListener('keydown', (e) => window.touches.push(e.key)); true`)
+  expect(await zoomDe('onglet')).toBe(1)
+  try {
+    await presserSur('onglet', 'Plus', ['control'])
+    await expect.poll(() => zoomDe('onglet')).toBe(1.1)
+    await presserSur('fenetre', 'Plus', ['control', 'shift'])
+    await expect.poll(() => zoomDe('onglet')).toBe(1.25)
+    await presserSur('barre', '-', ['control'])
+    await expect.poll(() => zoomDe('onglet')).toBe(1.1)
+    await presserSur('onglet', '-', ['control'])
+    await presserSur('onglet', '-', ['control'])
+    await expect.poll(() => zoomDe('onglet')).toBe(0.9)
+    await presserSur('fenetre', '0', ['control'])
+    await expect.poll(() => zoomDe('onglet')).toBe(1)
+    // L'interface ne zoome jamais, et la page ne voit aucune de ces touches.
+    expect(await zoomDe('fenetre')).toBe(1)
+    expect(await resultatDansOngletActif<string[]>("window.touches.filter((t) => '+-=0'.includes(t))")).toEqual([])
+  } finally {
+    await presserSur('onglet', '0', ['control'])
+  }
+})
+
+// Value: protects=F11 bascule le plein écran de la fenêtre depuis la page, la barre et la fenêtre, la page suit la zone
+//   de contenu dans les deux sens, la page ne reçoit pas F11 et aucun raccourci n'ouvre les DevTools de l'interface;
+//   fails_when=F11 n'est plus reconnu par actionDuRaccourci, sa garde de modificateurs saute (Ctrl+F11 bascule), ou un
+//   raccourci (Ctrl+Maj+I) rouvre les DevTools; why_new=aucun test ne regardait F11 ni les DevTools après la
+//   suppression du menu (ARB-101); seam=none; no_claim=fenêtre plein écran réelle de ce poste, pas d'autre moniteur.
+test('C65 : F11 bascule le plein écran depuis la page, la barre et la fenêtre, sans ouvrir de DevTools', async () => {
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  await resultatDansOngletActif(`window.touches = []
+    addEventListener('keydown', (e) => window.touches.push(e.key)); true`)
+  const pleinEcran = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())
+  const devToolsOuverts = () => app.evaluate(({ BrowserWindow, webContents }) =>
+    webContents.getAllWebContents().some((contenu) => contenu.isDevToolsOpened()) || BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened())
+  expect(await pleinEcran()).toBe(false)
+  try {
+    for (const cible of ['onglet', 'barre', 'fenetre'] as const) {
+      await presserSur(cible, 'F11', [])
+      await expect.poll(pleinEcran).toBe(true)
+      await attendreVueAlignee()
+      expect(await boundsVueActive()).toEqual(await rectangleZoneContenu())
+      await presserSur(cible === 'onglet' ? 'fenetre' : 'onglet', 'F11', [])
+      await expect.poll(pleinEcran).toBe(false)
+      await attendreVueAlignee()
+    }
+    expect(await resultatDansOngletActif<string[]>("window.touches.filter((t) => t === 'F11')")).toEqual([])
+    await presserSur('onglet', 'I', ['control', 'shift'])
+    await presserSur('fenetre', 'I', ['control', 'shift'])
+    // F11 avec un modificateur n'est pas le raccourci : la garde de actionDuRaccourci ne bascule pas le plein écran.
+    for (const modifiers of [['control'], ['alt'], ['shift']] as const) await presserSur('fenetre', 'F11', [...modifiers])
+    // gstack-timing-ok: vérification négative (rien ne doit s'ouvrir ni basculer) ; l'effet serait immédiat.
+    await ui.waitForTimeout(500)
+    expect(await devToolsOuverts()).toBe(false)
+    expect(await pleinEcran()).toBe(false)
+  } finally {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setFullScreen(false))
+  }
+})

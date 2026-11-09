@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.18.0] - 2026-11-09
+
+### Corrigé
+- Le zoom de la page fonctionne de nouveau : Ctrl+= agrandit, Ctrl+- réduit et Ctrl+0 revient à 100 % (par paliers, de 25 % à 500 %), que le clavier soit dans la page, la barre latérale ou la fenêtre. Seule la page de l'onglet actif change de taille, jamais l'interface (ARB-107).
+- F11 bascule de nouveau le plein écran, et la page suit la taille de la fenêtre. F11 avec Ctrl, Alt ou Maj ne fait rien (ARB-107).
+
+### Limites connues
+- Le zoom n'est pas conservé au redémarrage ni propre à chaque site : Chromium le partage entre les onglets d'un même site le temps de la session (ARB-71 le traitera).
+- Les touches d'un clavier AZERTY réel n'ont pas été essayées à la main ; elles sont couvertes par des tests qui les simulent.
+- Si une page est passée en plein écran par elle-même (une vidéo), F11 peut sortir du plein écran sans que la page le sache.
+
 ## [0.12.17.0] - 2026-11-09
 
 ### Ajouté

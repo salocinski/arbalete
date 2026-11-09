@@ -7,6 +7,7 @@ import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
 import { ongletVoisin } from './voisin.ts'
 import { borner } from './bornes.ts'
+import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
@@ -429,12 +430,30 @@ function focaliserAdresse() {
   mainWindow.webContents.send('browser:focus-address')
 }
 
+// Ctrl+=, Ctrl+- et Ctrl+0 zooment la page de l'onglet actif, jamais l'interface (le rôle zoom de l'ancien menu zoomait
+// l'interface). shortcut: le zoom n'est pas conservé au redémarrage ni par site, à faire avec ARB-71.
+function zoomerPage(sens: SensZoom) {
+  const contenu = activeRecord()?.view.webContents
+  if (!contenu || contenu.isDestroyed()) return
+  contenu.setZoomFactor(palierZoom(contenu.getZoomFactor(), sens))
+}
+
+// F11 : plein écran de la fenêtre. La page et la barre suivent le redimensionnement qui en résulte.
+function basculerPleinEcran() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setFullScreen(!mainWindow.isFullScreen())
+}
+
 // Action du raccourci d'Arbalète que forme la touche, ou undefined. AltGr arrive comme Ctrl+Alt : il est écarté.
 function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
   // Disposition non latine (russe, grec…) : key est une lettre d'un autre alphabet, la touche physique (code) prend le
   // relais. Une lettre latine accentuée (é, è du BÉPO) garde son sens : Ctrl+é ne ferme pas l'onglet.
   const nonLatine = /^\p{L}$/u.test(input.key) && !/\p{Script=Latin}/u.test(input.key)
   const touche = nonLatine ? input.code.replace(/^Key/, '').toLowerCase() : input.key.toLowerCase()
+  // Zoom de la page (ARB-107) : avant le test de Maj, qui permet Ctrl+Maj+= (le « + » du QWERTY) et Ctrl+Maj+0 (AZERTY).
+  const zoom = sensDuZoom(input)
+  if (zoom) return () => zoomerPage(zoom)
+  if (input.key === 'F11' && !input.control && !input.alt && !input.shift && !input.meta) return basculerPleinEcran
   if (input.control && !input.alt && !input.meta) {
     if (input.shift) return touche === 'b' ? () => agirSurBarre('toggle-pin') : undefined
     // Comme Chrome : le nouvel onglet donne la main à la barre d'adresse, la fermeture à l'onglet qui devient actif.
@@ -451,7 +470,7 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
   return undefined
 }
 
-// Raccourcis d'Arbalète (ARB-18) : Ctrl+T, Ctrl+W, Ctrl+L, Alt+←/→ et Ctrl+Maj+B agissent quel que soit le
+// Raccourcis d'Arbalète (ARB-18, ARB-107) : Ctrl+T, Ctrl+W, Ctrl+L, Alt+←/→, Ctrl+Maj+B, le zoom et F11 agissent quel que soit le
 // webContents qui a le focus, la fenêtre, la barre latérale ou la page d'un onglet (règle 5). Le webContents ne reçoit
 // pas la combinaison (relâchement et répétitions compris) ; seul le premier appui agit.
 // Pendant un overlay, Échap le ferme où que soit le focus, et un raccourci le ferme avant d'agir (ARB-39).
