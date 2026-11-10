@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.22.0] - 2026-11-10
+
+### Ajouté
+- La barre d'adresse propose des suggestions en tapant. Une liste s'ouvre sous le champ : d'abord ce que ferait Entrée (chercher sur le web ou aller à l'adresse), puis les pages déjà visitées dont l'adresse ou le titre contient chaque mot tapé. Les flèches haut et bas choisissent une ligne, Entrée ou un clic l'ouvre, Échap, Tab ou un champ vidé referment la liste.
+
+### Limites connues
+- Les favoris ne sont pas encore proposés (ils viendront avec leur ticket) et le champ n'est pas rempli par la ligne choisie aux flèches.
+- Pendant que la liste est ouverte, la page ne défile pas à la molette et un clic hors de la liste la ferme sans atteindre la page.
+- Les accents ne sont pas repliés : « é » et « e » se cherchent séparément. Un très long historique peut ralentir la frappe.
+- Un texte de plus de 256 caractères ne donne pas de suggestions. L'aperçu navigateur (`npm run dev:web`) n'affiche pas la liste.
+- Le rendu de la liste dans les thèmes Dark et Light et un vrai clavier AZERTY n'ont pas été essayés à la main ; les tests simulent les touches.
+
 ## [0.12.21.0] - 2026-11-09
 
 ### Ajouté
