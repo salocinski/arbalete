@@ -2318,6 +2318,33 @@ test('C66 : Ctrl+Tab et Ctrl+1…9 changent d’onglet, F5 et Ctrl+R rechargent,
   }
 })
 
+// Value: protects=Ctrl+Maj+T rouvre le dernier onglet fermé et l'active, depuis la page, la barre et la fenêtre, les plus
+//   récents d'abord; fails_when=actionDuRaccourci ne reconnaît plus Ctrl+Maj+T, closeTab ne mémorise plus l'adresse, ou la
+//   pile rouvre dans le mauvais ordre; why_new=ARB-20, aucun raccourci de réouverture n'existait; seam=none (sendInputEvent
+//   atteint before-input-event, comme C36); no_claim=ni la place d'origine de l'onglet (il revient en fin de liste), ni
+//   l'historique de navigation de l'onglet fermé, ni un clavier AZERTY réel.
+test('C67 : Ctrl+Maj+T rouvre le dernier onglet fermé et l’active', async () => {
+  const urlA = `${origine}/page-a.html`
+  const urlB = `${origine}/page-b.html`
+  const ouverts: string[] = []
+  try {
+    const a = await ui.evaluate((url) => window.arbalete.createTab(url), urlA)
+    const b = await ui.evaluate((url) => window.arbalete.createTab(url), urlB)
+    await ui.evaluate((id) => window.arbalete.closeTab(id), a)
+    await ui.evaluate((id) => window.arbalete.closeTab(id), b)
+    const actif = async () => (await ongletActif(await etat()))?.url
+    for (const [cible, url] of [['onglet', urlB], ['barre', urlA]] as const) {
+      const avant = (await etat()).tabs.length
+      await presserSur(cible, 'T', ['control', 'shift'])
+      await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+      await expect.poll(actif).toBe(url)
+      ouverts.push((await etat()).activeTabId!)
+    }
+  } finally {
+    for (const id of ouverts) await ui.evaluate((i) => window.arbalete.closeTab(i), id)
+  }
+})
+
 // Value: protects=F11 bascule le plein écran de la fenêtre depuis la page, la barre et la fenêtre, la page suit la zone
 //   de contenu dans les deux sens, la page ne reçoit pas F11 et aucun raccourci n'ouvre les DevTools de l'interface;
 //   fails_when=F11 n'est plus reconnu par actionDuRaccourci, sa garde de modificateurs saute (Ctrl+F11 bascule), ou un
