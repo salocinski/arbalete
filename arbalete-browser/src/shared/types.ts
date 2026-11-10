@@ -38,6 +38,12 @@ export type RestoreAnswer = 'restore' | 'dismiss'
 // version d'Arbalète, ou indisponible. Dans les deux derniers cas, rien n'est conservé pendant la session.
 export type DataIncident = { kind: 'corrupted', backup: string, restored: boolean } | { kind: 'newer' } | { kind: 'unavailable' }
 
+// Suggestions de la barre d'adresse (ARB-53) : une ligne est ce que ferait Entrée (chercher ou aller à l'adresse) ou une
+// page déjà visitée. `selection` vaut -1 tant qu'aucune ligne n'est choisie aux flèches ; `anchor` est le champ, en
+// coordonnées de la fenêtre, sous lequel la liste s'affiche.
+export type Suggestion = { kind: 'recherche' | 'adresse' | 'historique', titre: string, url: string }
+export type SuggestionsState = { items: Suggestion[], selection: number, anchor: { x: number, y: number, width: number, height: number } }
+
 // Résultat de la recherche dans la page (ARB-70) : rang du résultat actif (1 à total, 0 sans résultat) et nombre total.
 export type FindResult = { active: number, total: number }
 
@@ -64,6 +70,16 @@ export type BrowserAPI = {
   getOverlay: () => Promise<boolean>
   setOverlay: (open: boolean) => Promise<void>
   onOverlay: (callback: (open: boolean) => void) => () => void
+  // Suggestions de la barre d'adresse (ARB-53). Le champ de la fenêtre garde le clavier : il envoie le texte (`suggest`) et
+  // les flèches (`moveSuggestion`), le processus principal tient la liste, ouvre l'overlay et la diffuse à la vue de la
+  // barre, qui l'affiche. Un texte vide ou `closeSuggestions` ferme la liste ; `chooseSuggestion` ouvre la ligne donnée
+  // (clic) ou la ligne choisie aux flèches (Entrée) ; faux si aucune ligne n'a été ouverte.
+  suggest: (text: string, anchor: { x: number, y: number, width: number, height: number }) => Promise<void>
+  moveSuggestion: (step: 1 | -1) => Promise<void>
+  chooseSuggestion: (index?: number) => Promise<boolean>
+  closeSuggestions: () => Promise<void>
+  getSuggestions: () => Promise<SuggestionsState | null>
+  onSuggestions: (callback: (state: SuggestionsState | null) => void) => () => void
   // Recherche dans la page (ARB-70), pilotée par la seule vue de la recherche. `next` : continuer la recherche en cours
   // (Entrée) plutôt que la recommencer (frappe) ; `forward` faux remonte. Un texte vide efface les résultats.
   findInPage: (text: string, forward: boolean, next: boolean) => Promise<void>

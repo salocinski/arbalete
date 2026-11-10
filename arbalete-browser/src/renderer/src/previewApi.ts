@@ -158,6 +158,13 @@ export function installPreviewApi(): boolean {
       overlayListeners.add(callback)
       return () => overlayListeners.delete(callback)
     },
+    // Pas de suggestions dans l'aperçu : elles s'affichent dans la vue de la barre, absente ici (ARB-53).
+    suggest: async () => undefined,
+    moveSuggestion: async () => undefined,
+    chooseSuggestion: async () => false,
+    closeSuggestions: async () => undefined,
+    getSuggestions: async () => null,
+    onSuggestions: () => () => undefined,
     // Pas de recherche dans l'aperçu : la page y est simulée, Ctrl+F est celui du navigateur.
     findInPage: async () => undefined,
     closeFind: async () => undefined,

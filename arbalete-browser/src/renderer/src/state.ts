@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ETAT_BARRE_INITIAL } from '../../shared/barre'
-import type { BrowserState, DataIncident, SidebarState, ThemeChoice } from '../../shared/types'
+import type { BrowserState, DataIncident, SidebarState, SuggestionsState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
 // puis suit ses mises à jour. La fenêtre et la vue de la barre latérale sont deux documents distincts : chacune
@@ -60,6 +60,16 @@ export function useOverlay(): boolean {
     return window.arbalete.onOverlay(setOpen)
   }, [])
   return open
+}
+
+// Suggestions de la barre d'adresse (ARB-53) : null tant qu'aucune liste n'est ouverte.
+export function useSuggestions(): SuggestionsState | null {
+  const [state, setState] = useState<SuggestionsState | null>(null)
+  useEffect(() => {
+    void window.arbalete.getSuggestions().then(setState).catch(() => {})
+    return window.arbalete.onSuggestions(setState)
+  }, [])
+  return state
 }
 
 // Choix de thème tenu par le processus principal, partagé par la fenêtre et la barre latérale.
