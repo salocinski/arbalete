@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
+import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } from './navigationClavier.ts'
 import { ongletVoisin } from './voisin.ts'
 import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
@@ -422,6 +423,27 @@ function avancer() {
   if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
 }
 
+function activerOnglet(id: string) {
+  if (!tabs.has(id)) return
+  activeTabId = id
+  setActiveView()
+  updateTabFromView(id)
+}
+
+// Ctrl+Tab, Ctrl+1…9 : l'onglet visé devient actif et reprend le clavier, comme après Ctrl+W. Sans onglet visé, rien.
+function activerAutreOnglet(id: string | null) {
+  if (!id) return
+  if (id !== activeTabId) activerOnglet(id)
+  activeRecord()?.view.webContents.focus()
+}
+
+function recharger(sansCache: boolean) {
+  const wc = activeRecord()?.view.webContents
+  if (!wc || wc.isDestroyed()) return
+  if (sansCache) wc.reloadIgnoringCache()
+  else wc.reload()
+}
+
 // Ctrl+L depuis une page ou la barre latérale : le focus clavier passe à la fenêtre, puis l'interface sélectionne la
 // barre d'adresse.
 function focaliserAdresse() {
@@ -454,6 +476,13 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
   const zoom = sensDuZoom(input)
   if (zoom) return () => zoomerPage(zoom)
   if (input.key === 'F11' && !input.control && !input.alt && !input.shift && !input.meta) return basculerPleinEcran
+  // Changement d'onglet et rechargement (ARB-19, ARB-21), avant le test de Maj : Ctrl+Maj+Tab et Ctrl+Maj+R en dépendent.
+  const pas = pasDOnglet(input)
+  if (pas) return () => activerAutreOnglet(ongletRelatif([...tabs.keys()], activeTabId, pas))
+  const numero = numeroDOnglet(input)
+  if (numero) return () => activerAutreOnglet(ongletNumero([...tabs.keys()], numero))
+  const recharge = rechargement(input, touche)
+  if (recharge) return () => recharger(recharge === 'sans-cache')
   if (input.control && !input.alt && !input.meta) {
     if (input.shift) return touche === 'b' ? () => agirSurBarre('toggle-pin') : undefined
     // Comme Chrome : le nouvel onglet donne la main à la barre d'adresse, la fermeture à l'onglet qui devient actif.
@@ -948,10 +977,7 @@ app.whenReady().then(() => {
   traiter('browser:close-tab', (id) => closeTab(exigerTexte(id)))
   traiter('browser:activate-tab', (valeur) => {
     const id = exigerTexte(valeur)
-    if (!tabs.has(id)) return
-    activeTabId = id
-    setActiveView()
-    updateTabFromView(id)
+    activerOnglet(id)
   })
   traiter('browser:navigate', (valeur) => {
     const url = exigerTexte(valeur)
@@ -964,7 +990,7 @@ app.whenReady().then(() => {
   })
   traiter('browser:back', reculer)
   traiter('browser:forward', avancer)
-  traiter('browser:reload', () => activeRecord()?.view.webContents.reload())
+  traiter('browser:reload', () => recharger(false))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)
   traiter('browser:dismiss-data-incident', () => {

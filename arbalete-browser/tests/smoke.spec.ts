@@ -2248,6 +2248,76 @@ test('C64 : Ctrl+=, Ctrl+- et Ctrl+0 zooment la page de l’onglet actif, d’o�
   }
 })
 
+// Value: protects=Ctrl+Tab, Ctrl+Maj+Tab, Ctrl+1…9 (touche physique) changent l'onglet actif dans l'ordre affiché, en boucle,
+//   et F5, Ctrl+R, Ctrl+F5 rechargent la page de l'onglet actif, d'où que vienne la touche;
+//   fails_when=actionDuRaccourci ne reconnaît plus pasDOnglet, numeroDOnglet ou rechargement, l'ordre n'est plus celui de la
+//   liste, ou Ctrl+9 ne vise plus le dernier; why_new=ARB-19 et ARB-21, aucun de ces raccourcis
+//   n'existait; seam=none (sendInputEvent atteint before-input-event, comme C36); no_claim=ni AZERTY réel (keyCode simulés),
+//   ni le contournement du cache par Ctrl+F5 (seul le rechargement est observé), ni que la page ne reçoit pas la touche.
+test('C66 : Ctrl+Tab et Ctrl+1…9 changent d’onglet, F5 et Ctrl+R rechargent, d’où que vienne la touche', async () => {
+  const nouveaux: string[] = []
+  for (const page of ['page-a.html', 'page-b.html', 'page-a.html']) {
+    nouveaux.push(await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/${page}`))
+  }
+  const ordre = async () => (await etat()).tabs.map((onglet) => onglet.id)
+  const actif = async () => (await etat()).activeTabId
+  try {
+    const ids = await ordre()
+    const n = ids.length
+    await ui.evaluate((id) => window.arbalete.activateTab(id), ids[0])
+    await expect.poll(actif).toBe(ids[0])
+
+    await presserSur('onglet', 'Tab', ['control'])
+    await expect.poll(actif).toBe(ids[1])
+    await presserSur('barre', 'Tab', ['control'])
+    await expect.poll(actif).toBe(ids[2])
+    await presserSur('fenetre', 'Tab', ['control', 'shift'])
+    await expect.poll(actif).toBe(ids[1])
+    await presserSur('onglet', 'Tab', ['control', 'shift'])
+    await expect.poll(actif).toBe(ids[0])
+    await presserSur('onglet', 'Tab', ['control', 'shift'])
+    await expect.poll(actif).toBe(ids[n - 1])
+    await presserSur('onglet', 'Tab', ['control'])
+    await expect.poll(actif).toBe(ids[0])
+
+    await presserSur('onglet', 'PageDown', ['control'])
+    await expect.poll(actif).toBe(ids[1])
+    await presserSur('barre', 'PageUp', ['control'])
+    await expect.poll(actif).toBe(ids[0])
+
+    // Après Ctrl+Tab donné depuis la barre, le clavier va à la page du nouvel onglet actif (comme après Ctrl+W).
+    await presserSur('barre', 'Tab', ['control'])
+    await expect.poll(actif).toBe(ids[1])
+    const urlActive = async () => (await ongletActif(await etat()))?.url
+    await expect.poll(() => app.evaluate(({ webContents }) => webContents.getFocusedWebContents()?.getURL() ?? null)).toBe(await urlActive())
+    await presserSur('onglet', 'Tab', ['control', 'shift'])
+    await expect.poll(actif).toBe(ids[0])
+
+    await presserSur('onglet', '2', ['control'])
+    await expect.poll(actif).toBe(ids[1])
+    await presserSur('fenetre', '9', ['control'])
+    await expect.poll(actif).toBe(ids[n - 1])
+    await presserSur('barre', '1', ['control'])
+    await expect.poll(actif).toBe(ids[0])
+    // Un numéro sans onglet ne fait rien.
+    await presserSur('onglet', '8', ['control'])
+    // gstack-timing-ok: vérification négative (l'onglet actif ne doit pas changer) ; l'effet serait immédiat.
+    await ui.waitForTimeout(300)
+    if (n < 8) expect(await actif()).toBe(ids[0])
+
+    // Rechargement : la page repart de zéro (nouvelle origine des temps).
+    await saisirAdresse(`${origine}/page-survol.html`)
+    await attendreUrlActive(`${origine}/page-survol.html`)
+    for (const [cible, touche, modifiers] of [['onglet', 'F5', []], ['barre', 'R', ['control']], ['fenetre', 'F5', ['control']], ['onglet', 'R', ['control', 'shift']]] as const) {
+      const avant = await resultatDansOngletActif<number>('performance.timeOrigin')
+      await presserSur(cible, touche, [...modifiers])
+      await expect.poll(async () => resultatDansOngletActif<number>('performance.timeOrigin').catch(() => avant)).not.toBe(avant)
+    }
+  } finally {
+    for (const id of nouveaux) await ui.evaluate((i) => window.arbalete.closeTab(i), id)
+  }
+})
+
 // Value: protects=F11 bascule le plein écran de la fenêtre depuis la page, la barre et la fenêtre, la page suit la zone
 //   de contenu dans les deux sens, la page ne reçoit pas F11 et aucun raccourci n'ouvre les DevTools de l'interface;
 //   fails_when=F11 n'est plus reconnu par actionDuRaccourci, sa garde de modificateurs saute (Ctrl+F11 bascule), ou un

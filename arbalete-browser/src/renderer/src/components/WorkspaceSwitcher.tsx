@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 
 export const workspaces = [
-  { id: 'dev', name: 'Développement', color: 'var(--color-workspace-development)', icon: '⌘' },
+  { id: 'dev', name: 'Développement', color: 'var(--color-workspace-development)', icon: '◆' },
   { id: 'personal', name: 'Personnel', color: 'var(--color-workspace-personal)', icon: '✳' },
   { id: 'research', name: 'Recherche', color: 'var(--color-workspace-research)', icon: '◈' }
 ]

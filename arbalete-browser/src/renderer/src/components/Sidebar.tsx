@@ -94,7 +94,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
           <WorkspaceSwitcher workspace={workspace} onWorkspaceChange={setWorkspace} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} />
 
           <nav className="sidebar-nav">
-            <button className="nav-item" title="Rechercher"><Search size={16} /><span>Rechercher</span><kbd>⌘ K</kbd></button>
+            <button className="nav-item" title="Rechercher"><Search size={16} /><span>Rechercher</span><kbd>Ctrl K</kbd></button>
             <button className="nav-item" title="Favoris"><Star size={16} /><span>Favoris</span></button>
             <button className="nav-item" title="Historique"><Clock3 size={16} /><span>Historique</span></button>
           </nav>
