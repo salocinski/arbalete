@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.21.0] - 2026-11-09
+
+### Ajouté
+- Ctrl+F cherche dans la page. Une petite barre apparaît en haut à droite de la page : le compteur indique « 3/12 », Entrée passe au résultat suivant, Maj+Entrée au précédent, Échap ou la croix referment la recherche et rendent le clavier à la page. La page reste utilisable pendant la recherche : on peut la faire défiler et cliquer dedans.
+
+### Limites connues
+- La recherche se ferme quand on affiche un autre onglet, et repart d'un champ vide à chaque ouverture.
+- Après une navigation de la page, le compteur reste celui de la page quittée jusqu'à la frappe suivante.
+- Échap ne ferme pas la recherche si le focus est sur les boutons Précédent ou Suivant, ni quand il est dans la page.
+- Le surlignage des résultats dans la page et un vrai clavier AZERTY n'ont pas été essayés à la main ; les tests simulent les touches.
+
 ## [0.12.20.0] - 2026-11-09
 
 ### Ajouté

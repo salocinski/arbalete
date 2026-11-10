@@ -38,6 +38,9 @@ export type RestoreAnswer = 'restore' | 'dismiss'
 // version d'Arbalète, ou indisponible. Dans les deux derniers cas, rien n'est conservé pendant la session.
 export type DataIncident = { kind: 'corrupted', backup: string, restored: boolean } | { kind: 'newer' } | { kind: 'unavailable' }
 
+// Résultat de la recherche dans la page (ARB-70) : rang du résultat actif (1 à total, 0 sans résultat) et nombre total.
+export type FindResult = { active: number, total: number }
+
 export type BrowserAPI = {
   getState: () => Promise<BrowserState>
   createTab: (url?: string) => Promise<string>
@@ -61,6 +64,14 @@ export type BrowserAPI = {
   getOverlay: () => Promise<boolean>
   setOverlay: (open: boolean) => Promise<void>
   onOverlay: (callback: (open: boolean) => void) => () => void
+  // Recherche dans la page (ARB-70), pilotée par la seule vue de la recherche. `next` : continuer la recherche en cours
+  // (Entrée) plutôt que la recommencer (frappe) ; `forward` faux remonte. Un texte vide efface les résultats.
+  findInPage: (text: string, forward: boolean, next: boolean) => Promise<void>
+  closeFind: () => Promise<void>
+  onFindResult: (callback: (result: FindResult) => void) => () => void
+  // Le champ reprend le clavier et sélectionne son texte (Ctrl+F sur une recherche ouverte). `reopened` : la recherche
+  // vient de s'ouvrir, le champ et le compteur sont vidés.
+  onFindFocus: (callback: (reopened: boolean) => void) => () => void
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

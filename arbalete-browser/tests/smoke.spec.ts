@@ -30,6 +30,8 @@ const pages: Record<string, string> = {
     <a id="vide" href="about:blank">vide</a>
     <iframe id="cadre" srcdoc="<p>cadre</p>"></iframe>`,
   '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>',
+  // Trois occurrences du même mot (ARB-70).
+  '/page-recherche.html': '<!doctype html><title>Page recherche</title><p>ananas</p><p>ananas</p><p>ananas</p>',
   // Un grand lien à position connue (ARB-36) : le survol à (200, 150) le touche, (600, 400) non.
   '/page-survol.html': `<!doctype html><title>Page survol</title><body style="margin:0">
     <a href="/page-b.html?q=survol" style="position:absolute;left:100px;top:100px;width:300px;height:100px;display:block">lien</a>`,
@@ -2357,6 +2359,151 @@ test('C67 : Ctrl+Maj+T rouvre le dernier onglet fermé et l’active', async () 
     }
   } finally {
     for (const id of ouverts) await ui.evaluate((i) => window.arbalete.closeTab(i), id)
+  }
+})
+
+// Recherche dans la page (ARB-70) : la vue ?vue=recherche, si elle est affichée, ses bornes et son document.
+const vueRecherche = () => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+  const fenetre = BrowserWindow.getAllWindows()[0]
+  const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+    && enfant.webContents.getURL().includes('vue=recherche')) as InstanceType<typeof WebContentsView> | undefined
+  return vue ? { ...vue.getBounds(), fenetre: fenetre.getContentBounds().width } : null
+})
+const dansRecherche = <T>(code: string) => app.evaluate(({ BrowserWindow, WebContentsView }, code) => {
+  const fenetre = BrowserWindow.getAllWindows()[0]
+  const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
+    && enfant.webContents.getURL().includes('vue=recherche')) as InstanceType<typeof WebContentsView>
+  return vue.webContents.executeJavaScript(code)
+}, code) as Promise<T>
+const saisirDansRecherche = (texte: string) => app.evaluate(({ BrowserWindow, WebContentsView }, texte) => {
+  const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+    && enfant.webContents.getURL().includes('vue=recherche')) as InstanceType<typeof WebContentsView>
+  return vue.webContents.insertText(texte)
+}, texte)
+const compteurRecherche = () => dansRecherche<string>("document.querySelector('.find-count')?.textContent ?? ''")
+const toucheRecherche = (keyCode: string, modifiers: Array<'shift'> = []) => app.evaluate(({ BrowserWindow, WebContentsView }, { keyCode, modifiers }) => {
+  const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+    && enfant.webContents.getURL().includes('vue=recherche')) as InstanceType<typeof WebContentsView>
+  vue.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+  vue.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+}, { keyCode, modifiers })
+
+// Value: protects=Ctrl+F ouvre la recherche dans une petite vue au coin haut-droit de la page, qui reste à la page (la vue
+//   ne la couvre pas), compte les résultats, parcourt dans les deux sens (Entrée, Maj+Entrée), efface au champ vidé et se
+//   ferme par Échap ou la croix en rendant le clavier à la page; fails_when=Ctrl+F n'est plus reconnu par actionDuRaccourci,
+//   la vue couvre la page (overlay modal), find-in-page n'atteint plus la vue, Maj+Entrée avance, ou la fermeture ne rend
+//   plus le clavier; why_new=ARB-70, aucune recherche dans la page n'existait; seam=none (insertText et sendInputEvent
+//   atteignent le champ comme le clavier); no_claim=ni le surlignage dans la page, ni le suivi d'une navigation, ni un
+//   clavier AZERTY réel.
+test('C68 : Ctrl+F ouvre la recherche dans la page sans couvrir la page ; Entrée et Maj+Entrée parcourent, Échap et la croix ferment', async () => {
+  const url = `${origine}/page-recherche.html`
+  await saisirAdresse(url)
+  await attendreUrlActive(url)
+  const clavierPage = () => app.evaluate(({ webContents }) => webContents.getFocusedWebContents()?.getURL() ?? null)
+
+  expect(await vueRecherche()).toBeNull()
+  await presserSur('onglet', 'F', ['control'])
+  await expect.poll(vueRecherche).not.toBeNull()
+  // Petite vue en haut à droite de la page, pas la fenêtre entière : la page garde défilement et clics.
+  const bornes = (await vueRecherche())!
+  expect(bornes.width).toBeLessThanOrEqual(360)
+  expect(bornes.height).toBeLessThan(100)
+  expect(bornes.x + bornes.width).toBeLessThanOrEqual(bornes.fenetre)
+  await expect.poll(() => dansRecherche<string>('document.activeElement?.className ?? ""')).toBe('find-input')
+
+  await saisirDansRecherche('ananas')
+  await expect.poll(compteurRecherche).toBe('1/3')
+  await toucheRecherche('Enter')
+  await expect.poll(compteurRecherche).toBe('2/3')
+  // Maj+Entrée remonte ; le champ vidé efface le compteur.
+  await toucheRecherche('Enter', ['shift'])
+  await expect.poll(compteurRecherche).toBe('1/3')
+  await dansRecherche<void>("document.querySelector('.find-input').select()")
+  await toucheRecherche('Delete')
+  await expect.poll(compteurRecherche).toBe('')
+
+  // Ctrl+F sur la recherche ouverte : pas de seconde vue, le champ reprend le clavier avec son texte sélectionné.
+  await saisirDansRecherche('ananas')
+  await expect.poll(compteurRecherche).toBe('1/3')
+  await presserSur('onglet', 'F', ['control'])
+  await expect.poll(() => dansRecherche<boolean>(`(() => { const c = document.querySelector('.find-input')
+    return document.activeElement === c && c.selectionStart === 0 && c.selectionEnd === c.value.length })()`)).toBe(true)
+  expect(await app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .filter((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=recherche')).length)).toBe(1)
+
+  await toucheRecherche('Escape')
+  await expect.poll(vueRecherche).toBeNull()
+  await expect.poll(clavierPage).toBe(url)
+
+  // La croix ferme aussi et rend le clavier à la page.
+  await presserSur('onglet', 'F', ['control'])
+  await expect.poll(vueRecherche).not.toBeNull()
+  await dansRecherche<void>("document.querySelector('button[aria-label^=\"Fermer\"]').click()")
+  await expect.poll(vueRecherche).toBeNull()
+  await expect.poll(clavierPage).toBe(url)
+
+  // Rouverte, la recherche repart vide : ni l'ancien texte ni l'ancien compteur.
+  await presserSur('onglet', 'F', ['control'])
+  await expect.poll(vueRecherche).not.toBeNull()
+  await expect.poll(() => dansRecherche<string>("document.querySelector('.find-input').value")).toBe('')
+  expect(await compteurRecherche()).toBe('')
+  await toucheRecherche('Escape')
+  await expect.poll(vueRecherche).toBeNull()
+})
+
+// Value: protects=la recherche ne se pilote que depuis sa propre vue (la fenêtre d'interface est refusée), suit le bord
+//   droit de la page au redimensionnement, se ferme quand un autre onglet est affiché et reste ouverte quand on réactive
+//   l'onglet actif; fails_when=exigerRecherche accepte un autre émetteur, placerRechercheVue n'est plus appelé au
+//   redimensionnement, setActiveView ne ferme plus la recherche ou la ferme pour l'onglet déjà actif; why_new=ARB-70,
+//   frontière d'IPC et cycle de vie de la vue de recherche; seam=none; no_claim=ni le surlignage, ni la fermeture à la
+//   fermeture de l'onglet cherché, ni un redimensionnement par glissement réel.
+test('C69 : seule la vue de recherche la pilote ; elle suit la page au redimensionnement et se ferme au changement d’onglet', async () => {
+  const url = `${origine}/page-recherche.html`
+  await saisirAdresse(url)
+  await attendreUrlActive(url)
+  const initial = (await etat()).activeTabId!
+  const autre = await ui.evaluate((u) => window.arbalete.createTab(u), `${origine}/page-b.html`)
+  // La fenêtre ne descend pas sous sa largeur minimale : on rétrécit de 200 px si elle le permet, sinon on l'agrandit.
+  const redimensionner = (delta: number) => app.evaluate(({ BrowserWindow }, delta) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    const [largeur, hauteur] = fenetre.getContentSize()
+    fenetre.setContentSize(largeur + delta, hauteur)
+  }, delta)
+  const largeurMinimale = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getMinimumSize()[0])
+  const largeurFenetre = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize()[0])
+  const delta = largeurFenetre - 200 >= largeurMinimale ? -200 : 200
+  let redimensionnee = false
+  try {
+    await ui.evaluate((i) => window.arbalete.activateTab(i), initial)
+    await presserSur('onglet', 'F', ['control'])
+    await expect.poll(vueRecherche).not.toBeNull()
+
+    // La fenêtre d'interface n'est pas l'émetteur autorisé : l'appel est refusé et la recherche reste ouverte.
+    expect(await ui.evaluate(() => window.arbalete.findInPage('ananas', true, false).then(() => 'accepte', () => 'refuse'))).toBe('refuse')
+    expect(await ui.evaluate(() => window.arbalete.closeFind().then(() => 'accepte', () => 'refuse'))).toBe('refuse')
+    expect(await vueRecherche()).not.toBeNull()
+
+    // Le bord droit de la vue suit celui de la page quand la fenêtre change de taille.
+    const bordDroit = async () => { const b = (await vueRecherche())!; return b.x + b.width }
+    const avant = await bordDroit()
+    await redimensionner(delta)
+    redimensionnee = true
+    await expect.poll(bordDroit).toBe(avant + delta)
+
+    // Réactiver l'onglet actif ne ferme pas la recherche ; afficher un autre onglet la ferme.
+    await ui.evaluate((i) => window.arbalete.activateTab(i), initial)
+    expect(await vueRecherche()).not.toBeNull()
+    // Réactivée, la page ne passe pas devant : la vue de recherche reste au-dessus d'elle dans la fenêtre.
+    expect(await app.evaluate(({ BrowserWindow, WebContentsView }) => {
+      const enfants = BrowserWindow.getAllWindows()[0].contentView.children.filter((e): e is InstanceType<typeof WebContentsView> => e instanceof WebContentsView)
+      const rang = (filtre: (url: string) => boolean) => enfants.findIndex((e) => filtre(e.webContents.getURL()))
+      return rang((u) => u.includes('vue=recherche')) > rang((u) => u.includes('/page-recherche.html'))
+    })).toBe(true)
+    await ui.evaluate((i) => window.arbalete.activateTab(i), autre)
+    await expect.poll(vueRecherche).toBeNull()
+  } finally {
+    if (redimensionnee) await redimensionner(-delta)
+    await ui.evaluate((i) => window.arbalete.closeTab(i), autre)
   }
 })
 

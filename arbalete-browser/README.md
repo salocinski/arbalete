@@ -37,6 +37,7 @@ npm run dev:web   # http://localhost:5180
 - Zoom de la page de l'onglet actif : `Ctrl+=` (plus), `Ctrl+-` (moins), `Ctrl+0` (100 %) ; plein écran : `F11`
 - Changer d'onglet : `Ctrl+Tab` / `Ctrl+Maj+Tab` (ou `Ctrl+PageDown` / `Ctrl+PageUp`), en boucle ; `Ctrl+1` à `Ctrl+8` visent le n-ième onglet, `Ctrl+9` le dernier
 - Recharger la page de l'onglet actif : `F5` ou `Ctrl+R` ; sans le cache : `Ctrl+F5`, `Maj+F5` ou `Ctrl+Maj+R`
+- Rechercher dans la page : `Ctrl+F` ; compteur « 3/12 », `Entrée` / `Maj+Entrée` pour le résultat suivant / précédent, `Échap` ou la croix pour fermer (absent de l'aperçu navigateur)
 - Ces raccourcis agissent aussi depuis une page web ou la barre latérale (interceptés par le processus principal)
 - Navigation Chromium réelle via `WebContentsView`
 - Onglets créés, sélectionnés et fermés
@@ -66,6 +67,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 - `src/main/navigationClavier.ts` : reconnaissance des raccourcis de changement d'onglet (Ctrl+Tab, Ctrl+1…9) et de rechargement (F5, Ctrl+R), et onglet visé.
 - `src/main/ongletsFermes.ts` : pile des 10 derniers onglets fermés (adresses web et `file:`), pour `Ctrl+Maj+T`.
 - `src/main/apercuUrl.ts` : texte, placement et document de la bulle d'adresse du lien survolé, vue native dédiée (décision 0003).
+- `src/main/recherche.ts` : placement de la petite vue native de recherche (coin haut-droit de la page) et texte accepté ; sa vue est `?vue=recherche` (`views/FindView.tsx`).
 - `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
