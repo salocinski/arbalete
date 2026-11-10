@@ -2463,11 +2463,15 @@ test('C69 : seule la vue de recherche la pilote ; elle suit la page au redimensi
   await attendreUrlActive(url)
   const initial = (await etat()).activeTabId!
   const autre = await ui.evaluate((u) => window.arbalete.createTab(u), `${origine}/page-b.html`)
+  // La fenêtre ne descend pas sous sa largeur minimale : on rétrécit de 200 px si elle le permet, sinon on l'agrandit.
   const redimensionner = (delta: number) => app.evaluate(({ BrowserWindow }, delta) => {
     const fenetre = BrowserWindow.getAllWindows()[0]
     const [largeur, hauteur] = fenetre.getContentSize()
     fenetre.setContentSize(largeur + delta, hauteur)
   }, delta)
+  const largeurMinimale = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getMinimumSize()[0])
+  const largeurFenetre = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize()[0])
+  const delta = largeurFenetre - 200 >= largeurMinimale ? -200 : 200
   let redimensionnee = false
   try {
     await ui.evaluate((i) => window.arbalete.activateTab(i), initial)
@@ -2482,9 +2486,9 @@ test('C69 : seule la vue de recherche la pilote ; elle suit la page au redimensi
     // Le bord droit de la vue suit celui de la page quand la fenêtre change de taille.
     const bordDroit = async () => { const b = (await vueRecherche())!; return b.x + b.width }
     const avant = await bordDroit()
-    await redimensionner(-200)
+    await redimensionner(delta)
     redimensionnee = true
-    await expect.poll(bordDroit).toBe(avant - 200)
+    await expect.poll(bordDroit).toBe(avant + delta)
 
     // Réactiver l'onglet actif ne ferme pas la recherche ; afficher un autre onglet la ferme.
     await ui.evaluate((i) => window.arbalete.activateTab(i), initial)
@@ -2498,7 +2502,7 @@ test('C69 : seule la vue de recherche la pilote ; elle suit la page au redimensi
     await ui.evaluate((i) => window.arbalete.activateTab(i), autre)
     await expect.poll(vueRecherche).toBeNull()
   } finally {
-    if (redimensionnee) await redimensionner(200)
+    if (redimensionnee) await redimensionner(-delta)
     await ui.evaluate((i) => window.arbalete.closeTab(i), autre)
   }
 })
