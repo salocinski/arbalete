@@ -1656,6 +1656,17 @@ test('C42 : après un arrêt forcé, une invite propose de restaurer la session 
     ])
     await expect(fenetre.getByTestId('restore-banner')).toHaveCount(0)
     expect(await offre(fenetre)).toBe(false)
+    // ARB-20 : l'onglet de démarrage remplacé par la session n'est pas un onglet fermé par l'utilisateur, et la pile est
+    // vide : Ctrl+Maj+T ne rouvre rien (sans cela, la page d'accueil réapparaîtrait en troisième onglet).
+    await autreApp.evaluate(({ BrowserWindow }) => {
+      const contenu = BrowserWindow.getAllWindows()[0].webContents
+      contenu.focus()
+      contenu.sendInputEvent({ type: 'keyDown', keyCode: 'T', modifiers: ['control', 'shift'] })
+      contenu.sendInputEvent({ type: 'keyUp', keyCode: 'T', modifiers: ['control', 'shift'] })
+    })
+    // gstack-timing-ok: vérification négative (aucun onglet ne doit apparaître) ; le processus principal agit au premier appui.
+    await fenetre.waitForTimeout(500)
+    expect(await ongletsDe(fenetre)).toHaveLength(2)
     await arreterDeForce(autreApp)
 
     // Nouvel arrêt forcé, invite ignorée : la session ouverte (l'onglet de démarrage) remplace l'interrompue.
@@ -2315,6 +2326,37 @@ test('C66 : Ctrl+Tab et Ctrl+1…9 changent d’onglet, F5 et Ctrl+R rechargent,
     }
   } finally {
     for (const id of nouveaux) await ui.evaluate((i) => window.arbalete.closeTab(i), id)
+  }
+})
+
+// Value: protects=Ctrl+Maj+T rouvre le dernier onglet fermé et l'active, depuis la page, la barre et la fenêtre, les plus
+//   récents d'abord; fails_when=actionDuRaccourci ne reconnaît plus Ctrl+Maj+T, closeTab ne mémorise plus l'adresse, ou la
+//   pile rouvre dans le mauvais ordre; why_new=ARB-20, aucun raccourci de réouverture n'existait; seam=none (sendInputEvent
+//   atteint before-input-event, comme C36); no_claim=ni la place d'origine de l'onglet (il revient en fin de liste), ni
+//   l'historique de navigation de l'onglet fermé, ni la réouverture après fermeture du dernier onglet, ni un clavier
+//   AZERTY réel; l'onglet de démarrage remplacé par la session et la pile vide sont vus dans C42.
+test('C67 : Ctrl+Maj+T rouvre le dernier onglet fermé et l’active', async () => {
+  const urlA = `${origine}/page-a.html`
+  const urlB = `${origine}/page-b.html`
+  const urlC = `${origine}/page-survol.html`
+  const ouverts: string[] = []
+  try {
+    for (const url of [urlA, urlB, urlC]) {
+      const id = await ui.evaluate((u) => window.arbalete.createTab(u), url)
+      await ui.evaluate((i) => window.arbalete.closeTab(i), id)
+    }
+    const actif = async () => (await ongletActif(await etat()))?.url
+    // Du plus récent au plus ancien, depuis la page, la barre puis la fenêtre ; la page rouverte reprend le clavier.
+    for (const [cible, url] of [['onglet', urlC], ['barre', urlB], ['fenetre', urlA]] as const) {
+      const avant = (await etat()).tabs.length
+      await presserSur(cible, 'T', ['control', 'shift'])
+      await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+      await expect.poll(actif).toBe(url)
+      ouverts.push((await etat()).activeTabId!)
+      await expect.poll(() => app.evaluate(({ webContents }) => webContents.getFocusedWebContents()?.getURL() ?? null)).toBe(url)
+    }
+  } finally {
+    for (const id of ouverts) await ui.evaluate((i) => window.arbalete.closeTab(i), id)
   }
 })
 

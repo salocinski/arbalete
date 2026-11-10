@@ -31,7 +31,7 @@ npm run dev:web   # http://localhost:5180
 
 - Barre latérale masquée à l'ouverture : elle apparaît par-dessus la page au survol du bord gauche ; `Ctrl+Shift+B` ou le bouton d'épingle la garde ouverte, étendue (largeur réglable de 200 à 400 px en glissant son bord droit, ou au clavier avec les flèches, Début et Fin) ou compacte (68 px, icônes seules, bouton de la barre de contrôle) ; le mode et la largeur sont conservés au redémarrage
 - Nouvel onglet : `Ctrl+T`
-- Fermer l'onglet actif : `Ctrl+W`
+- Fermer l'onglet actif : `Ctrl+W` ; rouvrir le dernier onglet fermé : `Ctrl+Maj+T` (jusqu'à 10, en fin de liste, sans son historique de navigation)
 - Focus sur la barre d'adresse : `Ctrl+L`
 - Précédent / suivant : `Alt+←` / `Alt+→`
 - Zoom de la page de l'onglet actif : `Ctrl+=` (plus), `Ctrl+-` (moins), `Ctrl+0` (100 %) ; plein écran : `F11`
@@ -64,6 +64,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/main/favicon.ts` : choix du favicon transmis à l'interface, dont la CSP n'autorise que `'self'`, `data:` et `https:` pour les images.
 - `src/main/navigationClavier.ts` : reconnaissance des raccourcis de changement d'onglet (Ctrl+Tab, Ctrl+1…9) et de rechargement (F5, Ctrl+R), et onglet visé.
+- `src/main/ongletsFermes.ts` : pile des 10 derniers onglets fermés (adresses web et `file:`), pour `Ctrl+Maj+T`.
 - `src/main/apercuUrl.ts` : texte, placement et document de la bulle d'adresse du lien survolé, vue native dédiée (décision 0003).
 - `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.

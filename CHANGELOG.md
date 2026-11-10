@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.20.0] - 2026-11-09
+
+### Ajouté
+- Ctrl+Maj+T rouvre le dernier onglet fermé et l'affiche aussitôt, avec le clavier dans sa page. Les dix derniers onglets fermés sont gardés, du plus récent au plus ancien, et le raccourci marche que le clavier soit dans la page, la barre latérale ou la fenêtre.
+
+### Limites connues
+- L'onglet rouvert revient en fin de liste, pas à sa place d'origine, et sans son historique de navigation (Précédent, Suivant).
+- La liste des onglets fermés n'est pas conservée au redémarrage, et les onglets remplacés par la restauration d'une session n'y figurent pas.
+- Un onglet fermé sur une page qui n'a pas pu se charger peut ne pas être rouvrable.
+- Un vrai clavier AZERTY n'a pas été essayé à la main ; les tests simulent les touches.
+
 ## [0.12.19.0] - 2026-11-09
 
 ### Ajouté

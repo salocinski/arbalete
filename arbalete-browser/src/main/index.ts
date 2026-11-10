@@ -7,6 +7,7 @@ import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
 import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } from './navigationClavier.ts'
 import { ongletVoisin } from './voisin.ts'
+import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
@@ -484,7 +485,11 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
   const recharge = rechargement(input, touche)
   if (recharge) return () => recharger(recharge === 'sans-cache')
   if (input.control && !input.alt && !input.meta) {
-    if (input.shift) return touche === 'b' ? () => agirSurBarre('toggle-pin') : undefined
+    if (input.shift) {
+      if (touche === 'b') return () => agirSurBarre('toggle-pin')
+      if (touche === 't') return () => { rouvrirOnglet(); activeRecord()?.view.webContents.focus() }
+      return undefined
+    }
     // Comme Chrome : le nouvel onglet donne la main à la barre d'adresse, la fermeture à l'onglet qui devient actif.
     if (touche === 't') return () => { createTab(); focaliserAdresse() }
     if (touche === 'w') return () => {
@@ -695,16 +700,27 @@ function repondreRestauration(reponse: RestoreAnswer) {
   if (reponse === 'restore') {
     const demarrage = ongletDeDemarrage ? tabs.get(ongletDeDemarrage) : undefined
     const inutilise = demarrage && tabs.size === 1 && !demarrage.view.webContents.canGoBack()
-    if (rouvrirSession(session) && inutilise) closeTab(demarrage.data.id)
+    if (rouvrirSession(session) && inutilise) closeTab(demarrage.data.id, false)
   }
   proposerRestauration()
   // La session reprend son cours : celle qui est ouverte remplace l'interrompue, restaurée ou ignorée.
   sauvegardeSession.demander()
 }
 
-function closeTab(id: string) {
+// Ctrl+Maj+T (ARB-20) : rouvre le dernier onglet fermé et l'active. Sans onglet fermé, ne fait rien.
+let ongletsFermes: string[] = []
+function rouvrirOnglet() {
+  const dernier = depiler(ongletsFermes)
+  if (!dernier) return
+  ongletsFermes = dernier.reste
+  createTab(dernier.url)
+}
+
+// `memoriser` : faux pour un onglet retiré par Arbalète (onglet de démarrage remplacé par la session), pas par l'utilisateur.
+function closeTab(id: string, memoriser = true) {
   const record = tabs.get(id)
   if (!record) return
+  if (memoriser) ongletsFermes = empiler(ongletsFermes, record.data.url)
   if (mainWindow && !mainWindow.isDestroyed()) {
     try { mainWindow.contentView.removeChildView(record.view) } catch {}
   }
