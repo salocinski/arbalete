@@ -11,6 +11,7 @@ import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
+import { placerRecherche, texteRecherche } from './recherche.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
@@ -122,10 +123,10 @@ function stateSnapshot(): BrowserState {
   }
 }
 
-// Les deux vues de l'interface : la fenêtre (barre d'outils, zone de page) et la barre latérale.
+// Les vues de l'interface : la fenêtre (barre d'outils, zone de page), la barre latérale et la recherche dans la page.
 function contenusInterface(): WebContents[] {
   const fenetre = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : undefined
-  return [fenetre, barreView?.webContents]
+  return [fenetre, barreView?.webContents, rechercheView?.webContents]
     .filter((contenu): contenu is WebContents => !!contenu && !contenu.isDestroyed())
 }
 
@@ -172,6 +173,8 @@ function broadcastState() {
 function setActiveView() {
   if (!mainWindow || mainWindow.isDestroyed()) return
   retirerApercu()
+  // La recherche suit l'onglet qu'elle cherche : un autre onglet affiché la ferme (réactiver l'actif ne la touche pas).
+  if (rechercheContenu !== activeRecord()?.view.webContents) fermerRecherche()
   for (const [id, record] of tabs) {
     try {
       mainWindow.contentView.removeChildView(record.view)
@@ -184,7 +187,9 @@ function setActiveView() {
       chargerOnglet(record)
     }
   }
-  // Réajouter une vue déjà présente la remet au premier plan : la barre reste au-dessus de l'onglet affiché.
+  // Réajouter une vue déjà présente la remet au premier plan : la recherche ouverte, puis la barre, restent au-dessus de
+  // l'onglet affiché (réactiver l'onglet actif le remet lui aussi au premier plan).
+  if (rechercheView && rechercheVisible) mainWindow.contentView.addChildView(rechercheView)
   if (barreView) mainWindow.contentView.addChildView(barreView)
 }
 
@@ -325,6 +330,73 @@ function afficherApercu(url: unknown) {
   mainWindow.contentView.addChildView(apercuView)
   // La barre et ses overlays restent au-dessus de la bulle.
   if (barreView) mainWindow.contentView.addChildView(barreView)
+}
+
+// Recherche dans la page (ARB-70) : petite vue d'interface (?vue=recherche) posée au coin haut-droit de la page, créée au
+// premier Ctrl+F. Contrairement à un overlay (décision 0002), elle ne couvre pas la page : défilement et clics restent
+// à la page, et la recherche reste ouverte jusqu'à Échap ou la croix. shortcut: une navigation de la page n'est pas
+// suivie (le compteur reste celui de la page quittée jusqu'à la frappe suivante).
+let rechercheView: WebContentsView | null = null
+let rechercheVisible = false
+// Page cherchée : celle de l'onglet actif à l'ouverture.
+let rechercheContenu: WebContents | null = null
+
+function creerRecherche(): WebContentsView {
+  const vue = new WebContentsView({ webPreferences: PREFERENCES_INTERFACE })
+  vue.setBackgroundColor('#00000000')
+  vue.setBorderRadius(RAYON_PAGE)
+  verrouillerInterface(vue.webContents)
+  // Le focus ne se prend que dans une fenêtre active : sinon Windows la ramènerait au premier plan (comme ARB-112).
+  vue.webContents.on('did-finish-load', () => { if (rechercheVisible && mainWindow?.isFocused()) focaliserRecherche(true) })
+  // Un rendu planté ne se recharge pas : la vue est jetée, la prochaine ouverture en recrée une.
+  vue.webContents.on('render-process-gone', () => {
+    fermerRecherche()
+    rechercheView = null
+    if (!vue.webContents.isDestroyed()) vue.webContents.close()
+  })
+  chargerInterface(vue.webContents, 'recherche')
+  return vue
+}
+
+function placerRechercheVue() {
+  if (rechercheView && rechercheVisible) rechercheView.setBounds(placerRecherche(contentBounds))
+}
+
+// Le clavier va au champ, dont le texte est sélectionné (Ctrl+F sur une recherche ouverte). `nouvelle` : la recherche vient
+// de s'ouvrir, le champ repart vide (le texte et le compteur de la précédente ne valent plus rien pour cette page).
+function focaliserRecherche(nouvelle = false) {
+  if (!rechercheView || rechercheView.webContents.isDestroyed()) return
+  rechercheView.webContents.focus()
+  rechercheView.webContents.send('browser:find-focus', nouvelle)
+}
+
+function ouvrirRecherche() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (rechercheVisible) return focaliserRecherche()
+  const contenu = activeRecord()?.view.webContents
+  if (!contenu || contenu.isDestroyed()) return
+  rechercheView ??= creerRecherche()
+  rechercheContenu = contenu
+  rechercheVisible = true
+  placerRechercheVue()
+  mainWindow.contentView.addChildView(rechercheView)
+  // La barre et ses overlays restent au-dessus de la recherche.
+  if (barreView) mainWindow.contentView.addChildView(barreView)
+  if (!rechercheView.webContents.isLoading()) focaliserRecherche(true)
+}
+
+// La sélection du résultat actif reste dans la page, comme Chrome. `rendreLeFocus` : fermeture voulue par l'utilisateur.
+function fermerRecherche(rendreLeFocus = false) {
+  if (rechercheContenu && !rechercheContenu.isDestroyed()) rechercheContenu.stopFindInPage('keepSelection')
+  rechercheContenu = null
+  if (!rechercheVisible) return
+  rechercheVisible = false
+  try {
+    if (rechercheView) mainWindow?.contentView.removeChildView(rechercheView)
+  } catch {
+    // La vue peut déjà être détachée.
+  }
+  if (rendreLeFocus) activeRecord()?.view.webContents.focus()
 }
 
 function updateTabFromView(id: string) {
@@ -497,6 +569,7 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
       activeRecord()?.view.webContents.focus()
     }
     if (touche === 'l') return focaliserAdresse
+    if (touche === 'f') return ouvrirRecherche
   } else if (input.alt && !input.control && !input.shift && !input.meta) {
     if (input.key === 'ArrowLeft') return reculer
     if (input.key === 'ArrowRight') return avancer
@@ -593,6 +666,11 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
     updateTabFromView(id)
   })
   view.webContents.on('audio-state-changed', () => updateTabFromView(id))
+  // Résultat de la recherche (ARB-70) : seule la mise à jour finale compte, les autres arrivent avec un compte partiel.
+  view.webContents.on('found-in-page', (_event, resultat) => {
+    if (!resultat.finalUpdate || view.webContents !== rechercheContenu || !rechercheView) return
+    rechercheView.webContents.send('browser:find-result', { active: resultat.activeMatchOrdinal, total: resultat.matches })
+  })
   // État Error : le chargement de la page a échoué. -3 (ERR_ABORTED) est une navigation interrompue, pas une panne.
   view.webContents.on('did-fail-load', (_event, code, _desc, _url, cadrePrincipal) => {
     if (!cadrePrincipal || code === -3) return
@@ -856,6 +934,7 @@ function createWindow(adresses: readonly string[] = []) {
   mainWindow.on('resize', () => {
     activeRecord()?.view.setBounds(contentBounds)
     placerBarre()
+    placerRechercheVue()
   })
   // Comme un menu, un overlay se ferme quand la fenêtre perd le focus (Alt+Tab, clic dans une autre application).
   mainWindow.on('blur', fermerOverlay)
@@ -867,6 +946,9 @@ function createWindow(adresses: readonly string[] = []) {
     apercuView = null
     apercuCharge = false
     apercuVisible = false
+    rechercheView = null
+    rechercheVisible = false
+    rechercheContenu = null
     overlayOuvert = false
   })
   // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
@@ -1023,6 +1105,23 @@ app.whenReady().then(() => {
     contentBounds = borne
     activeRecord()?.view.setBounds(contentBounds)
     placerApercuVue()
+    placerRechercheVue()
+  })
+  // Recherche dans la page (ARB-70) : seule sa vue la pilote, comme seule la vue de la barre pilote les overlays.
+  const exigerRecherche = (event: IpcMainInvokeEvent) => {
+    if (!emetteurAutorise(event) || event.sender !== rechercheView?.webContents) throw new Error('Émetteur IPC non autorisé')
+  }
+  ipcMain.handle('browser:find', (event, texte, avant, suivant) => {
+    exigerRecherche(event)
+    const recherche = texteRecherche(texte)
+    if (typeof avant !== 'boolean' || typeof suivant !== 'boolean') throw new Error('Argument IPC invalide : booléen attendu')
+    if (!rechercheContenu || rechercheContenu.isDestroyed()) return
+    if (recherche) rechercheContenu.findInPage(recherche, { forward: avant, findNext: suivant })
+    else rechercheContenu.stopFindInPage('clearSelection')
+  })
+  ipcMain.handle('browser:find-close', (event) => {
+    exigerRecherche(event)
+    fermerRecherche(true)
   })
 
   createWindow(adressesAuLancement)

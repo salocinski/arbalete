@@ -158,6 +158,11 @@ export function installPreviewApi(): boolean {
       overlayListeners.add(callback)
       return () => overlayListeners.delete(callback)
     },
+    // Pas de recherche dans l'aperçu : la page y est simulée, Ctrl+F est celui du navigateur.
+    findInPage: async () => undefined,
+    closeFind: async () => undefined,
+    onFindResult: () => () => undefined,
+    onFindFocus: () => () => undefined,
     getTheme: async () => theme,
     setTheme: async (choice) => {
       theme = choice
