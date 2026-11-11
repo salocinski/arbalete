@@ -137,7 +137,8 @@ test('une base au schéma 1 (avant ARB-46) passe au schéma 2 sans perdre sa ses
   const chemin = join(dossier, 'schema1.db')
   const ancienne = new DatabaseSync(chemin)
   appliquerMigrations(ancienne, MIGRATIONS.slice(0, 1))
-  sauverSession(ancienne, onglets)
+  // Écrite à la main : sauverSession vise le schéma courant.
+  onglets.forEach((o, i) => ancienne.prepare('INSERT INTO onglet (position, url, titre, actif) VALUES (?, ?, ?, ?)').run(i, o.url, o.titre, o.actif ? 1 : 0))
   ancienne.close()
 
   const db = ouvrirBase(chemin)

@@ -69,7 +69,8 @@ test('une base au schéma 2 (avant ARB-51) gagne l’historique sans perdre sa s
   const chemin = join(dossier, 'schema2.db')
   const ancienne = new DatabaseSync(chemin)
   appliquerMigrations(ancienne, MIGRATIONS.slice(0, 2))
-  sauverSession(ancienne, [{ url: 'https://example.com/', titre: 'Exemple', actif: true }])
+  // Écrite à la main : sauverSession vise le schéma courant.
+  ancienne.exec("INSERT INTO onglet (position, url, titre, actif) VALUES (0, 'https://example.com/', 'Exemple', 1)")
   ancienne.close()
 
   const db = ouvrirBase(chemin)

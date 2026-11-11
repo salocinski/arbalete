@@ -5,24 +5,35 @@ export type OngletSauve = {
   url: string
   titre: string
   actif: boolean
+  // id de l'espace de l'onglet (ARB-60) ; absent s'il n'en a pas.
+  espace?: number
 }
 
 // Onglets de la dernière session, dans leur ordre.
 export function lireSession(db: DatabaseSync): OngletSauve[] {
-  const lignes = db.prepare('SELECT url, titre, actif FROM onglet ORDER BY position').all() as Array<{
+  const lignes = db.prepare('SELECT url, titre, actif, espace FROM onglet ORDER BY position').all() as Array<{
     url: string
     titre: string
     actif: number
+    espace: number | null
   }>
-  return lignes.map((ligne) => ({ url: ligne.url, titre: ligne.titre, actif: ligne.actif === 1 }))
+  return lignes.map((ligne) => ({
+    url: ligne.url,
+    titre: ligne.titre,
+    actif: ligne.actif === 1,
+    ...(ligne.espace === null ? {} : { espace: ligne.espace })
+  }))
 }
 
 // Remplace la session enregistrée par ces onglets, d'un bloc : une lecture ne voit jamais une session à moitié écrite.
 export function sauverSession(db: DatabaseSync, onglets: readonly OngletSauve[]): void {
-  const inserer = db.prepare('INSERT INTO onglet (position, url, titre, actif) VALUES (?, ?, ?, ?)')
+  // Un espace supprimé entre-temps devient « aucun espace » (NULL) : un id périmé ne doit pas faire perdre toute la session.
+  const inserer = db.prepare(
+    'INSERT INTO onglet (position, url, titre, actif, espace) VALUES (?, ?, ?, ?, (SELECT id FROM espace WHERE id = ?))'
+  )
   enTransaction(db, () => {
     db.exec('DELETE FROM onglet')
-    onglets.forEach((onglet, position) => inserer.run(position, onglet.url, onglet.titre, onglet.actif ? 1 : 0))
+    onglets.forEach((onglet, position) => inserer.run(position, onglet.url, onglet.titre, onglet.actif ? 1 : 0, onglet.espace ?? null))
   })
 }
 

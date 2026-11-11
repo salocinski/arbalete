@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.25.0] - 2026-11-11
+
+### Ajouté
+- Arbalète sait maintenant enregistrer vos espaces de travail : chacun a un nom, une couleur, une icône, une place dans l'ordre et la liste de ses onglets, et tout cela est conservé quand vous fermez puis rouvrez l'application. Rien ne change encore à l'écran : le sélecteur d'espace garde sa liste fixe tant que l'interface n'est pas branchée sur ces données.
+
+### Limites connues
+- Aucun espace n'est créé pour l'instant et aucun écran ne permet d'en créer, de les renommer ou de les réordonner : seule la base de données est prête.
+- Supprimer un espace garde ses onglets ouverts, mais sans espace. Le nom et l'icône d'un espace sont limités à 40 et 8 caractères ; une icône faite de plusieurs symboles combinés peut être refusée.
+- Une base de données déjà utilisée est mise à jour automatiquement au premier lancement, sans perdre les onglets de la session.
+
 ## [0.12.24.0] - 2026-11-11
 
 ### Ajouté
