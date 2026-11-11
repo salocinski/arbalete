@@ -2646,6 +2646,59 @@ test('C71 : les suggestions refusent les arguments aberrants, Tab les ferme et u
 //   fails_when=F11 n'est plus reconnu par actionDuRaccourci, sa garde de modificateurs saute (Ctrl+F11 bascule), ou un
 //   raccourci (Ctrl+Maj+I) rouvre les DevTools; why_new=aucun test ne regardait F11 ni les DevTools après la
 //   suppression du menu (ARB-101); seam=none; no_claim=fenêtre plein écran réelle de ce poste, pas d'autre moniteur.
+// Value: protects=ARB-47 : l'étoile de la barre d'adresse ajoute la page de l'onglet actif aux favoris et l'en retire
+//   (état `favorite`, étoile pleine et libellé inversés, fragment ignoré), reste inactive hors du web, et le favori
+//   revient au redémarrage; fails_when=browser:toggle-favorite n'écrit plus en base, l'état n'est plus diffusé, l'étoile
+//   n'appelle plus l'IPC, une page about:blank devient favorite, ou la table favori n'est plus relue au démarrage;
+//   why_new=ARB-47, le bouton Favori n'avait aucun comportement; seam=clic réel sur l'étoile de la fenêtre, deux
+//   lancements successifs sur un même profil temporaire; no_claim=ni un clavier AZERTY, ni les dossiers de favoris
+//   (ARB-48), ni leur affichage dans la barre latérale ou les suggestions.
+test('C72 : l’étoile ajoute et retire un favori, inactive hors du web, conservé au redémarrage', async () => {
+  const url = `${origine}/page-a.html`
+  const etoile = (fenetre: Page) => fenetre.locator('.address-bar button[aria-pressed]')
+  const favori = async (fenetre: Page) => (await fenetre.evaluate(() => window.arbalete.getState())).favorite
+  const ouvrir = async (fenetre: Page, adresse: string) => {
+    await fenetre.evaluate((u) => window.arbalete.createTab(u), adresse)
+    await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs.some((t) => t.url === adresse && !t.isLoading)).toBe(true)
+  }
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const lancer = () => electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer()
+  try {
+    let fenetre = await fenetreInterface(autreApp)
+    await ouvrir(fenetre, url)
+    await expect(etoile(fenetre)).toHaveAttribute('aria-pressed', 'false')
+    await expect(etoile(fenetre)).toHaveAccessibleName('Ajouter aux favoris')
+    await etoile(fenetre).click()
+    await expect.poll(() => favori(fenetre)).toBe(true)
+    await expect(etoile(fenetre)).toHaveAttribute('aria-pressed', 'true')
+    await expect(etoile(fenetre)).toHaveAccessibleName('Retirer des favoris')
+    // Le fragment n'est pas une autre page.
+    await fenetre.evaluate((u) => window.arbalete.navigate(u), `${url}#ancre`)
+    await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs.some((t) => t.url.endsWith('#ancre'))).toBe(true)
+    expect(await favori(fenetre)).toBe(true)
+    await fenetre.evaluate((u) => window.arbalete.navigate(u), url)
+
+    // Hors du web : étoile inactive, rien n'est enregistré.
+    await ouvrir(fenetre, 'file:///C:/')
+    await expect(etoile(fenetre)).toBeDisabled()
+    await fenetre.evaluate(() => window.arbalete.toggleFavorite())
+    expect(await favori(fenetre)).toBe(false)
+
+    await autreApp.close()
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs.some((t) => t.url === url)).toBe(true)
+    await fenetre.evaluate((u) => window.arbalete.createTab(u), url)
+    await expect.poll(() => favori(fenetre)).toBe(true)
+    await etoile(fenetre).click()
+    await expect.poll(() => favori(fenetre)).toBe(false)
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
 test('C65 : F11 bascule le plein écran depuis la page, la barre et la fenêtre, sans ouvrir de DevTools', async () => {
   await saisirAdresse(`${origine}/page-survol.html`)
   await attendreUrlActive(`${origine}/page-survol.html`)

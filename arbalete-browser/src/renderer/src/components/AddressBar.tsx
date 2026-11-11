@@ -10,12 +10,15 @@ type AddressBarProps = {
   onAddressChange: (value: string) => void
   onAddressFocusChange: (focused: boolean) => void
   onSubmit: () => void
+  // Étoile (ARB-47) : la page est un favori ; elle peut en devenir un (adresse web seulement).
+  favorite: boolean
+  favoritable: boolean
 }
 
 // Champ contrôlé par MainView : Ctrl+L y place le focus et la page d'accueil partage sa saisie.
 // Suggestions (ARB-53) : le champ garde le clavier. Il envoie le texte et les flèches au processus principal, qui tient la
 // liste et la fait afficher par la vue de la barre (SuggestionsOverlay), au-dessus de la page.
-export function AddressBar({ address, addressRef, onAddressChange, onAddressFocusChange, onSubmit }: AddressBarProps) {
+export function AddressBar({ address, addressRef, onAddressChange, onAddressFocusChange, onSubmit, favorite, favoritable }: AddressBarProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const suggestions = useSuggestions()
 
@@ -56,7 +59,13 @@ export function AddressBar({ address, addressRef, onAddressChange, onAddressFocu
         aria-label="Adresse ou recherche"
         spellCheck={false}
         leading={<ShieldCheck size={16} className="secure-icon"/>}
-        trailing={<IconButton size="sm" title="Ajouter aux favoris"><Star size={14}/></IconButton>}
+        trailing={
+          <IconButton size="sm" title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={favorite}
+            disabled={!favoritable} className={favorite ? 'favorite-on' : undefined}
+            onClick={() => void window.arbalete.toggleFavorite()}>
+            <Star size={14} fill={favorite ? 'currentColor' : 'none'}/>
+          </IconButton>
+        }
       />
     </form>
   )

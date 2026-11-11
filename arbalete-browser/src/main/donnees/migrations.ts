@@ -32,7 +32,15 @@ export const MIGRATIONS: readonly string[] = [
     date INTEGER NOT NULL
   );
   CREATE INDEX visite_date ON visite (date);
-  CREATE INDEX visite_page ON visite (page)`
+  CREATE INDEX visite_page ON visite (page)`,
+  // 4 — Favoris (ARB-47) : une ligne par adresse, avec le titre de la page à l'ajout et la date d'ajout (millisecondes
+  // depuis 1970). Les dossiers (ARB-48) s'ajouteront par une migration.
+  `CREATE TABLE favori (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    titre TEXT NOT NULL DEFAULT '',
+    date INTEGER NOT NULL
+  )`
 ]
 
 export function versionDuSchema(db: DatabaseSync): number {

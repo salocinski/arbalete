@@ -18,6 +18,7 @@ import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
+import { basculerFavori, estFavori } from './donnees/favoris.ts'
 import { adresseHistorique, ajouterVisite, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
@@ -123,8 +124,37 @@ function normalizeUrl(input: string): string {
 function stateSnapshot(): BrowserState {
   return {
     tabs: [...tabs.values()].map((tab) => ({ ...tab.data })),
-    activeTabId
+    activeTabId,
+    favorite: pageActiveEstFavorite()
   }
+}
+
+// Favoris (ARB-47) : la page de l'onglet actif, sous son adresse d'historique (web seulement, sans identifiants ni fragment).
+function adresseFavorite(): string | null {
+  const actif = activeRecord()
+  return actif ? adresseHistorique(actif.data.url) : null
+}
+
+function pageActiveEstFavorite(): boolean {
+  const adresse = adresseFavorite()
+  if (!base || !adresse) return false
+  try {
+    return estFavori(base, adresse)
+  } catch (erreur) {
+    console.error('Favori non lu :', erreur)
+    return false
+  }
+}
+
+function basculerFavoriActif() {
+  const adresse = adresseFavorite()
+  if (!base || !adresse) return
+  try {
+    basculerFavori(base, adresse, activeRecord()!.data.title)
+  } catch (erreur) {
+    console.error('Favori non enregistré :', erreur)
+  }
+  broadcastState()
 }
 
 // Les vues de l'interface : la fenêtre (barre d'outils, zone de page), la barre latérale et la recherche dans la page.
@@ -1170,6 +1200,7 @@ app.whenReady().then(() => {
   traiter('browser:back', reculer)
   traiter('browser:forward', avancer)
   traiter('browser:reload', () => recharger(false))
+  traiter('browser:toggle-favorite', basculerFavoriActif)
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)
   traiter('browser:dismiss-data-incident', () => {

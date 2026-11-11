@@ -16,6 +16,8 @@ export type BrowserTab = {
 export type BrowserState = {
   tabs: BrowserTab[]
   activeTabId: string | null
+  // La page de l'onglet actif est un favori (ARB-47) : faux pour une page hors du web (adresse non enregistrable).
+  favorite: boolean
 }
 
 // Barre latérale (ARB-33, ARB-123) : masquée par défaut, ouverte par-dessus la page au survol du bord gauche ;
@@ -88,6 +90,9 @@ export type BrowserAPI = {
   // Le champ reprend le clavier et sélectionne son texte (Ctrl+F sur une recherche ouverte). `reopened` : la recherche
   // vient de s'ouvrir, le champ et le compteur sont vidés.
   onFindFocus: (callback: (reopened: boolean) => void) => () => void
+  // Ajoute la page de l'onglet actif aux favoris, ou l'en retire (ARB-47) ; sans effet sur une page hors du web. L'état
+  // `favorite` en rend compte.
+  toggleFavorite: () => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

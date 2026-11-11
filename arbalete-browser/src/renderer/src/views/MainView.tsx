@@ -97,7 +97,7 @@ export function MainView() {
       {isPreviewMode() && <Sidebar state={state} sidebar={sidebar} />}
 
       <section className="browser-column" onMouseDown={() => { if (isPreviewMode()) void window.arbalete.setSidebar('hide') }}>
-        <Toolbar activeTab={activeTab} sidebarPinned={sidebar.pinned} themeChoice={theme.choice}
+        <Toolbar activeTab={activeTab} sidebarPinned={sidebar.pinned} themeChoice={theme.choice} favorite={state.favorite}
           address={address} addressRef={addressRef}
           onAddressChange={setAddress} onAddressFocusChange={setAddressFocused} onNavigate={navigate} />
         {dataIncident && <DataIncidentBanner incident={dataIncident} />}

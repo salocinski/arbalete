@@ -38,6 +38,7 @@ const api: BrowserAPI = {
   closeFind: () => ipcRenderer.invoke('browser:find-close'),
   onFindResult: (callback) => ecouter('browser:find-result', callback),
   onFindFocus: (callback) => ecouter('browser:find-focus', callback),
+  toggleFavorite: () => ipcRenderer.invoke('browser:toggle-favorite'),
   getTheme: () => ipcRenderer.invoke('browser:get-theme'),
   setTheme: (choice) => ipcRenderer.invoke('browser:set-theme', choice),
   onTheme: (callback) => ecouter('browser:theme', callback),
