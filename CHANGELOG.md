@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.24.0] - 2026-11-11
+
+### Ajouté
+- Vos favoris s'affichent en grille en haut de la barre latérale, sous le sélecteur d'espace. Un clic sur une tuile ramène à l'onglet déjà ouvert sur cette page, ou ouvre la page dans un nouvel onglet si elle est fermée. La grille montre jusqu'à 8 favoris, dans l'ordre où vous les avez ajoutés, et disparaît quand il n'y en a aucun.
+
+### Limites connues
+- Chaque tuile affiche l'initiale du site, pas son icône. Au-delà de 8 favoris, seuls les 8 premiers ajoutés sont visibles : la liste complète viendra avec le panneau des favoris.
+- Un onglet dont l'adresse a changé depuis l'ajout du favori (redirection, autre chemin) n'est pas reconnu : le clic ouvre alors un nouvel onglet. Après un clic, le clavier reste dans la barre latérale jusqu'à un clic dans la page, comme pour un clic sur un onglet.
+- En barre compacte, les tuiles s'empilent sur une seule colonne. Le rendu des tuiles dans les thèmes Dark et Light et en barre compacte n'a pas été essayé à la main ; seul l'aperçu navigateur (`npm run dev:web`) l'a été.
+
 ## [0.12.23.1] - 2026-11-11
 
 ### Corrigé

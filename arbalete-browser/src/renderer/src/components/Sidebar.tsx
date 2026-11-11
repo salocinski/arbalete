@@ -27,6 +27,16 @@ function SidebarResizer({ width }: { width: number }) {
   )
 }
 
+// shortcut: pas de favicon enregistré avec le favori, la tuile montre l'initiale du site ; à remplacer quand la table
+// `favori` gardera l'icône (ARB-48).
+function initialeFavori(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').charAt(0).toUpperCase() || '?'
+  } catch {
+    return '?'
+  }
+}
+
 // Masquée, la barre n'est qu'une bande de survol au bord gauche ; ouverte, elle recouvre la page.
 // Elle se retire quand la souris la quitte, sauf si elle est épinglée ou si le focus y est (champ, menu).
 export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: SidebarState }) {
@@ -92,6 +102,19 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
           </div>
 
           <WorkspaceSwitcher workspace={workspace} onWorkspaceChange={setWorkspace} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} />
+
+          {state.favorites.length > 0 && (
+            <ul className="favorites-grid" aria-label="Favoris">
+              {state.favorites.map((favori) => (
+                <li key={favori.url}>
+                  <button className="favorite-tile" title={favori.title || favori.url} aria-label={favori.title || favori.url}
+                    onClick={() => void window.arbalete.openFavorite(favori.url)}>
+                    {initialeFavori(favori.url)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <nav className="sidebar-nav">
             <button className="nav-item" title="Rechercher"><Search size={16} /><span>Rechercher</span><kbd>Ctrl K</kbd></button>
