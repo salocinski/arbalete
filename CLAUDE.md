@@ -105,11 +105,16 @@ et que la page de l'onglet ne reçoit pas F12 (C30). Depuis ARB-105, une `ELECTR
 La CSP de l'interface est injectée par `vite-csp.ts` : stricte au build, assouplie pour le serveur de dev
 (`'unsafe-inline'`, WebSocket du HMR). L'avertissement Electron « Insecure Content-Security-Policy » en `npm run dev`
 est donc attendu ; il ne doit jamais apparaître sur l'app construite.
-La barrière minimale avant une PR :
+La barrière locale avant une PR (`/ship` compris) :
 
 ```bash
-cd arbalete-browser && npm run typecheck && npm run test:unit && npm run test:smoke
+cd arbalete-browser && npm run typecheck && npm run test:unit
 ```
+
+`npm run test:smoke` n'est lancé en local que dans trois cas, la CI (job `smoke`, exigé par `PR-Rule`) le couvrant sinon :
+la PR clôt le **dernier ticket d'une epic** (les autres étant Terminé dans Arbalète Suivi), le diff touche
+`src/main`, `src/preload` ou l'IPC, ou l'utilisateur le demande. Ne pas relancer `typecheck` ni `test:unit`
+si le dernier commit les a déjà passés au vert. Pendant le travail, préférer les `*.test.ts` du module modifié.
 
 `test:smoke` ouvre des fenêtres Arbalète pendant quelques secondes. L'app des tests démarre sur une page locale
 (`/demarrage.html`, adresse passée au lancement) : aucun test ne dépend du réseau. `developpement.spec.ts` seul charge

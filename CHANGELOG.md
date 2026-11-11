@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.26.1] - 2026-11-11
+
+### Changé
+- Pour le développement avec Claude (règle de `CLAUDE.md`, le guide des contributeurs n'a pas changé) : avant d'ouvrir une PR, la vérification locale se limite au contrôle des types et aux tests unitaires. Le test de bout en bout de l'application (`npm run test:smoke`) ne se lance en local que pour le dernier ticket d'une epic, quand le diff touche le processus principal, le preload ou l'IPC, ou sur demande : la CI le rejoue de toute façon avant chaque fusion.
+
 ## [0.12.26.0] - 2026-11-11
 
 ### Ajouté
