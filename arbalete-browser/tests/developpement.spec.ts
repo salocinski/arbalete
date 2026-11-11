@@ -61,6 +61,15 @@ function devtoolsOuverts() {
   return app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened())
 }
 
+// Ouverts ET leur interface chargée : fermer des DevTools encore en chargement a fait mourir le processus principal
+// (« Target page, context or browser has been closed » en CI), d'où cette attente avant tout appui qui les ferme.
+function attendreDevtoolsPrets() {
+  return expect.poll(() => app!.evaluate(({ BrowserWindow }) => {
+    const contenu = BrowserWindow.getAllWindows()[0].webContents
+    return contenu.isDevToolsOpened() && contenu.devToolsWebContents !== null && !contenu.devToolsWebContents.isLoading()
+  }), { timeout: 15_000 }).toBe(true)
+}
+
 // Exécute une action dans le processus principal sur le webContents de l'onglet : le premier en http(s) qui n'est pas
 // l'interface. L'action est une fonction écrite en texte (app.evaluate ne transporte pas les fermetures).
 function dansOnglet<T>(action: string, arg?: unknown): Promise<T> {
@@ -139,7 +148,7 @@ test('C25 : en développement, F12 ouvre et ferme les DevTools de l’interface'
   expect(await devtoolsOuverts()).toBe(false)
 
   await envoyerTouches(appuiF12, 'interface')
-  await expect.poll(devtoolsOuverts).toBe(true)
+  await attendreDevtoolsPrets()
   await envoyerTouches(appuiF12, 'interface')
   await expect.poll(devtoolsOuverts).toBe(false)
 })
@@ -153,7 +162,7 @@ test('C28 : en développement, F12 dans un onglet ouvre et ferme les DevTools de
   expect(await devtoolsOuverts()).toBe(false)
 
   await envoyerTouches(appuiF12, 'onglet')
-  await expect.poll(devtoolsOuverts).toBe(true)
+  await attendreDevtoolsPrets()
   await envoyerTouches(appuiF12, 'onglet')
   await expect.poll(devtoolsOuverts).toBe(false)
 })
@@ -177,7 +186,7 @@ test('C29 : en développement, seule la touche F12 bascule les DevTools, dans l�
 
   // Témoin positif : F12 ouvre depuis l'onglet, puis referme depuis l'interface.
   await envoyerTouches([{ type: 'keyDown', keyCode: 'F12' }], 'onglet')
-  await expect.poll(devtoolsOuverts).toBe(true)
+  await attendreDevtoolsPrets()
   await envoyerTouches([{ type: 'keyDown', keyCode: 'F12' }], 'interface')
   await expect.poll(devtoolsOuverts).toBe(false)
 })
@@ -217,7 +226,7 @@ test('C30 : en développement, F12 dans un onglet n’atteint pas la page', asyn
     await expect.poll(() => compte('F2')).toBeGreaterThan(0)
 
     await presser('F12')
-    await expect.poll(devtoolsOuverts).toBe(true)
+    await attendreDevtoolsPrets()
     // Appui long : répétitions de F12, consommées elles aussi, sans rebasculer les DevTools.
     await envoyerTouches([{ type: 'keyDown', keyCode: 'F12', modifiers: ['isautorepeat'] }], 'onglet')
     await presser('F2')
