@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.23.1] - 2026-11-11
+
+### Corrigé
+- Les contrôles automatiques de l'application échouent moins au hasard. Ils démarrent sur une page locale au lieu de google.com, vérifient les rectangles de la page sans dépendre d'un instant précis, attendent la fin de l'écriture de la session avant de redémarrer l'application et laissent les DevTools finir de se charger avant de les fermer. La CI garde en cache le binaire d'Electron : une panne passagère de GitHub ne l'empêche plus de le télécharger quand il y est déjà.
+
 ## [0.12.23.0] - 2026-11-11
 
 ### Ajouté
