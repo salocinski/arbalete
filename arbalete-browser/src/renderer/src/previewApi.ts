@@ -1,4 +1,5 @@
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, transitionBarre } from '../../shared/barre'
+import { ESPACES_INITIAUX, type Espace } from '../../shared/espaces'
 import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
 /**
@@ -63,11 +64,20 @@ export function installPreviewApi(): boolean {
   const systemTheme = (): 'dark' | 'light' => (media.matches ? 'dark' : 'light')
   media.addEventListener('change', () => themeListeners.forEach((fn) => fn(systemTheme())))
 
+  // Espaces de l'aperçu (ARB-61) : les trois d'origine, en mémoire ; chaque onglet appartient à l'un d'eux et chaque espace
+  // garde son onglet actif.
+  const workspaces: Espace[] = ESPACES_INITIAUX.map((champs, index) => ({ id: index + 1, ...champs }))
+  let activeWorkspaceId = workspaces[0].id
+  const lastActive = new Map<number, string>()
+  const spaceOf = new Map<string, number>()
+  const visible = () => tabs.filter((tab) => spaceOf.get(tab.id) === activeWorkspaceId)
   // Favoris de l'aperçu (ARB-47) : en mémoire, perdus au rechargement de la page.
   const favorites = new Set<string>()
   const snapshot = (): BrowserState => ({
-    tabs: tabs.map(({ history: _h, index: _i, ...tab }) => ({ ...tab })),
+    tabs: visible().map(({ history: _h, index: _i, ...tab }) => ({ ...tab })),
     activeTabId,
+    workspaces,
+    activeWorkspaceId,
     favorite: favorites.has(active()?.url ?? ''),
     favorites: [...favorites].slice(0, 8).map((url) => ({ url, title: titleFor(url) }))
   })
@@ -93,6 +103,7 @@ export function installPreviewApi(): boolean {
     const id = `tab-${next++}`
     const normalized = normalizeUrl(url)
     tabs.push({ id, title: titleFor(normalized), url: normalized, isLoading: false, canGoBack: false, canGoForward: false, history: [normalized], index: 0 })
+    spaceOf.set(id, activeWorkspaceId)
     activeTabId = id
     sync(tabs[tabs.length - 1])
     return id
@@ -108,23 +119,39 @@ export function installPreviewApi(): boolean {
     },
     openFavorite: async (url) => {
       if (!favorites.has(url)) return
-      const ouvert = tabs.find((tab) => tab.url === url)
+      const ouvert = visible().find((tab) => tab.url === url)
       if (ouvert) {
         activeTabId = ouvert.id
         emit()
       } else createTab(url)
     },
+    setWorkspace: async (id) => {
+      if (id === activeWorkspaceId || !workspaces.some((space) => space.id === id)) return
+      if (activeTabId) lastActive.set(activeWorkspaceId, activeTabId)
+      activeWorkspaceId = id
+      const remembered = lastActive.get(id)
+      const target = remembered && spaceOf.get(remembered) === id ? remembered : visible().at(-1)?.id
+      if (target) {
+        activeTabId = target
+        emit()
+      } else createTab()
+    },
     createTab: async (url) => createTab(url),
     closeTab: async (id) => {
       const index = tabs.findIndex((tab) => tab.id === id)
       if (index === -1) return
+      const before = visible().map((tab) => tab.id)
       tabs.splice(index, 1)
-      if (activeTabId === id) activeTabId = tabs[Math.min(index, tabs.length - 1)]?.id ?? null
-      if (!tabs.length) createTab()
+      spaceOf.delete(id)
+      if (activeTabId === id) {
+        const left = before.filter((other) => other !== id)
+        activeTabId = left[Math.min(before.indexOf(id), left.length - 1)] ?? null
+      }
+      if (!visible().length) createTab()
       else emit()
     },
     activateTab: async (id) => {
-      if (!tabs.some((tab) => tab.id === id)) return
+      if (!visible().some((tab) => tab.id === id)) return
       activeTabId = id
       emit()
     },

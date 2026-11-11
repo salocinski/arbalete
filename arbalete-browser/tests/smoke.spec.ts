@@ -2802,6 +2802,157 @@ test('C73 : openFavorite active l’onglet ouvert, rouvre la page fermée, refus
   }
 })
 
+// Value: protects=ARB-61 : chaque espace a ses onglets (state.tabs ne montre que ceux de l'espace affiché), setWorkspace
+//   rend son dernier onglet actif, ouvre un onglet dans un espace vide, refuse un argument qui n'est pas un entier, et
+//   l'espace affiché comme l'onglet actif de chaque espace reviennent au redémarrage; fails_when=stateSnapshot n'écarte
+//   plus les onglets des autres espaces, changerEspace oublie dernierActif, ecrireSession n'écrit plus `espace`, ou
+//   exigerEntier ne contrôle plus l'argument; why_new=ARB-61, aucun test ne changeait d'espace; seam=IPC réel depuis la
+//   fenêtre d'interface, deux lancements sur un même profil temporaire; no_claim=ni le rendu du sélecteur (vue native
+//   séparée, vérifié dans l'aperçu web), ni le mode compact; l'espace vide ouvre un onglet sur google.com, dont le
+//   chargement n'est pas attendu.
+test('C74 : chaque espace a ses onglets et son dernier onglet actif, rétablis au redémarrage', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const pageA = `${origine}/page-a.html`
+  const pageB = `${origine}/page-b.html`
+  const survol = `${origine}/page-survol.html`
+  const lancer = (args: string[] = []) =>
+    electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer(['--', pageA, pageB])
+  try {
+    let fenetre = await fenetreInterface(autreApp)
+    const lire = () => fenetre.evaluate(() => window.arbalete.getState())
+    const urls = async () => (await lire()).tabs.map((t) => t.url)
+    const urlActive = async () => {
+      const s = await lire()
+      return s.tabs.find((t) => t.id === s.activeTabId)?.url
+    }
+    await expect.poll(urls, { timeout: 10_000 }).toEqual([pageA, pageB])
+    const depart = await lire()
+    expect(depart.workspaces.map((e) => e.nom)).toEqual(['Développement', 'Personnel', 'Recherche'])
+    const [premier, second] = depart.workspaces.map((e) => e.id)
+    expect(depart.activeWorkspaceId).toBe(premier)
+    // La page A est l'onglet actif de l'espace 1 ; elle doit le rester après un détour par l'espace 2.
+    await fenetre.evaluate((id) => window.arbalete.activateTab(id), depart.tabs[0].id)
+
+    // Espace vide : un onglet s'y ouvre, ceux de l'espace 1 disparaissent de l'état mais restent ouverts.
+    await fenetre.evaluate((id) => window.arbalete.setWorkspace(id), second)
+    await expect.poll(async () => (await lire()).activeWorkspaceId).toBe(second)
+    await expect.poll(async () => (await lire()).tabs.length).toBe(1)
+    expect((await urls()).includes(pageA)).toBe(false)
+    await fenetre.evaluate((u) => window.arbalete.createTab(u), survol)
+    await expect.poll(urlActive).toBe(survol)
+    expect((await lire()).tabs.length).toBe(2)
+
+    // Un onglet d'un autre espace ne s'active pas, un argument aberrant ou un espace inconnu ne change rien.
+    await fenetre.evaluate((id) => window.arbalete.activateTab(id), depart.tabs[1].id)
+    await expect(fenetre.evaluate(() => window.arbalete.setWorkspace('1' as unknown as number))).rejects.toThrow()
+    await expect(fenetre.evaluate(() => window.arbalete.setWorkspace(1.5))).rejects.toThrow()
+    await fenetre.evaluate(() => window.arbalete.setWorkspace(99999))
+    // gstack-timing-ok: vérification négative (rien ne doit changer) ; l'effet serait immédiat.
+    await fenetre.waitForTimeout(300)
+    expect((await lire()).activeWorkspaceId).toBe(second)
+    expect(await urlActive()).toBe(survol)
+
+    // Retour à l'espace 1 : ses deux onglets, la page A active (pas la dernière page).
+    await fenetre.evaluate((id) => window.arbalete.setWorkspace(id), premier)
+    await expect.poll(urls).toEqual([pageA, pageB])
+    expect(await urlActive()).toBe(pageA)
+
+    // Redémarrage depuis l'espace 2 : il est rouvert, avec son onglet actif, et l'espace 1 retrouve sa page A.
+    await fenetre.evaluate((id) => window.arbalete.setWorkspace(id), second)
+    await expect.poll(urlActive).toBe(survol)
+    await autreApp.close()
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    await expect.poll(async () => (await lire()).activeWorkspaceId, { timeout: 10_000 }).toBe(second)
+    await expect.poll(urlActive, { timeout: 10_000 }).toBe(survol)
+    expect((await lire()).tabs.length).toBe(2)
+    await fenetre.evaluate((id) => window.arbalete.setWorkspace(id), premier)
+    await expect.poll(urls).toEqual([pageA, pageB])
+    expect(await urlActive()).toBe(pageA)
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
+// Value: protects=ARB-61 : Ctrl+Tab et Ctrl+1…9 ne parcourent que les onglets de l'espace affiché, fermer l'onglet actif
+//   active son voisin dans l'espace et en ouvre un nouveau quand c'était le dernier de l'espace (les autres espaces gardent
+//   les leurs), et openFavorite n'active pas l'onglet d'un autre espace; fails_when=actionDuRaccourci, closeTab ou
+//   ouvrirFavori reprennent tous les onglets (tabs.keys(), tabs.size, find sans filtre d'espace) : le raccourci ou le
+//   favori vise un onglet masqué que activerOnglet refuse, la touche ne fait rien; why_new=C57, C66 et C73 n'ont qu'un
+//   espace; seam=none (touches comme C66); no_claim=ni AZERTY réel, ni le focus du nouvel onglet, ni la restauration d'un
+//   espace affiché sans onglet; le nouvel onglet d'un espace vide ouvre google.com, dont le chargement n'est pas attendu.
+test('C75 : raccourcis, fermeture d’onglet et favoris ne regardent que l’espace affiché', async () => {
+  const pageA = `${origine}/page-a.html`
+  const pageB = `${origine}/page-b.html`
+  const depart = await etat()
+  const [premier, second] = depart.workspaces.map((e) => e.id)
+  expect(depart.activeWorkspaceId).toBe(premier)
+  const actif = async () => (await etat()).activeTabId
+  const ordre = async () => (await etat()).tabs.map((t) => t.id)
+  const creer = (url: string) => ui.evaluate((u) => window.arbalete.createTab(u), url)
+  const dansEspace1 = [await creer(pageA), await creer(pageB)]
+  const dansEspace2: string[] = []
+  try {
+    await ui.evaluate((id) => window.arbalete.setWorkspace(id), second)
+    await expect.poll(async () => (await etat()).activeWorkspaceId).toBe(second)
+    await expect.poll(async () => (await ordre()).length).toBe(1)
+    dansEspace2.push(...await ordre(), await creer(pageA), await creer(pageB))
+    await expect.poll(ordre).toEqual(dansEspace2)
+
+    // Raccourcis : en boucle dans l'espace 2 seulement (les onglets de l'espace 1 précèdent les siens dans l'ordre global).
+    await ui.evaluate((id) => window.arbalete.activateTab(id), dansEspace2[0])
+    await presserSur('onglet', 'Tab', ['control'])
+    await expect.poll(actif).toBe(dansEspace2[1])
+    await presserSur('barre', 'Tab', ['control'])
+    await expect.poll(actif).toBe(dansEspace2[2])
+    await presserSur('fenetre', 'Tab', ['control'])
+    await expect.poll(actif).toBe(dansEspace2[0])
+    await presserSur('onglet', 'Tab', ['control', 'shift'])
+    await expect.poll(actif).toBe(dansEspace2[2])
+    await presserSur('onglet', '1', ['control'])
+    await expect.poll(actif).toBe(dansEspace2[0])
+    await presserSur('onglet', '9', ['control'])
+    await expect.poll(actif).toBe(dansEspace2[2])
+
+    // Fermeture : voisin de droite, puis de gauche, puis un nouvel onglet quand l'espace se vide.
+    await ui.evaluate((id) => window.arbalete.activateTab(id), dansEspace2[1])
+    await ui.evaluate((id) => window.arbalete.closeTab(id), dansEspace2[1])
+    await expect.poll(actif).toBe(dansEspace2[2])
+    await ui.evaluate((id) => window.arbalete.closeTab(id), dansEspace2[2])
+    await expect.poll(actif).toBe(dansEspace2[0])
+    await ui.evaluate((id) => window.arbalete.closeTab(id), dansEspace2[0])
+    await expect.poll(async () => (await ordre()).length).toBe(1)
+    const neuf = (await ordre())[0]
+    expect(dansEspace2.includes(neuf)).toBe(false)
+    expect(await actif()).toBe(neuf)
+    expect((await etat()).activeWorkspaceId).toBe(second)
+    dansEspace2.length = 0
+    dansEspace2.push(neuf)
+
+    // Favori : la page B est ouverte dans l'espace 1, pas dans l'espace 2 : le clic ouvre un onglet ici, sans activer l'autre.
+    dansEspace2.push(await creer(pageB))
+    await ui.evaluate(() => window.arbalete.toggleFavorite())
+    await expect.poll(async () => (await etat()).favorites.some((f) => f.url === pageB)).toBe(true)
+    await ui.evaluate((id) => window.arbalete.closeTab(id), dansEspace2[1])
+    await expect.poll(async () => (await ordre()).length).toBe(1)
+    await ui.evaluate((u) => window.arbalete.openFavorite(u), pageB)
+    await expect.poll(async () => (await ordre()).length).toBe(2)
+    const ouvert = await etat()
+    const actuel = ouvert.tabs.find((t) => t.id === ouvert.activeTabId)
+    expect(actuel?.url).toBe(pageB)
+    expect(dansEspace1.includes(actuel!.id)).toBe(false)
+    expect(ouvert.activeWorkspaceId).toBe(second)
+    await ui.evaluate(() => window.arbalete.toggleFavorite())
+    await expect.poll(async () => (await etat()).favorites.some((f) => f.url === pageB)).toBe(false)
+  } finally {
+    await ui.evaluate((id) => window.arbalete.setWorkspace(id), premier)
+    await expect.poll(async () => (await etat()).activeWorkspaceId).toBe(premier)
+    for (const id of dansEspace1) await ui.evaluate((i) => window.arbalete.closeTab(i), id)
+  }
+})
+
 test('C65 : F11 bascule le plein écran depuis la page, la barre et la fenêtre, sans ouvrir de DevTools', async () => {
   await saisirAdresse(`${origine}/page-survol.html`)
   await attendreUrlActive(`${origine}/page-survol.html`)

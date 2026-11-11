@@ -40,6 +40,7 @@ const api: BrowserAPI = {
   onFindFocus: (callback) => ecouter('browser:find-focus', callback),
   toggleFavorite: () => ipcRenderer.invoke('browser:toggle-favorite'),
   openFavorite: (url) => ipcRenderer.invoke('browser:open-favorite', url),
+  setWorkspace: (id) => ipcRenderer.invoke('browser:set-workspace', id),
   getTheme: () => ipcRenderer.invoke('browser:get-theme'),
   setTheme: (choice) => ipcRenderer.invoke('browser:set-theme', choice),
   onTheme: (callback) => ecouter('browser:theme', callback),

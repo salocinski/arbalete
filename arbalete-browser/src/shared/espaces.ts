@@ -12,3 +12,10 @@ export type Espace = {
   couleur: CouleurEspace
   icone: string
 }
+
+// Espaces créés au premier lancement (ARB-61), quand la table est vide : ceux de la maquette de la barre latérale.
+export const ESPACES_INITIAUX: readonly Omit<Espace, 'id'>[] = [
+  { nom: 'Développement', couleur: 'development', icone: '◆' },
+  { nom: 'Personnel', couleur: 'personal', icone: '✳' },
+  { nom: 'Recherche', couleur: 'research', icone: '◈' }
+]

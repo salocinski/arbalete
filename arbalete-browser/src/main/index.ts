@@ -22,7 +22,9 @@ import { basculerFavori, estFavori, favorisGrille } from './donnees/favoris.ts'
 import { adresseHistorique, ajouterVisite, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
-import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
+import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
+import { ecrireEspaceActif, lireEspaceActif, lireEspaces, semerEspaces } from './donnees/espaces.ts'
+import type { Espace } from '../shared/espaces.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 // shortcut: icône lue sur disque (dev et build), l'empaquetage devra la fournir à l'installeur (EP-14).
@@ -35,6 +37,8 @@ type TabRecord = {
   chargee: boolean
   // Adresse de la dernière visite enregistrée dans l'historique (ARB-51), null sur une page qui n'y entre pas.
   adresseVisitee: string | null
+  // Espace de l'onglet (ARB-61) ; null si la base est indisponible, donc sans espaces.
+  espace: number | null
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -81,8 +85,17 @@ function appliquerThemeFenetre() {
   dessinerApercu()
 }
 const tabs = new Map<string, TabRecord>()
+// Onglet actif de l'espace affiché (ARB-61) ; celui des autres espaces est gardé dans dernierActif, jusqu'au retour.
 let activeTabId: string | null = null
+let espaces: Espace[] = []
+let espaceActif: number | null = null
+const dernierActif = new Map<number | null, string>()
 let nextTabNumber = 1
+
+// Ids des onglets de l'espace affiché, dans leur ordre : ceux que la barre, Ctrl+Tab, Ctrl+1…9 et la fermeture parcourent.
+function ongletsVisibles(): string[] {
+  return [...tabs.values()].filter((tab) => tab.espace === espaceActif).map((tab) => tab.data.id)
+}
 // Bornes de la vue web avant que l'interface envoie les siennes : pleine largeur sous la barre de contrôle (48 px, --size-control-bar),
 // la barre latérale étant masquée à l'ouverture (ARB-33).
 let contentBounds = { x: 8, y: 48, width: 884, height: 544 }
@@ -123,8 +136,10 @@ function normalizeUrl(input: string): string {
 
 function stateSnapshot(): BrowserState {
   return {
-    tabs: [...tabs.values()].map((tab) => ({ ...tab.data })),
+    tabs: [...tabs.values()].filter((tab) => tab.espace === espaceActif).map((tab) => ({ ...tab.data })),
     activeTabId,
+    workspaces: espaces,
+    activeWorkspaceId: espaceActif,
     favorite: pageActiveEstFavorite(),
     favorites: grilleFavoris()
   }
@@ -150,7 +165,7 @@ function ouvrirFavori(url: string) {
     console.error('Favori non lu :', erreur)
     return
   }
-  const ouvert = [...tabs.values()].find((tab) => adresseHistorique(tab.data.url) === url)
+  const ouvert = [...tabs.values()].find((tab) => tab.espace === espaceActif && adresseHistorique(tab.data.url) === url)
   if (ouvert) activerOnglet(ouvert.data.id)
   else createTab(url)
 }
@@ -208,10 +223,11 @@ let ongletDeDemarrage: string | null = null
 
 function ecrireSession() {
   if (!base || sessionProposee) return
-  const onglets: OngletSauve[] = [...tabs.values()].map(({ data }) => ({
+  const onglets: OngletSauve[] = [...tabs.values()].map(({ data, espace }) => ({
     url: data.url,
     titre: data.title,
-    actif: data.id === activeTabId
+    actif: data.id === (espace === espaceActif ? activeTabId : dernierActif.get(espace)),
+    ...(espace === null ? {} : { espace })
   }))
   const serialisee = JSON.stringify(onglets)
   if (serialisee === derniereSessionEcrite) return
@@ -597,7 +613,8 @@ function avancer() {
 }
 
 function activerOnglet(id: string) {
-  if (!tabs.has(id)) return
+  // Seul un onglet de l'espace affiché s'active ; un autre espace s'atteint par changerEspace (ARB-61).
+  if (tabs.get(id)?.espace !== espaceActif) return
   activeTabId = id
   setActiveView()
   updateTabFromView(id)
@@ -651,9 +668,9 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
   if (input.key === 'F11' && !input.control && !input.alt && !input.shift && !input.meta) return basculerPleinEcran
   // Changement d'onglet et rechargement (ARB-19, ARB-21), avant le test de Maj : Ctrl+Maj+Tab et Ctrl+Maj+R en dépendent.
   const pas = pasDOnglet(input)
-  if (pas) return () => activerAutreOnglet(ongletRelatif([...tabs.keys()], activeTabId, pas))
+  if (pas) return () => activerAutreOnglet(ongletRelatif(ongletsVisibles(), activeTabId, pas))
   const numero = numeroDOnglet(input)
-  if (numero) return () => activerAutreOnglet(ongletNumero([...tabs.keys()], numero))
+  if (numero) return () => activerAutreOnglet(ongletNumero(ongletsVisibles(), numero))
   const recharge = rechargement(input, touche)
   if (recharge) return () => recharger(recharge === 'sans-cache')
   if (input.control && !input.alt && !input.meta) {
@@ -719,7 +736,8 @@ function chargerOnglet(record: TabRecord) {
 }
 
 // Un onglet restauré (ARB-45) s'ouvre en arrière-plan avec son titre enregistré ; sa page attend d'être affichée.
-function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: string }): string {
+// Un onglet s'ouvre dans l'espace affiché ; un onglet restauré garde le sien (ARB-61).
+function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: string, espace?: number }): string {
   const id = `tab-${nextTabNumber++}`
   const view = new WebContentsView({
     webPreferences: {
@@ -744,7 +762,8 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
     view,
     chargee: false,
     // Rouvrir un onglet restauré n'est pas une visite.
-    adresseVisitee: restaure ? adresseHistorique(normalizeUrl(initialUrl)) : null
+    adresseVisitee: restaure ? adresseHistorique(normalizeUrl(initialUrl)) : null,
+    espace: restaure ? restaure.espace ?? null : espaceActif
   }
   tabs.set(id, record)
 
@@ -817,7 +836,8 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
   view.webContents.setWindowOpenHandler(({ url }) => {
-    if (ouvertureAutorisee(id, url)) void createTab(url)
+    // Une page d'un espace masqué n'ouvre pas d'onglet : il surgirait dans l'espace affiché (ARB-61).
+    if (record.espace === espaceActif && ouvertureAutorisee(id, url)) void createTab(url)
     return { action: 'deny' }
   })
   view.webContents.on('will-navigate', (event, url) => {
@@ -848,11 +868,18 @@ function lireSessionSauvee(): OngletSauve[] {
 // Rouvre les onglets d'une session (ARB-45), dans leur ordre, après ceux déjà ouverts ; seul l'onglet actif de la
 // session charge sa page. Renvoie false si rien n'a été rouvert.
 function rouvrirSession(session: OngletSauve[]): boolean {
-  const { onglets, actif } = ongletsARestaurer(session)
-  const ids = onglets.map((onglet) => createTab(onglet.url, { titre: onglet.titre }))
-  if (!ids.length) return false
-  activeTabId = ids[actif]
-  setActiveView()
+  const { onglets } = ongletsARestaurer(session)
+  if (!onglets.length) return false
+  // Chaque onglet retrouve son espace (ARB-61) ; l'onglet actif de chaque espace est celui que le changement d'espace
+  // réactivera, celui de l'espace affiché l'est tout de suite.
+  const rattaches = rattacherAuxEspaces(onglets, espaces.map((espace) => espace.id))
+  const ids = rattaches.map((onglet) => createTab(onglet.url, { titre: onglet.titre, espace: onglet.espace }))
+  for (const [espace, indice] of actifsParEspace(rattaches)) dernierActif.set(espace ?? null, ids[indice])
+  const restaure = dernierActif.get(espaceActif)
+  if (restaure && tabs.get(restaure)?.espace === espaceActif) activeTabId = restaure
+  // Un espace affiché sans onglet restauré reçoit son onglet de l'appelant (démarrage), qui sait si une adresse de lancement
+  // s'ouvre déjà dedans.
+  if (ongletsVisibles().length) setActiveView()
   broadcastState()
   return true
 }
@@ -903,15 +930,43 @@ function closeTab(id: string, memoriser = true) {
     try { mainWindow.contentView.removeChildView(record.view) } catch {}
   }
   record.view.webContents.close()
-  const ordre = [...tabs.keys()]
+  const ordre = ongletsVisibles()
   tabs.delete(id)
   ouvertures.delete(id)
 
   if (activeTabId === id) activeTabId = ongletVoisin(ordre, id)
-  if (!tabs.size) createTab()
+  // Le dernier onglet de l'espace affiché ferme : un nouvel onglet l'y remplace (les autres espaces gardent les leurs).
+  if (!ongletsVisibles().length) createTab()
   else {
     setActiveView()
     broadcastState()
+  }
+}
+
+// Passe à un autre espace (ARB-61) : les onglets de l'espace choisi remplacent ceux affichés et son dernier onglet actif
+// reprend la page ; faute d'onglet, un nouvel onglet s'y ouvre. Le choix est conservé au redémarrage.
+function changerEspace(id: number) {
+  if (id === espaceActif || !espaces.some((espace) => espace.id === id)) return
+  if (activeTabId) dernierActif.set(espaceActif, activeTabId)
+  espaceActif = id
+  fermerSuggestions()
+  if (base) {
+    try {
+      ecrireEspaceActif(base, id)
+    } catch (erreur) {
+      console.error('Espace actif non enregistré :', erreur)
+    }
+  }
+  const memorise = dernierActif.get(id)
+  const visibles = ongletsVisibles()
+  const cible = memorise && tabs.get(memorise)?.espace === id ? memorise : visibles[visibles.length - 1]
+  if (cible) {
+    activerOnglet(cible)
+    activeRecord()?.view.webContents.focus()
+    broadcastState()
+  } else {
+    activeTabId = null
+    createTab()
   }
 }
 
@@ -951,6 +1006,11 @@ function traiter(canal: string, gestionnaire: (...args: unknown[]) => unknown) {
 
 function exigerTexte(valeur: unknown): string {
   if (typeof valeur !== 'string') throw new Error('Argument IPC invalide : texte attendu')
+  return valeur
+}
+
+function exigerEntier(valeur: unknown): number {
+  if (typeof valeur !== 'number' || !Number.isSafeInteger(valeur)) throw new Error('Argument IPC invalide : entier attendu')
   return valeur
 }
 
@@ -1054,7 +1114,7 @@ function createWindow(adresses: readonly string[] = []) {
   // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
   const restauree = restaurerSession()
   if (adresses.length) adresses.forEach((adresse) => createTab(adresse))
-  else if (!restauree) ongletDeDemarrage = createTab()
+  else if (!restauree || !ongletsVisibles().length) ongletDeDemarrage = createTab()
 }
 
 function versIncident(incident: IncidentBase): DataIncident {
@@ -1101,6 +1161,14 @@ app.whenReady().then(() => {
       choixTheme = lireTheme(base)
     } catch (erreur) {
       console.error('Thème non relu :', erreur)
+    }
+    // Espaces (ARB-61) : créés au premier lancement, espace affiché relu avant la restauration de la session.
+    try {
+      semerEspaces(base)
+      espaces = lireEspaces(base)
+      espaceActif = lireEspaceActif(base, espaces)
+    } catch (erreur) {
+      console.error('Espaces non relus :', erreur)
     }
     // Mode et largeur de la barre latérale (ARB-123), lus avant la création de la fenêtre.
     try {
@@ -1228,6 +1296,7 @@ app.whenReady().then(() => {
   traiter('browser:reload', () => recharger(false))
   traiter('browser:toggle-favorite', basculerFavoriActif)
   traiter('browser:open-favorite', (url) => ouvrirFavori(exigerTexte(url)))
+  traiter('browser:set-workspace', (id) => changerEspace(exigerEntier(id)))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)
   traiter('browser:dismiss-data-incident', () => {
