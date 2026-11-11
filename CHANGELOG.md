@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.23.0] - 2026-11-11
+
+### Ajouté
+- L'étoile de la barre d'adresse ajoute la page ouverte aux favoris et l'en retire. Elle se remplit quand la page est déjà un favori, et le favori est conservé quand on ferme puis rouvre Arbalète. Une page à une adresse avec un `#` (ancre) compte comme la même page.
+
+### Limites connues
+- L'étoile ne marche que pour les pages web (http et https) : sur les autres pages elle est grisée.
+- Les favoris ne sont pas encore affichés (ni liste, ni dossiers) ni proposés dans les suggestions de la barre d'adresse. Le titre est celui de la page au moment de l'ajout.
+- Si la base de données est indisponible, l'étoile ne fait rien et ne l'indique pas. Dans l'aperçu navigateur (`npm run dev:web`), les favoris ne durent que jusqu'au rechargement.
+- Le rendu de l'étoile dans les thèmes Dark et Light et un vrai clavier AZERTY n'ont pas été essayés à la main ; les tests simulent les clics.
+
 ## [0.12.22.1] - 2026-11-10
 
 ### Corrigé

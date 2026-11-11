@@ -119,6 +119,7 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .nav-controls { display: flex; align-items: center; gap: var(--space-1); }
 .address-bar { display: flex; flex: 1; min-width: 120px; }
 .address-bar .ui-field-group { flex: 1; }
+.favorite-on { color: var(--color-accent); }
 .secure-icon { color: var(--color-success); flex-shrink: 0; }
 .app-banner { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 20px; background: var(--color-sidebar); border-bottom: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 11px; position: relative; z-index: var(--z-chrome); }
 .app-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }

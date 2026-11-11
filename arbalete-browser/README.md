@@ -53,7 +53,7 @@ npm run dev:web   # http://localhost:5180
 
 Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les favoris, les téléchargements et les espaces ne sont pas encore persistés ; l'historique est enregistré mais n'a pas encore de panneau.
+- Les téléchargements et les espaces ne sont pas encore persistés ; l'historique et les favoris sont enregistrés mais n'ont pas encore de panneau.
 - Le sélecteur d'espaces modifie pour l'instant l'interface, pas les sessions ou les groupes d'onglets.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
@@ -85,6 +85,6 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 ## Prochaines étapes recommandées
 
 1. Tester le démarrage sur Windows et corriger les éventuels écarts de configuration.
-2. Persister favoris et espaces dans SQLite (onglets et historique le sont déjà).
+2. Persister les espaces dans SQLite (onglets, historique et favoris le sont déjà).
 3. Réaliser un prototype de compatibilité des extensions avant de figer l'architecture.
 4. Préparer le packaging et les mises à jour automatiques.

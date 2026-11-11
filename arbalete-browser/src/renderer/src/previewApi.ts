@@ -63,9 +63,12 @@ export function installPreviewApi(): boolean {
   const systemTheme = (): 'dark' | 'light' => (media.matches ? 'dark' : 'light')
   media.addEventListener('change', () => themeListeners.forEach((fn) => fn(systemTheme())))
 
+  // Favoris de l'aperçu (ARB-47) : en mémoire, perdus au rechargement de la page.
+  const favorites = new Set<string>()
   const snapshot = (): BrowserState => ({
     tabs: tabs.map(({ history: _h, index: _i, ...tab }) => ({ ...tab })),
-    activeTabId
+    activeTabId,
+    favorite: favorites.has(active()?.url ?? '')
   })
   const emit = () => {
     const state = snapshot()
@@ -96,6 +99,12 @@ export function installPreviewApi(): boolean {
 
   const api: BrowserAPI = {
     getState: async () => snapshot(),
+    toggleFavorite: async () => {
+      const url = active()?.url
+      if (!url || !/^https?:/i.test(url)) return
+      if (!favorites.delete(url)) favorites.add(url)
+      emit()
+    },
     createTab: async (url) => createTab(url),
     closeTab: async (id) => {
       const index = tabs.findIndex((tab) => tab.id === id)
