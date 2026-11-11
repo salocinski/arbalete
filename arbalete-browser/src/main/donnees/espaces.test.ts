@@ -1,7 +1,7 @@
 import { deepStrictEqual, strictEqual, throws } from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
-import { LONGUEUR_MAX_ICONE_ESPACE, LONGUEUR_MAX_NOM_ESPACE } from '../../shared/espaces.ts'
+import { COULEURS_ESPACE, LONGUEUR_MAX_ICONE_ESPACE, LONGUEUR_MAX_NOM_ESPACE } from '../../shared/espaces.ts'
 import { ouvrirBase } from './base.ts'
 import { creerEspace, ecrireEspaceActif, lireEspaceActif, lireEspaces, modifierEspace, ordonnerEspaces, semerEspaces, supprimerEspace } from './espaces.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
@@ -152,4 +152,16 @@ test('la restauration rattache les onglets orphelins et répare les onglets acti
   // Espace 2 : deux marqués, le premier gagne. Espace 1 : aucun marqué, le dernier gagne.
   deepStrictEqual([...actifsParEspace(rattaches)], [[1, 4], [2, 1]])
   deepStrictEqual(rattacherAuxEspaces(session, []).map((o) => o.espace), [undefined, undefined, undefined, undefined, undefined])
+})
+
+test('chaque couleur de la palette se choisit et se relit, un nom hors liste est refusé (ARB-134)', () => {
+  const db = ouvrirBase(':memory:')
+  const id = creerEspace(db, dev)
+  for (const couleur of COULEURS_ESPACE) {
+    strictEqual(modifierEspace(db, id, { ...dev, couleur }), true)
+    strictEqual(lireEspaces(db)[0].couleur, couleur)
+  }
+  throws(() => modifierEspace(db, id, { ...dev, couleur: 'Glacier' as never }))
+  throws(() => modifierEspace(db, id, { ...dev, couleur: '--color-workspace-rose' as never }))
+  strictEqual(lireEspaces(db)[0].couleur, COULEURS_ESPACE.at(-1))
 })

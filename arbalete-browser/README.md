@@ -42,7 +42,7 @@ npm run dev:web   # http://localhost:5180
 - Ces raccourcis agissent aussi depuis une page web ou la barre latérale (interceptés par le processus principal)
 - Navigation Chromium réelle via `WebContentsView`
 - Onglets créés, sélectionnés et fermés
-- Espaces de travail : le sélecteur de la barre latérale liste les espaces (Développement, Personnel et Recherche au premier lancement) ; son menu crée, renomme, réordonne et supprime un espace (le dernier ne se supprime pas ; supprimer un espace ferme ses onglets) ; changer d'espace affiche les onglets de cet espace (les autres restent ouverts, masqués), chaque espace garde son dernier onglet actif, et l'espace affiché revient au redémarrage
+- Espaces de travail : le sélecteur de la barre latérale liste les espaces (Développement, Personnel et Recherche au premier lancement) ; son menu crée, renomme, réordonne et supprime un espace (le dernier ne se supprime pas ; supprimer un espace ferme ses onglets) ; un clic droit sur le nom de l'espace ouvre « Changer la couleur… » (14 couleurs) ; changer d'espace affiche les onglets de cet espace (les autres restent ouverts, masqués), chaque espace garde son dernier onglet actif, et l'espace affiché revient au redémarrage
 - Thème manuel sombre / clair / système (le mode système est le défaut initial ; le thème choisi est conservé au redémarrage)
 - Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
 - Historique enregistré à chaque navigation vers une autre page

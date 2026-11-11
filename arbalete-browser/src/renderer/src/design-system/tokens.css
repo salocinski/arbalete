@@ -84,6 +84,16 @@
   --color-workspace-development: #8C91E8;
   --color-workspace-work: #D99A69;
   --color-workspace-research: #83A78D;
+  --color-workspace-azur: #81A6DA;
+  --color-workspace-lagune: #89D2C3;
+  --color-workspace-mousse: #ABCA91;
+  --color-workspace-sable: #D2BF89;
+  --color-workspace-amethyste: #B085D6;
+  --color-workspace-orchidee: #CE8DCE;
+  --color-workspace-rose: #D685AB;
+  --color-workspace-framboise: #D28995;
+  --color-workspace-ardoise: #A2AFB9;
+  --color-workspace-brume: #A69BBF;
   --shadow-floating: 0 12px 30px rgb(0 0 0 / 0.35);
 }
 
@@ -110,5 +120,15 @@
   --color-workspace-development: #757BE3;
   --color-workspace-work: #C27031;
   --color-workspace-research: #658F71;
+  --color-workspace-azur: #3061A6;
+  --color-workspace-lagune: #37907E;
+  --color-workspace-mousse: #668D44;
+  --color-workspace-sable: #9B823B;
+  --color-workspace-amethyste: #6F36A1;
+  --color-workspace-orchidee: #964096;
+  --color-workspace-rose: #A13668;
+  --color-workspace-framboise: #9B3B4B;
+  --color-workspace-ardoise: #5C6E7A;
+  --color-workspace-brume: #625483;
   --shadow-floating: 0 12px 30px rgb(32 43 54 / 0.14);
 }

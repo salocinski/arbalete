@@ -24,7 +24,7 @@ import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } 
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
 import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
 import { creerEspace, ecrireEspaceActif, lireEspaceActif, lireEspaces, modifierEspace, ordonnerEspaces, semerEspaces, supprimerEspace } from './donnees/espaces.ts'
-import { champsNouvelEspace, ordreApresDeplacement, type Espace } from '../shared/espaces.ts'
+import { champsNouvelEspace, ordreApresDeplacement, type CouleurEspace, type Espace } from '../shared/espaces.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 // shortcut: icône lue sur disque (dev et build), l'empaquetage devra la fournir à l'installeur (EP-14).
@@ -987,6 +987,15 @@ function renommerEspace(id: number, nom: string) {
   broadcastState()
 }
 
+// Couleur choisie par l'utilisateur (ARB-134) : le texte reçu n'est pas encore une couleur, `modifierEspace` refuse un nom hors de `COULEURS_ESPACE`.
+function colorerEspace(id: number, couleur: string) {
+  const espace = espaces.find((item) => item.id === id)
+  if (!base || !espace) return
+  modifierEspace(base, id, { nom: espace.nom, couleur: couleur as CouleurEspace, icone: espace.icone })
+  espaces = lireEspaces(base)
+  broadcastState()
+}
+
 function deplacerEspace(id: number, sens: -1 | 1) {
   if (!base || !espaces.some((item) => item.id === id)) return
   ordonnerEspaces(base, ordreApresDeplacement(espaces.map((item) => item.id), id, sens))
@@ -1342,6 +1351,7 @@ app.whenReady().then(() => {
   traiter('browser:set-workspace', (id) => changerEspace(exigerEntier(id)))
   traiter('browser:create-workspace', (nom) => creerEspaceUtilisateur(exigerTexte(nom)))
   traiter('browser:rename-workspace', (id, nom) => renommerEspace(exigerEntier(id), exigerTexte(nom)))
+  traiter('browser:set-workspace-color', (id, couleur) => colorerEspace(exigerEntier(id), exigerTexte(couleur)))
   traiter('browser:move-workspace', (id, sens) => deplacerEspace(exigerEntier(id), exigerSens(sens)))
   traiter('browser:delete-workspace', (id) => supprimerEspaceUtilisateur(exigerEntier(id)))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)

@@ -2962,6 +2962,106 @@ test('C76 : créer, renommer, réordonner et supprimer un espace', async () => {
   }
 })
 
+// Value: protects=ARB-134 : le clic droit sur le nom d'un espace ouvre son menu puis la modale de couleur dans la couche
+//   d'overlays (vue de la barre sur toute la fenêtre), choisir une pastille applique la couleur à l'espace et au filet de
+//   la barre, Échap ferme sans rien changer, et `set-workspace-color` refuse un nom hors palette; fails_when=le menu ne
+//   s'ouvre plus (onContextMenu perdu), la modale remplace le menu sans garder l'overlay ouvert (la vue se rétracte),
+//   le canal accepte une valeur arbitraire ou ne rediffuse pas l'état, une flèche sort de la grille ou le clic droit sur une ligne vise l'espace affiché; why_new=C76 gère noms, ordre et suppression, aucun
+//   test n'atteint la couleur ni la modale; seam=none (clic droit et clics de Playwright dans la vue de la barre);
+//   no_claim=ni le rendu des pastilles ni la variante du thème clair (aperçu web et contrastes en test unitaire), ni la
+//   persistance au redémarrage (la couche de données est testée en unitaire, le même chemin que le renommage de C76).
+test('C77 : clic droit sur un espace, modale de couleur, choix appliqué, Échap sans effet, nom hors palette refusé', async () => {
+  const fenetre = () => app.evaluate(({ BrowserWindow }) => {
+    const { width, height } = BrowserWindow.getAllWindows()[0].getContentBounds()
+    return { x: 0, y: 0, width, height }
+  })
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const espace = async () => { const s = await etat(); return s.workspaces.find((e) => e.id === s.activeWorkspaceId)! }
+  const menu = barreUi.getByRole('menu')
+  const modale = barreUi.getByRole('dialog')
+  const departEspace = await espace()
+  await epinglerBarre(true)
+  try {
+    // Touche native envoyée à la vue de la barre, focus dans la modale : before-input-event la voit comme un vrai clavier.
+    const echapNatif = () => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+      const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+        && enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+      vue.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
+      vue.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
+    })
+    const ouvrirModale = async () => {
+      await barreUi.locator('.workspace-switcher').click({ button: 'right' })
+      await expect(menu).toBeVisible()
+      await expect.poll(boundsBarre).toEqual(await fenetre())
+      await menu.getByRole('menuitem', { name: 'Changer la couleur…' }).click()
+      await expect(modale).toBeVisible()
+      // La modale remplace le menu sans fermer l'overlay : la vue de la barre couvre toujours la fenêtre.
+      await expect(menu).toHaveCount(0)
+      expect(await overlay()).toBe(true)
+      expect(await barreAuPremierPlan()).toBe(true)
+    }
+
+    // La modale montre les 14 couleurs de la palette, l'actuelle repérée.
+    await ouvrirModale()
+    await expect(modale.getByRole('radio')).toHaveCount(14)
+    await expect(modale.getByRole('radio', { checked: true })).toHaveAttribute('data-couleur', departEspace.couleur)
+
+    // Échap ferme la modale (le processus principal le traite) sans changer la couleur.
+    // Parcours au clavier de la grille : le focus part de la couleur actuelle, les flèches, Début et Fin bouclent.
+    const couleurs = await modale.getByRole('radio').evaluateAll((pastilles) => pastilles.map((p) => (p as HTMLElement).dataset.couleur))
+    const focus = () => barreUi.evaluate(() => document.activeElement?.getAttribute('data-couleur'))
+    const depart = couleurs.indexOf(departEspace.couleur)
+    await expect.poll(focus).toBe(departEspace.couleur)
+    await barreUi.keyboard.press('ArrowRight')
+    await expect.poll(focus).toBe(couleurs[(depart + 1) % couleurs.length])
+    await barreUi.keyboard.press('End')
+    await expect.poll(focus).toBe(couleurs.at(-1))
+    await barreUi.keyboard.press('ArrowRight')
+    await expect.poll(focus).toBe(couleurs[0])
+    await barreUi.keyboard.press('ArrowDown')
+    await expect.poll(focus).toBe(couleurs[7])
+    await barreUi.keyboard.press('ArrowUp')
+    await expect.poll(focus).toBe(couleurs[0])
+
+    await echapNatif()
+    await expect.poll(overlay).toBe(false)
+    await expect(modale).toHaveCount(0)
+    expect((await espace()).couleur).toBe(departEspace.couleur)
+
+    // Clic droit sur la ligne d'un autre espace dans la liste : la modale vise cet espace, pas l'espace affiché.
+    const autre = (await etat()).workspaces.find((e) => e.id !== departEspace.id)!
+    await barreUi.locator('.workspace-switcher').click()
+    await barreUi.locator('.workspace-choice').filter({ hasText: autre.nom }).click({ button: 'right' })
+    await expect(menu).toBeVisible()
+    await menu.getByRole('menuitem', { name: 'Changer la couleur…' }).click()
+    await expect(barreUi.getByTestId('color-modal-card')).toContainText(autre.nom)
+    await expect(modale.getByRole('radio', { checked: true })).toHaveAttribute('data-couleur', autre.couleur)
+    await echapNatif()
+    await expect.poll(overlay).toBe(false)
+    expect((await espace()).couleur).toBe(departEspace.couleur)
+
+    // Une couleur choisie s'applique à l'espace et au filet de la barre, et l'overlay se ferme.
+    const choix = departEspace.couleur === 'azur' ? 'rose' : 'azur'
+    await ouvrirModale()
+    await modale.locator(`[data-couleur="${choix}"]`).click()
+    await expect.poll(overlay).toBe(false)
+    await expect.poll(async () => (await espace()).couleur).toBe(choix)
+    await expect(barreUi.locator('aside.sidebar')).toHaveAttribute('style', new RegExp(`--color-workspace-${choix}`))
+
+    // Un nom hors palette, un argument aberrant ou un espace inconnu ne changent rien.
+    await expect(ui.evaluate((id) => window.arbalete.setWorkspaceColor(id, '#ff0000'), departEspace.id)).rejects.toThrow()
+    await expect(ui.evaluate((id) => window.arbalete.setWorkspaceColor(id, 'Glacier'), departEspace.id)).rejects.toThrow()
+    await expect(ui.evaluate((id) => window.arbalete.setWorkspaceColor(id, 3 as unknown as string), departEspace.id)).rejects.toThrow()
+    await ui.evaluate(() => window.arbalete.setWorkspaceColor(99999, 'rose'))
+    // gstack-timing-ok: vérification négative (rien ne doit changer) ; l'effet serait immédiat.
+    await ui.waitForTimeout(300)
+    expect((await espace()).couleur).toBe(choix)
+  } finally {
+    await ui.evaluate(({ id, couleur }) => window.arbalete.setWorkspaceColor(id, couleur), { id: departEspace.id, couleur: departEspace.couleur })
+    await epinglerBarre(false)
+  }
+})
+
 // Value: protects=ARB-61 : Ctrl+Tab et Ctrl+1…9 ne parcourent que les onglets de l'espace affiché, fermer l'onglet actif
 //   active son voisin dans l'espace et en ouvre un nouveau quand c'était le dernier de l'espace (les autres espaces gardent
 //   les leurs), et openFavorite n'active pas l'onglet d'un autre espace; fails_when=actionDuRaccourci, closeTab ou
