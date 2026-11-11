@@ -2876,6 +2876,81 @@ test('C74 : chaque espace a ses onglets et son dernier onglet actif, rétablis a
   }
 })
 
+// Value: protects=ARB-62 : createWorkspace ajoute et affiche un espace (nom nettoyé), renameWorkspace le renomme, moveWorkspace
+//   le décale d'un cran sans dépasser les bords, l'ordre et les noms reviennent au redémarrage, deleteWorkspace retire un
+//   espace (l'actif cède la place à son voisin du dessous) et refuse de supprimer le dernier, et les arguments aberrants
+//   sont refusés; fails_when=creerEspaceUtilisateur n'affiche plus l'espace créé, deplacerEspace dépasse un bord ou n'écrit
+//   plus l'ordre, supprimerEspaceUtilisateur laisse l'espace actif supprimé ou supprime le dernier, ou un exiger* ne contrôle
+//   plus son argument; why_new=ARB-62, aucun test ne créait ni ne supprimait d'espace; seam=IPC réel depuis la fenêtre
+//   d'interface, deux lancements sur un même profil temporaire; no_claim=ni le rendu du menu (vue native séparée, vérifié
+//   dans l'aperçu web), ni la fermeture effective des onglets de l'espace supprimé; le nouvel espace ouvre un onglet sur
+//   google.com, dont le chargement n'est pas attendu.
+test('C76 : créer, renommer, réordonner et supprimer un espace', async () => {
+  const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const pageA = `${origine}/page-a.html`
+  const lancer = (args: string[] = []) =>
+    electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer(['--', pageA])
+  try {
+    let fenetre = await fenetreInterface(autreApp)
+    const lire = () => fenetre.evaluate(() => window.arbalete.getState())
+    const noms = async () => (await lire()).workspaces.map((e) => e.nom)
+    await expect.poll(async () => (await lire()).tabs.length, { timeout: 10_000 }).toBe(1)
+    const depart = await lire()
+    const [premier, second, troisieme] = depart.workspaces.map((e) => e.id)
+
+    // Création : en fin de liste, nom sans espaces de bord, et l'espace est affiché.
+    await fenetre.evaluate(() => window.arbalete.createWorkspace('  Travail  '))
+    await expect.poll(noms).toEqual(['Développement', 'Personnel', 'Recherche', 'Travail'])
+    const apresCreation = await lire()
+    const nouveau = apresCreation.workspaces[3].id
+    expect(apresCreation.activeWorkspaceId).toBe(nouveau)
+    await expect(fenetre.evaluate(() => window.arbalete.createWorkspace('   '))).rejects.toThrow()
+    await expect(fenetre.evaluate(() => window.arbalete.createWorkspace('x'.repeat(41)))).rejects.toThrow()
+    await expect(fenetre.evaluate(() => window.arbalete.createWorkspace(1 as unknown as string))).rejects.toThrow()
+
+    // Renommage, puis déplacement d'un cran vers le haut ; un bord et un sens aberrant ne changent rien.
+    await fenetre.evaluate((id) => window.arbalete.renameWorkspace(id, 'Boulot'), nouveau)
+    await expect.poll(noms).toEqual(['Développement', 'Personnel', 'Recherche', 'Boulot'])
+    await expect(fenetre.evaluate((id) => window.arbalete.renameWorkspace(id, ''), nouveau)).rejects.toThrow()
+    await fenetre.evaluate((id) => window.arbalete.moveWorkspace(id, -1), nouveau)
+    await expect.poll(noms).toEqual(['Développement', 'Personnel', 'Boulot', 'Recherche'])
+    await fenetre.evaluate((id) => window.arbalete.moveWorkspace(id, -1), premier)
+    await expect(fenetre.evaluate((id) => window.arbalete.moveWorkspace(id, 0 as unknown as 1), premier)).rejects.toThrow()
+    await expect(fenetre.evaluate(() => window.arbalete.deleteWorkspace(1.5))).rejects.toThrow()
+    // gstack-timing-ok: vérification négative (rien ne doit changer) ; l'effet serait immédiat.
+    await fenetre.waitForTimeout(300)
+    expect(await noms()).toEqual(['Développement', 'Personnel', 'Boulot', 'Recherche'])
+
+    // Redémarrage : noms et ordre sont conservés, l'espace affiché est celui que l'on avait choisi.
+    await autreApp.close()
+    autreApp = await lancer()
+    fenetre = await fenetreInterface(autreApp)
+    await expect.poll(noms, { timeout: 10_000 }).toEqual(['Développement', 'Personnel', 'Boulot', 'Recherche'])
+    expect((await lire()).activeWorkspaceId).toBe(nouveau)
+
+    // Suppression de l'espace affiché : le voisin du dessous (Recherche) le remplace ; un espace inconnu ne fait rien.
+    await fenetre.evaluate((id) => window.arbalete.deleteWorkspace(id), nouveau)
+    await expect.poll(noms).toEqual(['Développement', 'Personnel', 'Recherche'])
+    expect((await lire()).activeWorkspaceId).toBe(troisieme)
+    await fenetre.evaluate(() => window.arbalete.deleteWorkspace(99999))
+
+    // Le dernier espace ne se supprime pas.
+    await fenetre.evaluate((id) => window.arbalete.deleteWorkspace(id), second)
+    await fenetre.evaluate((id) => window.arbalete.deleteWorkspace(id), troisieme)
+    await expect.poll(noms).toEqual(['Développement'])
+    expect((await lire()).activeWorkspaceId).toBe(premier)
+    await fenetre.evaluate((id) => window.arbalete.deleteWorkspace(id), premier)
+    // gstack-timing-ok: vérification négative (rien ne doit changer) ; l'effet serait immédiat.
+    await fenetre.waitForTimeout(300)
+    expect(await noms()).toEqual(['Développement'])
+    expect((await lire()).tabs.length).toBeGreaterThan(0)
+  } finally {
+    await autreApp.close()
+    rmSync(autreProfil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
 // Value: protects=ARB-61 : Ctrl+Tab et Ctrl+1…9 ne parcourent que les onglets de l'espace affiché, fermer l'onglet actif
 //   active son voisin dans l'espace et en ouvre un nouveau quand c'était le dernier de l'espace (les autres espaces gardent
 //   les leurs), et openFavorite n'active pas l'onglet d'un autre espace; fails_when=actionDuRaccourci, closeTab ou

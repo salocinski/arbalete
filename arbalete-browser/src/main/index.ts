@@ -23,8 +23,8 @@ import { adresseHistorique, ajouterVisite, nommerPage, rechercherPages } from '.
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
 import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
-import { ecrireEspaceActif, lireEspaceActif, lireEspaces, semerEspaces } from './donnees/espaces.ts'
-import type { Espace } from '../shared/espaces.ts'
+import { creerEspace, ecrireEspaceActif, lireEspaceActif, lireEspaces, modifierEspace, ordonnerEspaces, semerEspaces, supprimerEspace } from './donnees/espaces.ts'
+import { champsNouvelEspace, ordreApresDeplacement, type Espace } from '../shared/espaces.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 // shortcut: icône lue sur disque (dev et build), l'empaquetage devra la fournir à l'installeur (EP-14).
@@ -970,6 +970,44 @@ function changerEspace(id: number) {
   }
 }
 
+// Gestion des espaces par l'utilisateur (ARB-62). Sans base (indisponible), il n'y a pas d'espaces à gérer : sans effet.
+// Les erreurs de validation (nom vide ou trop long) remontent au renderer par le rejet de l'appel IPC.
+function creerEspaceUtilisateur(nom: string) {
+  if (!base) return
+  const id = creerEspace(base, champsNouvelEspace(espaces, nom))
+  espaces = lireEspaces(base)
+  changerEspace(id)
+}
+
+function renommerEspace(id: number, nom: string) {
+  const espace = espaces.find((item) => item.id === id)
+  if (!base || !espace) return
+  modifierEspace(base, id, { nom, couleur: espace.couleur, icone: espace.icone })
+  espaces = lireEspaces(base)
+  broadcastState()
+}
+
+function deplacerEspace(id: number, sens: -1 | 1) {
+  if (!base || !espaces.some((item) => item.id === id)) return
+  ordonnerEspaces(base, ordreApresDeplacement(espaces.map((item) => item.id), id, sens))
+  espaces = lireEspaces(base)
+  broadcastState()
+}
+
+// Les onglets de l'espace supprimé sont fermés (sans être mémorisés pour Ctrl+Maj+T : ils rouvriraient dans un autre espace).
+// Le dernier espace ne se supprime pas : l'interface en a toujours un à afficher. Si l'espace supprimé est affiché, on passe
+// d'abord à son voisin (celui de dessous, sinon celui de dessus).
+function supprimerEspaceUtilisateur(id: number) {
+  const index = espaces.findIndex((item) => item.id === id)
+  if (!base || index < 0 || espaces.length < 2) return
+  if (id === espaceActif) changerEspace((espaces[index + 1] ?? espaces[index - 1]).id)
+  supprimerEspace(base, id)
+  espaces = lireEspaces(base)
+  dernierActif.delete(id)
+  for (const [ongletId, onglet] of [...tabs]) if (onglet.espace === id) closeTab(ongletId, false)
+  broadcastState()
+}
+
 function activeRecord(): TabRecord | undefined {
   return activeTabId ? tabs.get(activeTabId) : undefined
 }
@@ -1011,6 +1049,11 @@ function exigerTexte(valeur: unknown): string {
 
 function exigerEntier(valeur: unknown): number {
   if (typeof valeur !== 'number' || !Number.isSafeInteger(valeur)) throw new Error('Argument IPC invalide : entier attendu')
+  return valeur
+}
+
+function exigerSens(valeur: unknown): -1 | 1 {
+  if (valeur !== -1 && valeur !== 1) throw new Error('Argument IPC invalide : -1 ou 1 attendu')
   return valeur
 }
 
@@ -1297,6 +1340,10 @@ app.whenReady().then(() => {
   traiter('browser:toggle-favorite', basculerFavoriActif)
   traiter('browser:open-favorite', (url) => ouvrirFavori(exigerTexte(url)))
   traiter('browser:set-workspace', (id) => changerEspace(exigerEntier(id)))
+  traiter('browser:create-workspace', (nom) => creerEspaceUtilisateur(exigerTexte(nom)))
+  traiter('browser:rename-workspace', (id, nom) => renommerEspace(exigerEntier(id), exigerTexte(nom)))
+  traiter('browser:move-workspace', (id, sens) => deplacerEspace(exigerEntier(id), exigerSens(sens)))
+  traiter('browser:delete-workspace', (id) => supprimerEspaceUtilisateur(exigerEntier(id)))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)
   traiter('browser:dismiss-data-incident', () => {

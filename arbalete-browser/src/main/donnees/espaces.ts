@@ -5,7 +5,7 @@ import { enTransaction } from './transaction.ts'
 
 // Espaces (ARB-60, EP-12) : dépôt sur la table `espace`. Les onglets d'un espace sont ceux de la session portant son id
 // (session.ts). Le processus principal sème les espaces d'origine au démarrage (ARB-61, `semerEspaces`) ; création,
-// renommage et suppression par l'utilisateur viennent avec ARB-62.
+// renommage, ordre et suppression par l'utilisateur passent par ses canaux IPC (ARB-62, index.ts).
 
 export type ChampsEspace = Omit<Espace, 'id'>
 
