@@ -55,7 +55,7 @@ npm run dev:web   # http://localhost:5180
 
 Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les téléchargements et les espaces ne sont pas encore persistés ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
+- Les téléchargements ne sont pas encore persistés, et les espaces n'ont pour l'instant que leur table SQLite (ARB-60), sans interface ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
 - Le sélecteur d'espaces modifie pour l'instant l'interface, pas les sessions ou les groupes d'onglets.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
@@ -72,7 +72,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 - `src/main/apercuUrl.ts` : texte, placement et document de la bulle d'adresse du lien survolé, vue native dédiée (décision 0003).
 - `src/main/recherche.ts` : placement de la petite vue native de recherche (coin haut-droit de la page) et texte accepté ; sa vue est `?vue=recherche` (`views/FindView.tsx`).
 - `src/main/suggestions.ts` : construction de la liste des suggestions, flèches et validation des entrées ; la liste est affichée par la vue de la barre latérale (`components/SuggestionsOverlay.tsx`).
-- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts et préférences (thème choisi, mode et largeur de la barre latérale).
+- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts (session, historique, favoris, espaces) et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
@@ -87,6 +87,6 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 ## Prochaines étapes recommandées
 
 1. Tester le démarrage sur Windows et corriger les éventuels écarts de configuration.
-2. Persister les espaces dans SQLite (onglets, historique et favoris le sont déjà).
+2. Brancher les espaces (déjà stockés dans SQLite, ARB-60) à l'interface : IPC, sélecteur et onglets par espace.
 3. Réaliser un prototype de compatibilité des extensions avant de figer l'architecture.
 4. Préparer le packaging et les mises à jour automatiques.
