@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, WebContentsView, ipcMain, screen, session, na
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
-import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, ThemeChoice } from '../shared/types'
+import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, SuggestionsState, ThemeChoice } from '../shared/types'
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
 import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } from './navigationClavier.ts'
@@ -12,12 +12,13 @@ import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { placerRecherche, texteRecherche } from './recherche.ts'
+import { SUGGESTIONS_MAX, construireSuggestions, deplacerSelection, indexValide, texteSuggestion } from './suggestions.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
-import { adresseHistorique, ajouterVisite, nommerPage } from './donnees/historique.ts'
+import { adresseHistorique, ajouterVisite, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
 import { lireSession, ongletsARestaurer, sauverSession, type OngletSauve } from './donnees/session.ts'
@@ -50,6 +51,9 @@ let barre: SidebarState = { ...ETAT_BARRE_INITIAL }
 // la fenêtre tant qu'un overlay est ouvert. Le contenu de l'overlay ne regarde que cette vue.
 let overlayOuvert = false
 let echapAvale = false
+// Suggestions de la barre d'adresse (ARB-53) : liste affichée dans l'overlay tant qu'elle existe, fermée avec lui. Le
+// champ qui les a demandées garde le clavier, donc sa fermeture ne rend pas le focus à la page (sauf choix d'une ligne).
+let suggestions: SuggestionsState | null = null
 let choixTheme: ThemeChoice = 'system'
 // Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
 // --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
@@ -244,16 +248,56 @@ function ouvrirOverlay() {
 function fermerOverlay() {
   if (!overlayOuvert) return
   overlayOuvert = false
+  const duChamp = suggestions !== null
+  suggestions = null
   placerBarre()
   envoyerAuxInterfaces('browser:overlay', false)
+  envoyerAuxInterfaces('browser:suggestions', null)
   if (!mainWindow || mainWindow.isDestroyed() || barre.pinned) return
   const pointeur = screen.getCursorScreenPoint()
   const zone = mainWindow.getContentBounds()
   const surLaBarre = pointeur.x >= zone.x && pointeur.x < zone.x + largeurBarre({ ...barre, open: true }) &&pointeur.y >= zone.y && pointeur.y < zone.y + zone.height
   if (surLaBarre) return
   agirSurBarre('hide')
-  // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page.
-  activeRecord()?.view.webContents.focus()
+  // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page, sauf s'il est dans le champ d'adresse.
+  if (!duChamp) activeRecord()?.view.webContents.focus()
+}
+
+// Navigation de l'onglet actif vers un texte tapé ou une adresse (barre d'adresse, suggestions).
+function naviguer(texte: string) {
+  const record = activeRecord()
+  if (!record) return
+  const normalized = normalizeUrl(texte)
+  record.data.url = normalized
+  void record.view.webContents.loadURL(normalized).catch(console.error)
+  broadcastState()
+}
+
+// Suggestions (ARB-53) : liste pour le texte tapé, affichée dans l'overlay sous le champ. Une liste vide, ou un overlay
+// déjà pris par autre chose, ne laisse rien d'ouvert.
+function proposerSuggestions(texte: string, ancre: SuggestionsState['anchor']) {
+  if (!texte) return fermerSuggestions()
+  if (overlayOuvert && !suggestions) return
+  let pages: ReturnType<typeof rechercherPages> = []
+  try {
+    pages = base ? rechercherPages(base, texte, SUGGESTIONS_MAX) : []
+  } catch (erreur) {
+    console.error('Historique non lu pour les suggestions :', erreur)
+  }
+  const items = construireSuggestions(texte, normalizeUrl(texte), pages)
+  if (!items.length) return fermerSuggestions()
+  suggestions = { items, selection: -1, anchor: ancre }
+  ouvrirOverlay()
+  // Fenêtre ou vue de la barre absente (démarrage, fermeture) : l'overlay ne s'est pas ouvert, la liste ne doit pas rester.
+  if (!overlayOuvert) {
+    suggestions = null
+    return
+  }
+  envoyerAuxInterfaces('browser:suggestions', suggestions)
+}
+
+function fermerSuggestions() {
+  if (suggestions) fermerOverlay()
 }
 
 // Un clic dans la page ou dans la barre d'outils retire la barre non épinglée. Le clic, pas le focus : au démarrage le
@@ -1069,7 +1113,12 @@ app.whenReady().then(() => {
     if (!emetteurAutorise(event) || event.sender !== barreView?.webContents) throw new Error('Émetteur IPC non autorisé')
     if (typeof valeur !== 'boolean') throw new Error('Argument IPC invalide : booléen attendu')
     if (valeur) ouvrirOverlay()
-    else fermerOverlay()
+    else {
+      const liste = suggestions !== null
+      fermerOverlay()
+      // Un clic hors de la liste a donné le focus à la vue de la barre : le clavier revient à la fenêtre et à son champ.
+      if (liste && mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()) mainWindow.webContents.focus()
+    }
   })
   traiter('browser:create-tab', (url) => createTab(url === undefined ? undefined : exigerTexte(url)))
   traiter('browser:close-tab', (id) => closeTab(exigerTexte(id)))
@@ -1078,14 +1127,46 @@ app.whenReady().then(() => {
     activerOnglet(id)
   })
   traiter('browser:navigate', (valeur) => {
-    const url = exigerTexte(valeur)
-    const record = activeRecord()
-    if (!record) return
-    const normalized = normalizeUrl(url)
-    record.data.url = normalized
-    void record.view.webContents.loadURL(normalized).catch(console.error)
-    broadcastState()
+    naviguer(exigerTexte(valeur))
+    fermerSuggestions()
   })
+  // Suggestions de la barre d'adresse (ARB-53). Le texte et les flèches viennent du champ, donc de la fenêtre seule ; la
+  // vue de la barre n'affiche et ne fait que choisir une ligne (clic).
+  const exigerFenetre = (event: IpcMainInvokeEvent) => {
+    if (!emetteurAutorise(event) || event.sender !== mainWindow?.webContents) throw new Error('Émetteur IPC non autorisé')
+  }
+  ipcMain.handle('browser:suggest', (event, texte, ancre) => {
+    exigerFenetre(event)
+    const recherche = texteSuggestion(texte)
+    const { width, height } = mainWindow!.getContentBounds()
+    const zone = borner(ancre, width, height)
+    if (!zone) throw new Error('Argument IPC invalide : rectangle attendu')
+    proposerSuggestions(recherche, zone)
+  })
+  ipcMain.handle('browser:suggest-move', (event, pas) => {
+    exigerFenetre(event)
+    if (pas !== 1 && pas !== -1) throw new Error('Argument IPC invalide : 1 ou -1 attendu')
+    if (!suggestions) return
+    suggestions = { ...suggestions, selection: deplacerSelection(suggestions.selection, suggestions.items.length, pas) }
+    envoyerAuxInterfaces('browser:suggestions', suggestions)
+  })
+  ipcMain.handle('browser:suggest-close', (event) => {
+    exigerFenetre(event)
+    fermerSuggestions()
+  })
+  // Un clic dans la vue de la barre (ligne donnée) ou Entrée dans le champ (ligne choisie aux flèches, sinon rien à faire).
+  // Rend vrai si une ligne a été ouverte : sinon (liste déjà remplacée, aucune ligne choisie), le champ navigue lui-même.
+  traiter('browser:suggest-choose', (valeur) => {
+    if (!suggestions) return false
+    const index = valeur === undefined ? indexValide(suggestions.selection, suggestions.items.length) : indexValide(valeur, suggestions.items.length)
+    if (index === undefined) return false
+    const url = suggestions.items[index].url
+    fermerSuggestions()
+    naviguer(url)
+    activeRecord()?.view.webContents.focus()
+    return true
+  })
+  traiter('browser:get-suggestions', () => suggestions)
   traiter('browser:back', reculer)
   traiter('browser:forward', avancer)
   traiter('browser:reload', () => recharger(false))

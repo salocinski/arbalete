@@ -50,3 +50,36 @@ export function lirePage(db: DatabaseSync, url: string): PageVisitee | undefined
     { url: string, titre: string, visites: number, derniere_visite: number } | undefined
   return ligne && { url: ligne.url, titre: ligne.titre, visites: ligne.visites, derniereVisite: ligne.derniere_visite }
 }
+
+// Recherche pour les suggestions de la barre d'adresse (ARB-53). Chaque mot du texte doit se trouver dans l'adresse ou le
+// titre, sans tenir compte de la casse (LIKE, ASCII seulement). Les pages dont l'adresse commence par le premier mot
+// (github pour github.com) passent devant, puis les plus visitées, puis les plus récentes.
+// shortcut: les accents ne sont pas repliés (é et e diffèrent), et chaque frappe parcourt toute la table (aucune purge de
+// l'historique, pas de délai de frappe) : à revoir avec une recherche plein texte ou un index si l'historique devient grand.
+export const MOTS_MAX = 5
+export const LONGUEUR_MOT_MAX = 64
+
+// Le schéma tapé (https://) est retiré du mot : l'adresse est cherchée sans le sien, sinon « ht » ou « tps » ramèneraient toutes les pages.
+function motsDeRecherche(texte: string): string[] {
+  return texte.split(/\s+/).map((mot) => mot.replace(/^https?:\/\//i, '')).filter(Boolean)
+    .slice(0, MOTS_MAX).map((mot) => mot.slice(0, LONGUEUR_MOT_MAX))
+}
+
+// ! protège %, _ et lui-même (ESCAPE '!') : sans lui, « 100% » ou « a_b » chercheraient autre chose que ce qui est tapé.
+const echapperLike = (mot: string) => mot.replace(/[!%_]/g, '!$&')
+
+export function rechercherPages(db: DatabaseSync, texte: string, limite = 5): PageVisitee[] {
+  const mots = motsDeRecherche(texte)
+  if (!mots.length) return []
+  const motifs = mots.map((mot) => `%${echapperLike(mot)}%`)
+  const debut = echapperLike(mots[0])
+  const filtre = motifs.map(() => `(substr(url, instr(url, '://') + 3) LIKE ? ESCAPE '!' OR titre LIKE ? ESCAPE '!')`).join(' AND ')
+  const lignes = db.prepare(`SELECT url, titre, visites, derniere_visite FROM page WHERE ${filtre}
+    ORDER BY (url LIKE ? ESCAPE '!' OR url LIKE ? ESCAPE '!' OR url LIKE ? ESCAPE '!') DESC, visites DESC, derniere_visite DESC
+    LIMIT ?`).all(
+    ...motifs.flatMap((motif) => [motif, motif]),
+    `http://${debut}%`, `https://${debut}%`, `%://www.${debut}%`,
+    Math.max(0, Math.min(limite, 20))
+  ) as Array<{ url: string, titre: string, visites: number, derniere_visite: number }>
+  return lignes.map((ligne) => ({ url: ligne.url, titre: ligne.titre, visites: ligne.visites, derniereVisite: ligne.derniere_visite }))
+}

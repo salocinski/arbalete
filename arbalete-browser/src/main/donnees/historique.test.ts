@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { after, test } from 'node:test'
 import { ouvrirBase } from './base.ts'
-import { LONGUEUR_MAX_TITRE, LONGUEUR_MAX_URL, adresseHistorique, ajouterVisite, lirePage, nommerPage } from './historique.ts'
+import { LONGUEUR_MAX_TITRE, LONGUEUR_MAX_URL, adresseHistorique, ajouterVisite, lirePage, nommerPage, rechercherPages, LONGUEUR_MOT_MAX, MOTS_MAX } from './historique.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
 import { lireSession, sauverSession } from './session.ts'
 
@@ -78,4 +78,53 @@ test('une base au schéma 2 (avant ARB-51) gagne l’historique sans perdre sa s
   ajouterVisite(db, 'https://example.com/', 'Exemple', 1000)
   strictEqual(lirePage(db, 'https://example.com/')?.visites, 1)
   db.close()
+})
+
+// Suggestions de la barre d'adresse (ARB-53).
+function baseAvecPages(): DatabaseSync {
+  const db = ouvrirBase(':memory:')
+  ajouterVisite(db, 'https://github.com/', 'GitHub', 1000)
+  ajouterVisite(db, 'https://github.com/', 'GitHub', 2000)
+  ajouterVisite(db, 'https://example.com/guide-github', 'Guide de GitHub pour débutants', 3000)
+  ajouterVisite(db, 'https://www.gitlab.com/', 'GitLab', 4000)
+  ajouterVisite(db, 'https://example.com/100%_sur', 'Taux 100%', 5000)
+  return db
+}
+
+test('la recherche exige tous les mots, dans l’adresse ou le titre, sans tenir compte de la casse', () => {
+  const db = baseAvecPages()
+  deepStrictEqual(rechercherPages(db, 'GUIDE github').map((page) => page.url), ['https://example.com/guide-github'])
+  deepStrictEqual(rechercherPages(db, 'débutants').map((page) => page.url), ['https://example.com/guide-github'])
+  deepStrictEqual(rechercherPages(db, 'introuvable'), [])
+  deepStrictEqual(rechercherPages(db, '   '), [])
+})
+
+test('l’adresse qui commence par le premier mot passe devant, puis le nombre de visites', () => {
+  const db = baseAvecPages()
+  deepStrictEqual(rechercherPages(db, 'git').map((page) => page.url),
+    ['https://github.com/', 'https://www.gitlab.com/', 'https://example.com/guide-github'])
+  deepStrictEqual(rechercherPages(db, 'git', 1).map((page) => page.url), ['https://github.com/'])
+})
+
+test('% et _ du texte tapé se cherchent tels quels et n’agissent pas comme jokers', () => {
+  const db = baseAvecPages()
+  deepStrictEqual(rechercherPages(db, '100%_').map((page) => page.url), ['https://example.com/100%_sur'])
+  deepStrictEqual(rechercherPages(db, '%'), [{ url: 'https://example.com/100%_sur', titre: 'Taux 100%', visites: 1, derniereVisite: 5000 }])
+  deepStrictEqual(rechercherPages(db, '_'), [{ url: 'https://example.com/100%_sur', titre: 'Taux 100%', visites: 1, derniereVisite: 5000 }])
+})
+
+test('la recherche borne les mots, la longueur d’un mot et le nombre de lignes, et ne casse pas sur une apostrophe ou un point d’exclamation', () => {
+  const db = baseAvecPages()
+  // Au-delà de MOTS_MAX mots, les suivants sont ignorés : le sixième ne peut pas faire échouer la recherche.
+  strictEqual(rechercherPages(db, `${'github '.repeat(MOTS_MAX)}introuvable`).length, 2)
+  // Un mot trop long est tronqué, donc ne trouve rien plutôt que de peser sur la requête.
+  deepStrictEqual(rechercherPages(db, 'x'.repeat(LONGUEUR_MOT_MAX * 4)), [])
+  strictEqual(rechercherPages(db, 'git', 0).length, 0)
+  strictEqual(rechercherPages(db, 'git', -3).length, 0)
+  strictEqual(rechercherPages(db, 'git', 999).length, 3)
+  deepStrictEqual(rechercherPages(db, "l'exclamation!"), [])
+  // Le schéma ne se cherche pas : « tps » ou « http » ne ramènent pas toute la base, mais une adresse tapée en entier se trouve.
+  deepStrictEqual(rechercherPages(db, 'tps'), [])
+  deepStrictEqual(rechercherPages(db, 'http'), [])
+  deepStrictEqual(rechercherPages(db, 'https://gitlab').map((page) => page.url), ['https://www.gitlab.com/'])
 })

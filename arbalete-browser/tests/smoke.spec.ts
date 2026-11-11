@@ -30,6 +30,8 @@ const pages: Record<string, string> = {
     <a id="vide" href="about:blank">vide</a>
     <iframe id="cadre" srcdoc="<p>cadre</p>"></iframe>`,
   '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>',
+  // Page à l'historique sans autre page qui contienne son mot (ARB-53).
+  '/page-suggestion.html': '<!doctype html><title>Page suggestion</title><p>suggestion</p>',
   // Trois occurrences du même mot (ARB-70).
   '/page-recherche.html': '<!doctype html><title>Page recherche</title><p>ananas</p><p>ananas</p><p>ananas</p>',
   // Un grand lien à position connue (ARB-36) : le survol à (200, 150) le touche, (600, 400) non.
@@ -2505,6 +2507,138 @@ test('C69 : seule la vue de recherche la pilote ; elle suit la page au redimensi
     if (redimensionnee) await redimensionner(-delta)
     await ui.evaluate((i) => window.arbalete.closeTab(i), autre)
   }
+})
+
+// Value: protects=taper dans la barre d'adresse ouvre sous le champ une liste (ce que ferait Entrée, puis les pages déjà
+//   visitées), dans la vue de la barre, pendant que le champ garde le clavier; les flèches choisissent une ligne, Entrée
+//   l'ouvre, un clic aussi; Échap, un texte vide et Entrée sans ligne choisie referment la liste; seule la fenêtre envoie
+//   texte et flèches; fails_when=la liste ne s'affiche plus (l'historique n'est pas lu, l'overlay ne s'ouvre pas), le
+//   champ perd le clavier, Entrée ignore la ligne choisie, ou une autre vue peut proposer des suggestions;
+//   why_new=ARB-53, aucune suggestion n'existait; seam=none (fill et press atteignent le champ comme le clavier,
+//   sendInputEvent pour Échap, que le processus principal intercepte); no_claim=ni le rendu des lignes selon le thème, ni
+//   le clavier AZERTY réel, ni le transfert du focus natif par un vrai clic de souris (Playwright clique sans le
+//   déplacer), ni les favoris (ARB-47), ni le remplissage du champ par la ligne choisie.
+test('C70 : les suggestions de la barre d’adresse s’ouvrent sous le champ, se parcourent aux flèches et s’ouvrent à Entrée ou au clic', async () => {
+  const urlA = `${origine}/page-a.html`
+  const urlB = `${origine}/page-suggestion.html`
+  for (const url of [urlA, urlB]) { await saisirAdresse(url); await attendreUrlActive(url) }
+  const adresse = ui.getByLabel('Adresse ou recherche')
+  const lignes = barreUi.locator('.suggestion')
+  const overlay = () => ui.evaluate(() => window.arbalete.getOverlay())
+  const taper = async (texte: string) => {
+    await adresse.focus()
+    await adresse.fill(texte)
+  }
+
+  // Une ligne « Rechercher » d'abord, puis la page déjà visitée dont l'adresse contient le texte.
+  await taper('suggestion')
+  await expect(lignes).toHaveCount(2)
+  await expect(lignes.nth(0)).toContainText('Rechercher « suggestion »')
+  await expect(lignes.nth(1)).toContainText('Page suggestion')
+  expect(await overlay()).toBe(true)
+  // Le champ garde le clavier pendant que la liste est affichée.
+  expect(await ui.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('Adresse ou recherche')
+  await expect(adresse).toHaveAttribute('aria-expanded', 'true')
+
+  // Flèches : aucune ligne choisie au départ, puis la suivante, en boucle ; Entrée ouvre la ligne choisie.
+  await expect(barreUi.locator('.suggestion[aria-selected="true"]')).toHaveCount(0)
+  await adresse.press('ArrowDown')
+  await adresse.press('ArrowDown')
+  await expect(lignes.nth(1)).toHaveAttribute('aria-selected', 'true')
+  await adresse.press('ArrowUp')
+  await expect(lignes.nth(0)).toHaveAttribute('aria-selected', 'true')
+  await adresse.press('ArrowDown')
+  await adresse.press('Enter')
+  await attendreUrlActive(urlB)
+  await expect.poll(overlay).toBe(false)
+
+  // Échap referme la liste sans retirer le clavier au champ ; un texte vide la referme aussi.
+  await saisirAdresse(urlA)
+  await attendreUrlActive(urlA)
+  await taper('page-')
+  await expect.poll(overlay).toBe(true)
+  await presserSur('fenetre', 'Escape', [])
+  await expect.poll(overlay).toBe(false)
+  expect(await ui.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('Adresse ou recherche')
+  // La flèche bas rouvre la liste du texte déjà tapé.
+  await adresse.press('ArrowDown')
+  await expect.poll(overlay).toBe(true)
+  await taper('')
+  await expect.poll(overlay).toBe(false)
+
+  // Un clic sur une ligne l'ouvre.
+  await taper('suggestion')
+  await expect(lignes).toHaveCount(2)
+  await lignes.nth(1).click()
+  await attendreUrlActive(urlB)
+  await expect.poll(overlay).toBe(false)
+
+  // Un clic hors de la liste la ferme et rend le clavier à la fenêtre, pas à la vue de la barre qui a reçu le clic.
+  await taper('suggest')
+  await expect(lignes).toHaveCount(2)
+  await barreUi.mouse.click(600, 500)
+  await expect.poll(overlay).toBe(false)
+  await expect.poll(() => app.evaluate(({ BrowserWindow, webContents }) =>
+    webContents.getFocusedWebContents()?.id === BrowserWindow.getAllWindows()[0].webContents.id)).toBe(true)
+
+  // Entrée sans ligne choisie navigue vers le texte tapé, comme avant les suggestions.
+  await taper(urlA)
+  await expect.poll(overlay).toBe(true)
+  await adresse.press('Enter')
+  await attendreUrlActive(urlA)
+  await expect.poll(overlay).toBe(false)
+
+  // Seule la fenêtre envoie le texte et les flèches : la vue de la barre est refusée.
+  const refus = await barreUi.evaluate(() => window.arbalete.suggest('page', { x: 0, y: 0, width: 100, height: 0 }).then(() => 'accepte', () => 'refuse'))
+  expect(refus).toBe('refuse')
+  expect(await overlay()).toBe(false)
+})
+
+// Value: protects=les canaux de suggestions refusent les arguments aberrants (rectangle, pas, index) sans rien ouvrir ni
+//   naviguer, Tab referme la liste, get-suggestions rend la liste courante, et un overlay déjà ouvert (menu) n'est ni
+//   remplacé ni fermé par une suggestion; fails_when=un rectangle non numérique ou un pas autre que ±1 est accepté, un
+//   index hors liste navigue ou ferme, Tab laisse la liste ouverte, ou suggest remplace un overlay déjà ouvert;
+//   why_new=ARB-53, validation aux frontières d'IPC et conflit d'overlay absents de C70; seam=none; no_claim=ni le rendu
+//   de la liste ni le clavier AZERTY réel.
+test('C71 : les suggestions refusent les arguments aberrants, Tab les ferme et un overlay déjà ouvert reste', async () => {
+  const urlA = `${origine}/page-a.html`
+  await saisirAdresse(urlA)
+  await attendreUrlActive(urlA)
+  const adresse = ui.getByLabel('Adresse ou recherche')
+  const overlay = () => ui.evaluate(() => window.arbalete.getOverlay())
+  const liste = () => ui.evaluate(() => window.arbalete.getSuggestions().then((etat) => etat?.items.length ?? 0))
+
+  // Arguments aberrants : refusés, rien d'ouvert.
+  expect(await ui.evaluate(() => window.arbalete.suggest('page', { x: 'a', y: NaN, width: 10, height: 0 } as never).then(() => 'accepte', () => 'refuse'))).toBe('refuse')
+  expect(await ui.evaluate(() => window.arbalete.moveSuggestion(2 as never).then(() => 'accepte', () => 'refuse'))).toBe('refuse')
+  expect(await ui.evaluate(() => window.arbalete.moveSuggestion(0 as never).then(() => 'accepte', () => 'refuse'))).toBe('refuse')
+  expect(await overlay()).toBe(false)
+  // Sans liste, déplacer ou choisir ne fait rien.
+  expect(await ui.evaluate(() => window.arbalete.moveSuggestion(1).then(() => 'accepte', () => 'refuse'))).toBe('accepte')
+  expect(await ui.evaluate(() => window.arbalete.chooseSuggestion(0).then(() => 'accepte', () => 'refuse'))).toBe('accepte')
+
+  // get-suggestions rend la liste courante ; un index hors liste ne navigue pas et ne ferme rien.
+  await adresse.focus()
+  await adresse.fill('page-a')
+  await expect.poll(liste).toBeGreaterThan(1)
+  for (const index of [-1, 99, 1.5]) await ui.evaluate((i) => window.arbalete.chooseSuggestion(i), index)
+  expect(await overlay()).toBe(true)
+  expect((await ongletActif(await etat()))?.url).toBe(urlA)
+
+  // Tab referme la liste.
+  await adresse.press('Tab')
+  await expect.poll(overlay).toBe(false)
+  expect(await liste()).toBe(0)
+
+  // Un overlay déjà pris par autre chose (un menu) n'est ni remplacé ni fermé par une suggestion.
+  await barreUi.evaluate(() => window.arbalete.setOverlay(true))
+  await expect.poll(overlay).toBe(true)
+  await adresse.focus()
+  await adresse.fill('page-b')
+  expect(await liste()).toBe(0)
+  expect(await overlay()).toBe(true)
+  await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+  await expect.poll(overlay).toBe(false)
 })
 
 // Value: protects=F11 bascule le plein écran de la fenêtre depuis la page, la barre et la fenêtre, la page suit la zone
