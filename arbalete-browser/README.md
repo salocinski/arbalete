@@ -47,13 +47,15 @@ npm run dev:web   # http://localhost:5180
 - Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
 - Historique enregistré à chaque navigation vers une autre page
 - Favicon du site dans chaque onglet de la barre latérale (adresses `https:` et images `data:` seulement ; icône générique sinon)
+- Étoile de la barre d'adresse : ajoute la page de l'onglet actif aux favoris, ou l'en retire (pages web seulement)
+- Grille de favoris en haut de la barre latérale : les 8 premiers favoris ajoutés, en tuiles (initiale du site, titre en infobulle) ; un clic active l'onglet déjà ouvert sur cette adresse, sinon l'ouvre dans un nouvel onglet
 - Adresse d'un lien survolé dans une petite bulle au bas de la page, comme dans Arc (pas de barre d'état) ; elle passe de l'autre côté sous la souris et n'apparaît pas dans l'aperçu navigateur (`npm run dev:web`)
 
 ## État actuel et limites
 
 Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les téléchargements et les espaces ne sont pas encore persistés ; l'historique et les favoris sont enregistrés mais n'ont pas encore de panneau.
+- Les téléchargements et les espaces ne sont pas encore persistés ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
 - Le sélecteur d'espaces modifie pour l'instant l'interface, pas les sessions ou les groupes d'onglets.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
