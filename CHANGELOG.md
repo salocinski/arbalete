@@ -7,6 +7,19 @@ Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MIN
 ### Changé
 - Pour le développement avec Claude (règle de `CLAUDE.md`, le guide des contributeurs n'a pas changé) : avant d'ouvrir une PR, la vérification locale se limite au contrôle des types et aux tests unitaires. Le test de bout en bout de l'application (`npm run test:smoke`) ne se lance en local que pour le dernier ticket d'une epic, quand le diff touche le processus principal, le preload ou l'IPC, ou sur demande : la CI le rejoue de toute façon avant chaque fusion.
 
+## [0.12.26.0] - 2026-11-11
+
+### Ajouté
+- Vos espaces de travail sont réels. Le sélecteur de la barre latérale liste Développement, Personnel et Recherche, chacun avec sa couleur, et changer d'espace remplace les onglets affichés par ceux de cet espace : les onglets des autres espaces restent ouverts, masqués. Chaque espace retrouve son dernier onglet actif, et un espace sans onglet en ouvre un.
+- L'espace affiché et l'onglet actif de chaque espace reviennent quand vous fermez puis rouvrez Arbalète.
+- Les raccourcis Ctrl+Tab, Ctrl+Maj+Tab et Ctrl+1 à 9, la fermeture d'un onglet et un clic sur un favori ne regardent que l'espace affiché.
+
+### Limites connues
+- Aucun écran ne permet encore de créer, renommer, réordonner ou supprimer un espace.
+- Une page d'un espace masqué qui ouvre une fenêtre est ignorée sans message, et le son d'un onglet d'un espace masqué n'a pas d'indicateur : changez d'espace pour le retrouver.
+- Ctrl+Maj+T rouvre l'onglet fermé dans l'espace affiché, pas dans celui d'où il vient.
+- Un onglet de la session précédente sans espace connu passe dans le premier espace. Le rendu du sélecteur n'a été essayé que dans l'aperçu navigateur, pas dans la fenêtre d'Arbalète, ni en barre compacte.
+
 ## [0.12.25.0] - 2026-11-11
 
 ### Ajouté

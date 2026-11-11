@@ -1,3 +1,5 @@
+import type { Espace } from './espaces'
+
 export type BrowserTab = {
   id: string
   title: string
@@ -14,8 +16,12 @@ export type BrowserTab = {
 }
 
 export type BrowserState = {
+  // Onglets de l'espace actif seulement (ARB-61) ; ceux des autres espaces restent ouverts, masqués.
   tabs: BrowserTab[]
   activeTabId: string | null
+  // Espaces de travail dans leur ordre et id de l'actif (ARB-61) ; vides et null si la base est indisponible.
+  workspaces: Espace[]
+  activeWorkspaceId: number | null
   // La page de l'onglet actif est un favori (ARB-47) : faux pour une page hors du web (adresse non enregistrable).
   favorite: boolean
   // Grille de favoris en haut de la barre latérale (ARB-49) : les 8 premiers favoris, adresse d'historique et titre.
@@ -97,6 +103,9 @@ export type BrowserAPI = {
   toggleFavorite: () => Promise<void>
   // Active l'onglet ouvert sur ce favori, ou l'ouvre dans un nouvel onglet (ARB-49) ; sans effet si ce n'est pas un favori.
   openFavorite: (url: string) => Promise<void>
+  // Passe à cet espace (ARB-61) : ses onglets remplacent ceux affichés, son dernier onglet actif reprend la page ; un espace
+  // sans onglet en ouvre un. Sans effet si l'espace est inconnu ou déjà actif.
+  setWorkspace: (id: number) => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

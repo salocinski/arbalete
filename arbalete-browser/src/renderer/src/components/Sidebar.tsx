@@ -40,7 +40,6 @@ function initialeFavori(url: string): string {
 // Masquée, la barre n'est qu'une bande de survol au bord gauche ; ouverte, elle recouvre la page.
 // Elle se retire quand la souris la quitte, sauf si elle est épinglée ou si le focus y est (champ, menu).
 export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: SidebarState }) {
-  const [workspace, setWorkspace] = useState('dev')
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false)
   const zoneRef = useRef<HTMLDivElement>(null)
   // Menu d'un onglet (ARB-39) : demandé ici, affiché une fois que le processus principal a agrandi la vue, sinon il
@@ -101,7 +100,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
             {!compacte && <PinButton pinned={sidebar.pinned} className={sidebar.pinned ? undefined : 'sidebar-toggle'} />}
           </div>
 
-          <WorkspaceSwitcher workspace={workspace} onWorkspaceChange={setWorkspace} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} />
+          <WorkspaceSwitcher workspaces={state.workspaces} active={state.activeWorkspaceId} onWorkspaceChange={(id) => void window.arbalete.setWorkspace(id)} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} />
 
           {state.favorites.length > 0 && (
             <ul className="favorites-grid" aria-label="Favoris">
