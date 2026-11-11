@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.29.1] - 2026-11-11
+
+### Corrigé
+- Pour le développement (rien ne change dans l'application) : le test de bout en bout qui vérifie que la barre latérale se retire à la sortie de la souris échouait de temps en temps, environ une fois sur trente. Le test envoyait la sortie de la souris avant que le navigateur ait rétabli le survol sur la barre qui venait de s'ouvrir, et cette sortie se perdait. Il attend maintenant que la barre soit survolée avant de la quitter.
+
+### Limites connues
+- Un autre échec intermittent subsiste dans la préparation commune des tests de bout en bout (attente que la page de l'onglet prenne le focus, délai de 15 s) : il semble lié au focus de la fenêtre de la machine de test et n'est pas traité ici.
+
 ## [0.12.29.0] - 2026-11-11
 
 ### Ajouté
