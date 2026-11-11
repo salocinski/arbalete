@@ -55,7 +55,7 @@ arbalete-browser/
   resources/icone.ico      icône de l'application, 4 tailles (16, 32, 48, 256), passée en `icon` à BrowserWindow
   scripts/test-unitaire.mjs  lance les tests unitaires sous le Node d'Electron
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
-  src/ci.test.ts           garde-fous de la CI (ARB-8) : lecture seule, actions épinglées, étapes attendues de `../.github/workflows/ci.yml`
+  src/ci.test.ts           garde-fous de la CI (ARB-8) : lecture seule, actions épinglées, étapes attendues de `../.github/workflows/ci.yml`, clé du cache du binaire d'Electron alignée sur la version de `package.json`
 ```
 
 ## Commandes
@@ -110,8 +110,10 @@ La barrière minimale avant une PR :
 cd arbalete-browser && npm run typecheck && npm run test:unit && npm run test:smoke
 ```
 
-`test:smoke` ouvre des fenêtres Arbalète pendant quelques secondes. Le premier onglet charge google.com :
-le démarrage demande le réseau, pas les assertions.
+`test:smoke` ouvre des fenêtres Arbalète pendant quelques secondes. L'app des tests démarre sur une page locale
+(`/demarrage.html`, adresse passée au lancement) : aucun test ne dépend du réseau. `developpement.spec.ts` seul charge
+encore google.com au démarrage de l'app. En CI, le binaire d'Electron est mis en cache (`actions/cache` sur
+`electron_config_cache`, clé `CLE_CACHE_ELECTRON` = `electron-windows-<version d'Electron>`, à changer avec la version épinglée) : un 502 de GitHub ne casse plus le téléchargement quand le zip y est déjà.
 Les tests lancent l'app avec `ARBALETE_PROFIL_TEST` (ARB-118) : un dossier userData temporaire, supprimé à la fin,
 qui ne touche jamais l'`arbalete.db` de l'utilisateur. Le verrou d'instance unique (ARB-117) dépend de ce dossier :
 `test:smoke` tourne même si Arbalète (`npm run dev` compris) est ouvert. La variable est ignorée dans l'app empaquetée.
@@ -168,8 +170,8 @@ modifier `DESIGN.md` qu'après validation.
   `package.json` ; les autres dépendances gardent `^`, le `package-lock.json` fige l'installation.
   `@types/node` suit la majeure de Node embarquée par Electron (Node 24 pour Electron 45).
 - CI (`.github/workflows/ci.yml`, ARB-8) : à chaque push sur `main` et chaque PR, sur `windows-latest`, deux jobs.
-  `verifier` (phase 1) : `npm ci`, `npx install-electron`, `npm run typecheck`, `npm run test:unit` et `npm run build`.
-  `smoke` (phase 2) : `npm ci`, `npx install-electron` et `npm run test:smoke`, sans nouvel essai automatique ; en cas
+  `verifier` (phase 1) : `npm ci`, cache du binaire d'Electron (`actions/cache`, clé `CLE_CACHE_ELECTRON` = `electron-windows-<version>`, vérifiée par `src/ci.test.ts`), `npx install-electron`, `npm run typecheck`, `npm run test:unit` et `npm run build`.
+  `smoke` (phase 2) : `npm ci`, même cache, `npx install-electron` et `npm run test:smoke`, sans nouvel essai automatique ; en cas
   d'échec, `arbalete-browser/test-results/` est gardé 7 jours dans l'artefact `smoke-test-results` (simple avertissement
   si le dossier est absent ou vide). Droits en lecture seule, actions épinglées par empreinte (Dependabot les met à jour), `continue-on-error` et les nouveaux essais
   interdits par `src/ci.test.ts`.

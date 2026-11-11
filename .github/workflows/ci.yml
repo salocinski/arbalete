@@ -25,6 +25,10 @@ jobs:
     name: Typecheck, tests unitaires, build
     runs-on: windows-latest
     timeout-minutes: 15
+    # Binaire d'Electron téléchargé une fois par version (cache) : un 502 de GitHub ne casse plus un job qui a déjà le zip.
+    # La clé porte la version d'Electron de package.json (src/ci.test.ts la compare) : à changer avec elle.
+    env:
+      CLE_CACHE_ELECTRON: electron-windows-45.2.3
     steps:
       # Actions épinglées par empreinte de commit (version en commentaire) ; Dependabot les met à jour.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,8 +41,15 @@ jobs:
           cache: npm
           cache-dependency-path: arbalete-browser/package-lock.json
       - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}\electron-cache
+          key: ${{ env.CLE_CACHE_ELECTRON }}
       # Depuis Electron 42, npm ci ne télécharge plus le binaire : les tests unitaires tournent sous le Node d'Electron.
       - run: npx install-electron
+        env:
+          # runner.temp n'existe pas dans l'env d'un job, seulement dans celui d'une étape.
+          electron_config_cache: ${{ runner.temp }}\electron-cache
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run build
@@ -50,6 +61,10 @@ jobs:
     name: Smoke test (Electron)
     runs-on: windows-latest
     timeout-minutes: 20
+    # Binaire d'Electron téléchargé une fois par version (cache) : un 502 de GitHub ne casse plus un job qui a déjà le zip.
+    # La clé porte la version d'Electron de package.json (src/ci.test.ts la compare) : à changer avec elle.
+    env:
+      CLE_CACHE_ELECTRON: electron-windows-45.2.3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -60,8 +75,15 @@ jobs:
           cache: npm
           cache-dependency-path: arbalete-browser/package-lock.json
       - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}\electron-cache
+          key: ${{ env.CLE_CACHE_ELECTRON }}
       - run: npx install-electron
-      # test:smoke compile puis lance Playwright ; le premier onglet charge google.com, le poste doit avoir le réseau.
+        env:
+          # runner.temp n'existe pas dans l'env d'un job, seulement dans celui d'une étape.
+          electron_config_cache: ${{ runner.temp }}\electron-cache
+      # test:smoke compile puis lance Playwright ; l'app des tests démarre sur une page locale, sans réseau.
       - run: npm run test:smoke
       # Contexte d'erreur des tests (test-results/), gardé 7 jours, seulement quand le smoke échoue ; un dossier vide
       # laisse un avertissement plutôt que de passer sous silence.

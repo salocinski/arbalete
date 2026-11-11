@@ -20,9 +20,11 @@ import type { BrowserState } from '../src/shared/types'
 // exécutés sur l'app construite (out/).
 // C18, C25 et C28 à C30 (mode développement) sont dans developpement.spec.ts.
 // C8 (thème système) et C10 (aperçu web) restent dans la liste manuelle de la PR.
-// Le premier onglet charge https://www.google.com : le démarrage dépend du réseau, pas les assertions.
+// L'app des tests démarre sur une page locale (PAGE_DEMARRAGE) : aucun test ne dépend du réseau.
 
 const pages: Record<string, string> = {
+  // Premier onglet de l'app des tests, à la place de google.com (adresse passée au lancement).
+  '/demarrage.html': '<!doctype html><title>Démarrage</title><p>démarrage</p>',
   '/page-a.html': `<!doctype html><title>Page A</title>
     <a id="suivante" href="/page-b.html">suivante</a>
     <a id="popup" href="/page-b.html" target="_blank">popup</a>
@@ -67,9 +69,17 @@ test.beforeAll(async () => {
   origine = `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`
 
   profil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
-  app = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest() })
+  app = await electron.launch({ args: ['.', '--', `${origine}/demarrage.html`], cwd: resolve(__dirname, '..'), env: envTest() })
   ui = await fenetreInterface(app)
   barreUi = await vueBarre(app)
+  // Page de démarrage chargée et focalisée avant le premier test : sa fin de chargement (retour du focus à la page, ARB-112)
+  // arrivait sinon au milieu des tests de survol de la barre (C33).
+  await expect.poll(async () => {
+    const etatInitial = await etat()
+    return ongletActif(etatInitial)?.url === `${origine}/demarrage.html` && !ongletActif(etatInitial)?.isLoading
+  }, { timeout: 15_000 }).toBe(true)
+  await expect.poll(() => app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
+    .some((enfant) => enfant instanceof WebContentsView && /^https?:/.test(enfant.webContents.getURL()) && enfant.webContents.isFocused())), { timeout: 15_000 }).toBe(true)
   // Le vrai curseur de l'utilisateur ne doit pas interférer : la barre s'ouvre au survol réel du bord gauche (onMouseEnter).
   // Les événements de Playwright (CDP) et de sendInputEvent ne passent pas par la souris du système, donc restent actifs.
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setIgnoreMouseEvents(true))
@@ -1113,7 +1123,9 @@ test('C53 : la fenêtre est sans cadre, la barre de contrôle laisse la place au
 //   why_new=C1-C12 n'appellent l'IPC que depuis l'interface légitime; seam=none (fenêtre intruse créée par le test);
 //   no_claim=ne couvre pas un iframe dans l'interface (bloqué en amont par la CSP et ARB-12).
 test('C14 : un appel IPC venant d’une autre page que l’interface est refusé', async () => {
-  // Le premier onglet charge google.com : tant qu'il charge, son URL passe de « …com » à « …com/ » et fausse la comparaison.
+  // Un test précédent (Ctrl+T) a pu laisser un onglet sur google.com, dont l'URL change (?zx=…) : page locale d'abord.
+  await saisirAdresse(`${origine}/page-b.html`)
+  await attendreUrlActive(`${origine}/page-b.html`)
   await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
   const avant = await etat()
   const resultats = await app.evaluate(async ({ BrowserWindow }, { preload, url }) => {
@@ -1910,11 +1922,37 @@ test('C50 : l’onglet affiche le favicon du site sans violation de la CSP, et l
 test('C54 : un rectangle aberrant reçu par set-content-bounds est borné à la fenêtre', async () => {
   const zone = await rectangleZoneContenu()
   const fenetre = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentBounds())
+  // L'interface renvoie sa vraie zone (ResizeObserver) dès qu'elle le peut : le rectangle borné n'est que transitoire et
+  // un poll peut ne jamais le voir. On enregistre donc chaque setBounds du processus principal, sans dépendre du moment.
+  await app.evaluate(({ WebContentsView }) => {
+    const proto = WebContentsView.prototype as unknown as { setBounds: (r: unknown) => void }
+    const g = globalThis as unknown as { __appelsBounds?: unknown[], __setBoundsOrigine?: (r: unknown) => void }
+    g.__appelsBounds = []
+    g.__setBoundsOrigine ??= proto.setBounds
+    proto.setBounds = function (this: unknown, rectangle: unknown) {
+      g.__appelsBounds!.push(rectangle)
+      return g.__setBoundsOrigine!.call(this, rectangle)
+    }
+  })
   try {
     await ui.evaluate(() => window.arbalete.setContentBounds({ x: -50, y: 48, width: 1e300, height: 1e300 }))
-    await expect.poll(boundsVueActive).toEqual({ x: 0, y: 48, width: fenetre.width, height: fenetre.height - 48 })
+    const attendu = { x: 0, y: 48, width: fenetre.width, height: fenetre.height - 48 }
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __appelsBounds: unknown[] }).__appelsBounds))
+      .toContainEqual(attendu)
+    const appels = await app.evaluate(() => (globalThis as unknown as { __appelsBounds: Array<{ x: number, y: number, width: number, height: number }> }).__appelsBounds)
+    // Aucune vue ne sort de la fenêtre, y compris le temps du rectangle aberrant.
+    for (const r of appels) {
+      expect(r.x).toBeGreaterThanOrEqual(0)
+      expect(r.y).toBeGreaterThanOrEqual(0)
+      expect(r.x + r.width).toBeLessThanOrEqual(fenetre.width)
+      expect(r.y + r.height).toBeLessThanOrEqual(fenetre.height)
+    }
     expect(await ui.evaluate(() => window.arbalete.getState().then((etat) => etat.tabs.length))).toBeGreaterThan(0)
   } finally {
+    await app.evaluate(({ WebContentsView }) => {
+      const g = globalThis as unknown as { __setBoundsOrigine?: (r: unknown) => void }
+      if (g.__setBoundsOrigine) (WebContentsView.prototype as unknown as { setBounds: unknown }).setBounds = g.__setBoundsOrigine
+    })
     await ui.evaluate((rectangle) => window.arbalete.setContentBounds(rectangle), zone)
   }
   await attendreVueAlignee()
@@ -2164,10 +2202,11 @@ test('C62 : la bulle suit le thème et la place de la page quand la barre est é
   const avantX = (await bulle())!.x
   await epinglerBarre(true)
   try {
+    // La page se décale après l'état « épinglée » : attendre le décalage, sinon vue et zone sont encore à leur ancienne place.
+    await expect.poll(async () => (await bulle())?.x).toBeGreaterThan(avantX)
     await attendreVueAlignee()
     const zone = (await boundsVueActive())!
     await expect.poll(async () => (await bulle())?.x).toBe(zone.x + 8)
-    expect(zone.x + 8).toBeGreaterThan(avantX)
   } finally {
     await epinglerBarre(false)
   }
@@ -2662,8 +2701,9 @@ test('C72 : l’étoile ajoute et retire un favori, inactive hors du web, conser
     await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs.some((t) => t.url === adresse && !t.isLoading)).toBe(true)
   }
   const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
-  const lancer = () => electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
-  let autreApp = await lancer()
+  // Premier lancement sur une page locale (pas de google.com) ; le second, sans adresse, restaure la session.
+  const lancer = (args: string[] = []) => electron.launch({ args: ['.', ...args], cwd: resolve(__dirname, '..'), env: envTest(autreProfil) })
+  let autreApp = await lancer(['--', `${origine}/demarrage.html`])
   try {
     let fenetre = await fenetreInterface(autreApp)
     await ouvrir(fenetre, url)
@@ -2685,12 +2725,14 @@ test('C72 : l’étoile ajoute et retire un favori, inactive hors du web, conser
     await fenetre.evaluate(() => window.arbalete.toggleFavorite())
     expect(await favori(fenetre)).toBe(false)
 
+    // La session s'écrit une seconde après le dernier changement : la fermer trop tôt la perdrait.
+    await expect.poll(() => sessionSurDisque(autreProfil).some((onglet) => onglet.url === url), { timeout: 10_000 }).toBe(true)
     await autreApp.close()
     autreApp = await lancer()
     fenetre = await fenetreInterface(autreApp)
-    await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs.some((t) => t.url === url)).toBe(true)
+    await expect.poll(async () => (await fenetre.evaluate(() => window.arbalete.getState())).tabs.some((t) => t.url === url), { timeout: 10_000 }).toBe(true)
     await fenetre.evaluate((u) => window.arbalete.createTab(u), url)
-    await expect.poll(() => favori(fenetre)).toBe(true)
+    await expect.poll(() => favori(fenetre), { timeout: 10_000 }).toBe(true)
     await etoile(fenetre).click()
     await expect.poll(() => favori(fenetre)).toBe(false)
   } finally {
