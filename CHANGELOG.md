@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.28.0] - 2026-11-11
+
+### Ajouté
+- La barre latérale prend la couleur de l'espace affiché : un filet de 3 px en haut de la barre passe de Glacier à Iris, Amber ou Sage quand vous changez d'espace, en thème sombre comme en thème clair. Les couleurs d'accent, de succès et d'erreur ne changent pas.
+
+### Limites connues
+- Le fond de la barre n'est pas teinté : en thème clair, le texte secondaire perdrait son contraste minimal. Le filet seul distingue les espaces.
+- La couleur d'un espace ne se choisit pas encore : un nouvel espace prend la suivante de la liste.
+- Le rendu n'a été essayé que dans l'aperçu navigateur, pas dans la fenêtre d'Arbalète, et aucun test automatique ne couvre le filet.
+
 ## [0.12.27.0] - 2026-11-11
 
 ### Ajouté
