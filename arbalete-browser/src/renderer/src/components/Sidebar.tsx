@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, Clock3, Download, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Star } from 'lucide-react'
 import { LARGEUR_ETENDUE_MAX, LARGEUR_ETENDUE_MIN, barreCompacte, largeurApresTouche, largeurBarre } from '../../../shared/barre'
 import type { BrowserState, SidebarState } from '../../../shared/types'
@@ -48,6 +48,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
   const [menuOnglet, setMenuOnglet] = useState<{ tabId: string; x: number; y: number } | null>(null)
   const ongletDuMenu = menuOnglet && state.tabs.find((tab) => tab.id === menuOnglet.tabId)
   const compacte = barreCompacte(sidebar)
+  const espaceActif = state.workspaces.find((e) => e.id === state.activeWorkspaceId)
 
   useEffect(() => {
     if (!overlay) setMenuOnglet(null)
@@ -88,7 +89,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
       onMouseEnter={() => void window.arbalete.setSidebar('open')}
       onMouseLeave={onMouseLeave}>
       {!sidebar.open ? <div className="sidebar-hover-strip" data-testid="sidebar-hover-strip" /> : (
-        <aside className={compacte ? 'sidebar sidebar--compact' : 'sidebar'} style={{ width: largeurBarre(sidebar) }}>
+        <aside className={compacte ? 'sidebar sidebar--compact' : 'sidebar'} style={{ width: largeurBarre(sidebar), ...(espaceActif && { '--espace-couleur': `var(--color-workspace-${espaceActif.couleur})` }) } as CSSProperties}>
           <div className="brand-row">
             <div className="brand-mark">a<span>.</span></div>
             <span className="brand-name">arbalète</span>

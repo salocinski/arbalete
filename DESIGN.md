@@ -184,6 +184,7 @@ Règles :
 - Le fond principal reste neutre ; la barre latérale a une surface légèrement distincte.
 - Bordures discrètes ; les dégradés sont exceptionnels (jamais sur un bouton).
 - Les couleurs d'espace distinguent les espaces sans remplacer les couleurs fonctionnelles.
+- Sur la barre latérale, l'espace affiché se signale par un filet de 3 px en haut, à sa couleur (ARB-63), sans teinte de fond : en thème clair, le texte secondaire (4,57:1) passerait sous 4,5:1 avec une teinte.
 - Toute couleur informative garde un contraste suffisant.
 
 ### Contrastes

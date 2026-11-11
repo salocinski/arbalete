@@ -14,7 +14,7 @@ export type Espace = {
 }
 
 // Champs d'un espace créé par l'utilisateur (ARB-62) : seul le nom est saisi, couleur et icône se choisissent à la suite
-// de la liste (la couleur se règle avec ARB-63). Partagé avec l'aperçu navigateur.
+// de la liste. Partagé avec l'aperçu navigateur.
 const ICONES_ESPACE = ['◆', '✳', '◈', '●'] as const
 export function champsNouvelEspace(existants: readonly Espace[], nom: string): Omit<Espace, 'id'> {
   return { nom, couleur: COULEURS_ESPACE[existants.length % COULEURS_ESPACE.length], icone: ICONES_ESPACE[existants.length % ICONES_ESPACE.length] }
