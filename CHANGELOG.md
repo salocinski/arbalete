@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.22.1] - 2026-11-10
+
+### Corrigé
+- La copie de secours de la base ne se refait plus à tort juste après avoir été écrite. Sous Windows, la date d'un fichier peut devancer l'horloge de quelques millisecondes : la copie toute fraîche passait alors pour ancienne, et Arbalète en écrivait une seconde identique. Un test de cette copie échouait au hasard pour la même raison.
+
 ## [0.12.22.0] - 2026-11-10
 
 ### Ajouté
