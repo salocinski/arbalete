@@ -341,6 +341,17 @@ test('une copie de secours à la date dans le futur compte comme ancienne', () =
   db.close()
 })
 
+// Régression : sous Windows la date du fichier devance parfois Date.now() de quelques millisecondes, et une copie qui
+// venait d'être écrite passait pour ancienne. Un `maintenant` en retard de 2 s la simule de façon déterministe.
+test('une copie écrite à l’instant n’est pas ancienne quand la date du fichier devance l’horloge de quelques secondes', () => {
+  const sous = mkdtempSync(join(dossier, 'decalage-'))
+  const chemin = join(sous, 'arbalete.db')
+  const db = ouvrirBase(chemin)
+  sauvegarderBase(db, chemin)
+  strictEqual(sauvegarderBase(db, chemin, { seulementSiAncienne: true, maintenant: Date.now() - 2000 }), false)
+  db.close()
+})
+
 // Un échec d'E/S passager sur la copie remise en place ne doit pas la faire écarter au profit d'une base vide.
 test('la copie restaurée s’ouvre avec des réessais sur erreur d’E/S', () => {
   const sous = mkdtempSync(join(dossier, 'restaure-reessai-'))

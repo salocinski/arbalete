@@ -6,11 +6,14 @@ import type { DatabaseSync } from 'node:sqlite'
 export const SUFFIXE_SAUVEGARDE = '.sauvegarde'
 export const SUFFIXE_PRECEDENTE = '.precedente'
 const AGE_MAX_MS = 24 * 60 * 60 * 1000
+// Sous Windows, la date d'un fichier peut devancer Date.now() de quelques millisecondes : une copie qui vient d'être écrite
+// a alors un âge légèrement négatif et ne doit pas passer pour ancienne (deux copies identiques de suite).
+const DECALAGE_HORLOGE_MS = 5000
 
-// Une copie est récente si elle a moins de 24 h ; une date dans le futur (horloge déréglée) compte comme ancienne.
+// Une copie est récente si elle a moins de 24 h ; une date nettement dans le futur (horloge déréglée) compte comme ancienne.
 function estRecente(chemin: string, maintenant: number): boolean {
   const age = maintenant - statSync(chemin).mtimeMs
-  return age >= 0 && age < AGE_MAX_MS
+  return age >= -DECALAGE_HORLOGE_MS && age < AGE_MAX_MS
 }
 
 // Écrit la copie dans un fichier temporaire (VACUUM INTO produit une base autonome, sans -wal) puis la met en place :
