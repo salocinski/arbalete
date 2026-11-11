@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.27.0] - 2026-11-11
+
+### Ajouté
+- Vous gérez vos espaces de travail depuis le sélecteur de la barre latérale : « Nouvel espace » en crée un (il s'affiche aussitôt), le crayon le renomme, les flèches le montent ou le descendent, la corbeille le supprime après confirmation. L'ordre et les noms reviennent quand vous fermez puis rouvrez Arbalète.
+- Supprimer un espace ferme ses onglets et affiche l'espace voisin. Le dernier espace ne peut pas être supprimé.
+
+### Limites connues
+- La gestion des espaces n'est pas offerte en barre compacte, où le menu n'a pas la place de s'ouvrir.
+- Un nouvel espace prend la couleur et l'icône suivantes de la liste : leur choix viendra plus tard.
+- Si l'enregistrement échoue (disque plein, base verrouillée), aucun message ne s'affiche.
+- Le rendu du menu n'a été essayé que dans l'aperçu navigateur, pas dans la fenêtre d'Arbalète.
+
 ## [0.12.26.1] - 2026-11-11
 
 ### Changé

@@ -106,6 +106,13 @@ export type BrowserAPI = {
   // Passe à cet espace (ARB-61) : ses onglets remplacent ceux affichés, son dernier onglet actif reprend la page ; un espace
   // sans onglet en ouvre un. Sans effet si l'espace est inconnu ou déjà actif.
   setWorkspace: (id: number) => Promise<void>
+  // Gestion des espaces (ARB-62). `createWorkspace` ajoute un espace en fin de liste et l'affiche ; `renameWorkspace` ne change
+  // que le nom ; `moveWorkspace` décale d'un cran (-1 haut, 1 bas) ; `deleteWorkspace` ferme ses onglets et refuse de supprimer
+  // le dernier espace. Un nom vide ou trop long, un espace inconnu sont refusés ou sans effet.
+  createWorkspace: (name: string) => Promise<void>
+  renameWorkspace: (id: number, name: string) => Promise<void>
+  moveWorkspace: (id: number, direction: -1 | 1) => Promise<void>
+  deleteWorkspace: (id: number) => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

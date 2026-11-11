@@ -1,5 +1,5 @@
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, transitionBarre } from '../../shared/barre'
-import { ESPACES_INITIAUX, type Espace } from '../../shared/espaces'
+import { ESPACES_INITIAUX, LONGUEUR_MAX_NOM_ESPACE, champsNouvelEspace, ordreApresDeplacement, type Espace } from '../../shared/espaces'
 import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
 /**
@@ -67,6 +67,7 @@ export function installPreviewApi(): boolean {
   // Espaces de l'aperçu (ARB-61) : les trois d'origine, en mémoire ; chaque onglet appartient à l'un d'eux et chaque espace
   // garde son onglet actif.
   const workspaces: Espace[] = ESPACES_INITIAUX.map((champs, index) => ({ id: index + 1, ...champs }))
+  let nextWorkspaceId = workspaces.length + 1
   let activeWorkspaceId = workspaces[0].id
   const lastActive = new Map<number, string>()
   const spaceOf = new Map<string, number>()
@@ -76,7 +77,7 @@ export function installPreviewApi(): boolean {
   const snapshot = (): BrowserState => ({
     tabs: visible().map(({ history: _h, index: _i, ...tab }) => ({ ...tab })),
     activeTabId,
-    workspaces,
+    workspaces: [...workspaces],
     activeWorkspaceId,
     favorite: favorites.has(active()?.url ?? ''),
     favorites: [...favorites].slice(0, 8).map((url) => ({ url, title: titleFor(url) }))
@@ -135,6 +136,38 @@ export function installPreviewApi(): boolean {
         activeTabId = target
         emit()
       } else createTab()
+    },
+    createWorkspace: async (name) => {
+      const nom = name.trim()
+      if (!nom || nom.length > LONGUEUR_MAX_NOM_ESPACE) throw new Error('Nom d’espace invalide')
+      const space = { id: nextWorkspaceId++, ...champsNouvelEspace(workspaces, nom) }
+      workspaces.push(space)
+      await api.setWorkspace(space.id)
+    },
+    renameWorkspace: async (id, name) => {
+      const nom = name.trim()
+      if (!nom || nom.length > LONGUEUR_MAX_NOM_ESPACE) throw new Error('Nom d’espace invalide')
+      const space = workspaces.find((item) => item.id === id)
+      if (!space) return
+      space.nom = nom
+      emit()
+    },
+    moveWorkspace: async (id, direction) => {
+      const ordre = ordreApresDeplacement(workspaces.map((item) => item.id), id, direction)
+      workspaces.sort((a, b) => ordre.indexOf(a.id) - ordre.indexOf(b.id))
+      emit()
+    },
+    deleteWorkspace: async (id) => {
+      const index = workspaces.findIndex((item) => item.id === id)
+      if (index < 0 || workspaces.length < 2) return
+      if (id === activeWorkspaceId) await api.setWorkspace((workspaces[index + 1] ?? workspaces[index - 1]).id)
+      workspaces.splice(index, 1)
+      lastActive.delete(id)
+      for (const tab of tabs.filter((item) => spaceOf.get(item.id) === id)) {
+        tabs.splice(tabs.indexOf(tab), 1)
+        spaceOf.delete(tab.id)
+      }
+      emit()
     },
     createTab: async (url) => createTab(url),
     closeTab: async (id) => {

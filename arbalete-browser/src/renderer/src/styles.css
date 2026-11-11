@@ -50,8 +50,15 @@ html.vue-barre .sidebar-zone { right: 0; }
 .workspace-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .muted-icon { color: var(--color-text-secondary); }
 .workspace-menu { position: absolute; z-index: var(--z-menu); top: 111px; left: 12px; right: 12px; padding: 5px; border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-md); }
-.workspace-menu button { display: flex; gap: 9px; align-items: center; width: 100%; padding: 9px; border: 0; background: transparent; border-radius: 7px; font-size: 12px; text-align: left; }
-.workspace-menu button:hover { background: var(--color-surface-hover); }
+.workspace-row { display: flex; align-items: center; gap: var(--space-1); }
+.workspace-row--confirm { flex-wrap: wrap; padding: 6px; font-size: 12px; }
+.workspace-confirm-text { flex-basis: 100%; }
+.workspace-row .ui-field-group { flex: 1; }
+:is(.workspace-choice, .workspace-add) { display: flex; gap: 7px; align-items: center; padding: 9px 6px; border: 0; background: transparent; border-radius: 7px; font-size: 12px; text-align: left; }
+:is(.workspace-choice, .workspace-add):hover { background: var(--color-surface-hover); }
+.workspace-choice { flex: 1; min-width: 0; }
+.workspace-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-add { width: 100%; color: var(--color-text-secondary); }
 /* Couche d'overlays (ARB-39) : la couche couvre la vue de la barre, agrandie à la fenêtre ; seul le contenu se voit. */
 .overlay-layer { position: fixed; inset: 0; z-index: var(--z-overlay); }
 .overlay-content { position: fixed; }
