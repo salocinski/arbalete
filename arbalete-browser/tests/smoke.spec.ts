@@ -165,6 +165,20 @@ function souris(type: 'mouseEnter' | 'mouseLeave', x: number) {
   }, { type, x })
 }
 
+// Après l'ouverture, la barre remplace la bande de survol dans le DOM : tant que Chromium n'a pas rétabli le survol sur la
+// nouvelle barre, un mouseLeave natif n'atteint que l'élément détaché, la vue ne reçoit pas `mouseout` et le retrait ne part
+// pas (échec intermittent de C33, ARB-135). On renvoie un mouseMove dans la barre jusqu'à ce qu'elle soit survolée.
+async function attendreSurvolBarre() {
+  await expect.poll(async () => {
+    await app.evaluate(({ BrowserWindow, WebContentsView }) => {
+      const vue = BrowserWindow.getAllWindows()[0].contentView.children
+        .find((enfant) => enfant instanceof WebContentsView && enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+      vue.webContents.sendInputEvent({ type: 'mouseMove', x: 2, y: 300 })
+    })
+    return barreUi.evaluate(() => !!document.querySelector('.sidebar')?.matches(':hover'))
+  }).toBe(true)
+}
+
 // Clic natif (sendInputEvent, bouton droit : aucune action dans la page ni la barre d'outils) dans la page de l'onglet
 // actif ou dans la fenêtre d'interface, en haut à droite, hors des boutons.
 function cliquerDans(cible: 'onglet' | 'fenetre') {
@@ -308,6 +322,7 @@ test('C33 : la barre apparaît au survol par-dessus la page et se retire', async
   expect(await rectangleZoneContenu()).toEqual(zone)
   await attendreVueAlignee()
 
+  await attendreSurvolBarre()
   await souris('mouseLeave', 240)
   await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
   await expect.poll(async () => (await boundsBarre())?.width).toBe(6)
@@ -316,6 +331,7 @@ test('C33 : la barre apparaît au survol par-dessus la page et se retire', async
   await souris('mouseEnter', 2)
   await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
   await barreUi.locator('.tab-select').first().click()
+  await attendreSurvolBarre()
   await souris('mouseLeave', 240)
   await expect.poll(etatBarre).toEqual({ open: false, pinned: false })
 
@@ -324,6 +340,7 @@ test('C33 : la barre apparaît au survol par-dessus la page et se retire', async
   await expect.poll(etatBarre).toEqual({ open: true, pinned: false })
   await barreUi.locator('.workspace-switcher').click()
   await expect(barreUi.locator('.workspace-menu')).toBeVisible()
+  await attendreSurvolBarre()
   await souris('mouseLeave', 240)
   // gstack-timing-ok: vérification négative (rien ne doit changer) ; le processus principal traite l'événement de façon synchrone.
   await ui.waitForTimeout(500)
