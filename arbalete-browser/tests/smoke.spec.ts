@@ -2699,6 +2699,67 @@ test('C72 : l’étoile ajoute et retire un favori, inactive hors du web, conser
   }
 })
 
+// Value: protects=ARB-49 : la grille de favoris (état `favorites`, adresse et titre) suit l'étoile, et openFavorite active
+//   l'onglet déjà ouvert sur la page, rouvre la page si son onglet est fermé, refuse une adresse qui n'est pas un favori
+//   et un argument qui n'est pas du texte; fails_when=stateSnapshot n'envoie plus `favorites`, ouvrirFavori crée toujours
+//   un onglet, la garde estFavori saute (le canal ouvrirait n'importe quelle adresse), ou exigerTexte ne contrôle plus
+//   l'argument; why_new=ARB-49, aucun test ne lisait la grille ni le canal browser:open-favorite; seam=IPC réel depuis la
+//   fenêtre d'interface, profil temporaire; no_claim=ni le rendu des tuiles de la barre (vue native séparée, vérifié dans
+//   l'aperçu web), ni le mode compact, ni les favoris au-delà de 8 (favoris.test.ts).
+test('C73 : openFavorite active l’onglet ouvert, rouvre la page fermée, refuse un non-favori', async () => {
+  const url = `${origine}/page-a.html`
+  const autre = `${origine}/page-survol.html`
+  const profil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
+  const autreApp = await electron.launch({ args: ['.'], cwd: resolve(__dirname, '..'), env: envTest(profil) })
+  try {
+    const fenetre = await fenetreInterface(autreApp)
+    const etat = () => fenetre.evaluate(() => window.arbalete.getState())
+    const ouvrir = async (adresse: string) => {
+      await fenetre.evaluate((u) => window.arbalete.createTab(u), adresse)
+      await expect.poll(async () => (await etat()).tabs.some((t) => t.url === adresse && !t.isLoading)).toBe(true)
+    }
+    expect((await etat()).favorites).toEqual([])
+    await ouvrir(url)
+    await fenetre.evaluate(() => window.arbalete.toggleFavorite())
+    await expect.poll(async () => (await etat()).favorites.map((f) => f.url)).toEqual([url])
+    expect((await etat()).favorites[0].title).not.toBe('')
+
+    // Un autre onglet est actif : le clic active l'onglet existant, sans en ouvrir un second.
+    await ouvrir(autre)
+    const avant = (await etat()).tabs.length
+    await fenetre.evaluate((u) => window.arbalete.openFavorite(u), url)
+    await expect.poll(async () => {
+      const s = await etat()
+      return s.tabs.find((t) => t.id === s.activeTabId)?.url
+    }).toBe(url)
+    expect((await etat()).tabs.length).toBe(avant)
+
+    // Onglet fermé : la page se rouvre dans un nouvel onglet actif.
+    const ferme = (await etat()).activeTabId!
+    await fenetre.evaluate((id) => window.arbalete.closeTab(id), ferme)
+    await expect.poll(async () => (await etat()).tabs.some((t) => t.id === ferme)).toBe(false)
+    const sans = (await etat()).tabs.length
+    await fenetre.evaluate((u) => window.arbalete.openFavorite(u), url)
+    await expect.poll(async () => (await etat()).tabs.length).toBe(sans + 1)
+    const apres = await etat()
+    expect(apres.tabs.find((t) => t.id === apres.activeTabId)?.url).toBe(url)
+
+    // Pas un favori, ou pas du texte : rien ne s'ouvre.
+    await fenetre.evaluate((u) => window.arbalete.openFavorite(u), `${origine}/page-b.html`)
+    await expect(fenetre.evaluate(() => window.arbalete.openFavorite(42 as unknown as string))).rejects.toThrow()
+    // gstack-timing-ok: vérification négative (aucun onglet ne doit apparaître) ; l'effet serait immédiat.
+    await fenetre.waitForTimeout(500)
+    expect((await etat()).tabs.length).toBe(sans + 1)
+
+    // Le favori retiré quitte la grille.
+    await fenetre.evaluate(() => window.arbalete.toggleFavorite())
+    await expect.poll(async () => (await etat()).favorites).toEqual([])
+  } finally {
+    await autreApp.close()
+    rmSync(profil, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+})
+
 test('C65 : F11 bascule le plein écran depuis la page, la barre et la fenêtre, sans ouvrir de DevTools', async () => {
   await saisirAdresse(`${origine}/page-survol.html`)
   await attendreUrlActive(`${origine}/page-survol.html`)

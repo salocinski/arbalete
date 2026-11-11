@@ -18,6 +18,8 @@ export type BrowserState = {
   activeTabId: string | null
   // La page de l'onglet actif est un favori (ARB-47) : faux pour une page hors du web (adresse non enregistrable).
   favorite: boolean
+  // Grille de favoris en haut de la barre latérale (ARB-49) : les 8 premiers favoris, adresse d'historique et titre.
+  favorites: { url: string; title: string }[]
 }
 
 // Barre latérale (ARB-33, ARB-123) : masquée par défaut, ouverte par-dessus la page au survol du bord gauche ;
@@ -93,6 +95,8 @@ export type BrowserAPI = {
   // Ajoute la page de l'onglet actif aux favoris, ou l'en retire (ARB-47) ; sans effet sur une page hors du web. L'état
   // `favorite` en rend compte.
   toggleFavorite: () => Promise<void>
+  // Active l'onglet ouvert sur ce favori, ou l'ouvre dans un nouvel onglet (ARB-49) ; sans effet si ce n'est pas un favori.
+  openFavorite: (url: string) => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

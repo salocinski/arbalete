@@ -68,7 +68,8 @@ export function installPreviewApi(): boolean {
   const snapshot = (): BrowserState => ({
     tabs: tabs.map(({ history: _h, index: _i, ...tab }) => ({ ...tab })),
     activeTabId,
-    favorite: favorites.has(active()?.url ?? '')
+    favorite: favorites.has(active()?.url ?? ''),
+    favorites: [...favorites].slice(0, 8).map((url) => ({ url, title: titleFor(url) }))
   })
   const emit = () => {
     const state = snapshot()
@@ -104,6 +105,14 @@ export function installPreviewApi(): boolean {
       if (!url || !/^https?:/i.test(url)) return
       if (!favorites.delete(url)) favorites.add(url)
       emit()
+    },
+    openFavorite: async (url) => {
+      if (!favorites.has(url)) return
+      const ouvert = tabs.find((tab) => tab.url === url)
+      if (ouvert) {
+        activeTabId = ouvert.id
+        emit()
+      } else createTab(url)
     },
     createTab: async (url) => createTab(url),
     closeTab: async (id) => {

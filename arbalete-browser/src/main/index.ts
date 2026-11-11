@@ -18,7 +18,7 @@ import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
-import { basculerFavori, estFavori } from './donnees/favoris.ts'
+import { basculerFavori, estFavori, favorisGrille } from './donnees/favoris.ts'
 import { adresseHistorique, ajouterVisite, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
@@ -125,8 +125,34 @@ function stateSnapshot(): BrowserState {
   return {
     tabs: [...tabs.values()].map((tab) => ({ ...tab.data })),
     activeTabId,
-    favorite: pageActiveEstFavorite()
+    favorite: pageActiveEstFavorite(),
+    favorites: grilleFavoris()
   }
+}
+
+function grilleFavoris(): BrowserState['favorites'] {
+  if (!base) return []
+  try {
+    return favorisGrille(base).map(({ url, titre }) => ({ url, title: titre }))
+  } catch (erreur) {
+    console.error('Favoris non lus :', erreur)
+    return []
+  }
+}
+
+// Clic sur un favori de la grille (ARB-49) : l'onglet déjà ouvert sur cette page est activé, sinon un onglet l'ouvre.
+// L'adresse reçue doit être un favori enregistré, jamais une adresse libre.
+function ouvrirFavori(url: string) {
+  if (!base) return
+  try {
+    if (!estFavori(base, url)) return
+  } catch (erreur) {
+    console.error('Favori non lu :', erreur)
+    return
+  }
+  const ouvert = [...tabs.values()].find((tab) => adresseHistorique(tab.data.url) === url)
+  if (ouvert) activerOnglet(ouvert.data.id)
+  else createTab(url)
 }
 
 // Favoris (ARB-47) : la page de l'onglet actif, sous son adresse d'historique (web seulement, sans identifiants ni fragment).
@@ -1201,6 +1227,7 @@ app.whenReady().then(() => {
   traiter('browser:forward', avancer)
   traiter('browser:reload', () => recharger(false))
   traiter('browser:toggle-favorite', basculerFavoriActif)
+  traiter('browser:open-favorite', (url) => ouvrirFavori(exigerTexte(url)))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)
   traiter('browser:dismiss-data-incident', () => {
