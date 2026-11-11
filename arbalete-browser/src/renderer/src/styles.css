@@ -17,7 +17,7 @@ button, input { font: inherit; }
 button { color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .app-shell { display: flex; width: 100vw; height: 100vh; background: var(--color-background); color: var(--color-text-primary); overflow: hidden; }
-.sidebar { width: 252px; height: 100%; background: var(--color-sidebar); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; padding: 17px 12px 10px; position: relative; overflow: hidden; }
+.sidebar { width: 252px; height: 100%; background: var(--color-sidebar); box-shadow: inset 0 3px var(--espace-couleur, transparent); transition: box-shadow var(--duration-workspace-switch); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; padding: 17px 12px 10px; position: relative; overflow: hidden; }
 /* Barre latérale (ARB-33) : zone fixée au bord gauche, de la taille de sa vue native (ou par-dessus la page dans l'aperçu web). */
 .sidebar-zone { position: fixed; top: 0; left: 0; bottom: 0; z-index: var(--z-sidebar); display: flex; color: var(--color-text-primary); }
 /* Largeurs jumelles de LARGEUR_BANDE (6) et LARGEUR_ETENDUE_DEFAUT (252) dans src/shared/barre.ts : les changer ensemble. */
