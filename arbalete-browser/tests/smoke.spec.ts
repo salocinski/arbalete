@@ -2883,7 +2883,8 @@ test('C74 : chaque espace a ses onglets et son dernier onglet actif, rétablis a
 //   plus l'ordre, supprimerEspaceUtilisateur laisse l'espace actif supprimé ou supprime le dernier, ou un exiger* ne contrôle
 //   plus son argument; why_new=ARB-62, aucun test ne créait ni ne supprimait d'espace; seam=IPC réel depuis la fenêtre
 //   d'interface, deux lancements sur un même profil temporaire; no_claim=ni le rendu du menu (vue native séparée, vérifié
-//   dans l'aperçu web), ni la fermeture effective des onglets de l'espace supprimé; le nouvel espace ouvre un onglet sur
+//   dans l'aperçu web), ni que Ctrl+Maj+T ne rouvre pas les onglets de l'espace supprimé, ni une base indisponible; la
+//   suppression ferme les pages de l'espace (contrôlée sur les webContents), et le nouvel espace ouvre un onglet sur
 //   google.com, dont le chargement n'est pas attendu.
 test('C76 : créer, renommer, réordonner et supprimer un espace', async () => {
   const autreProfil = mkdtempSync(join(tmpdir(), 'arbalete-test-'))
@@ -2908,6 +2909,10 @@ test('C76 : créer, renommer, réordonner et supprimer un espace', async () => {
     await expect(fenetre.evaluate(() => window.arbalete.createWorkspace('   '))).rejects.toThrow()
     await expect(fenetre.evaluate(() => window.arbalete.createWorkspace('x'.repeat(41)))).rejects.toThrow()
     await expect(fenetre.evaluate(() => window.arbalete.createWorkspace(1 as unknown as string))).rejects.toThrow()
+    // Une page ouverte dans le nouvel espace : sa fermeture à la suppression de l'espace est vérifiée plus bas.
+    const survol = `${origine}/page-survol.html`
+    await fenetre.evaluate((u) => window.arbalete.createTab(u), survol)
+    await expect.poll(async () => { const s = await lire(); return s.tabs.find((t) => t.id === s.activeTabId)?.url }).toBe(survol)
 
     // Renommage, puis déplacement d'un cran vers le haut ; un bord et un sens aberrant ne changent rien.
     await fenetre.evaluate((id) => window.arbalete.renameWorkspace(id, 'Boulot'), nouveau)
@@ -2918,6 +2923,8 @@ test('C76 : créer, renommer, réordonner et supprimer un espace', async () => {
     await fenetre.evaluate((id) => window.arbalete.moveWorkspace(id, -1), premier)
     await expect(fenetre.evaluate((id) => window.arbalete.moveWorkspace(id, 0 as unknown as 1), premier)).rejects.toThrow()
     await expect(fenetre.evaluate(() => window.arbalete.deleteWorkspace(1.5))).rejects.toThrow()
+    await fenetre.evaluate(() => window.arbalete.renameWorkspace(99999, 'Inconnu'))
+    await fenetre.evaluate(() => window.arbalete.moveWorkspace(99999, 1))
     // gstack-timing-ok: vérification négative (rien ne doit changer) ; l'effet serait immédiat.
     await fenetre.waitForTimeout(300)
     expect(await noms()).toEqual(['Développement', 'Personnel', 'Boulot', 'Recherche'])
@@ -2929,8 +2936,12 @@ test('C76 : créer, renommer, réordonner et supprimer un espace', async () => {
     await expect.poll(noms, { timeout: 10_000 }).toEqual(['Développement', 'Personnel', 'Boulot', 'Recherche'])
     expect((await lire()).activeWorkspaceId).toBe(nouveau)
 
-    // Suppression de l'espace affiché : le voisin du dessous (Recherche) le remplace ; un espace inconnu ne fait rien.
+    // Suppression de l'espace affiché : le voisin du dessous (Recherche) le remplace, ses pages se ferment ; un espace
+    // inconnu ne fait rien.
+    const pagesOuvertes = () => autreApp.evaluate(({ webContents }, u) => webContents.getAllWebContents().filter((w) => w.getURL() === u).length, survol)
+    await expect.poll(pagesOuvertes, { timeout: 10_000 }).toBe(1)
     await fenetre.evaluate((id) => window.arbalete.deleteWorkspace(id), nouveau)
+    await expect.poll(pagesOuvertes).toBe(0)
     await expect.poll(noms).toEqual(['Développement', 'Personnel', 'Recherche'])
     expect((await lire()).activeWorkspaceId).toBe(troisieme)
     await fenetre.evaluate(() => window.arbalete.deleteWorkspace(99999))
