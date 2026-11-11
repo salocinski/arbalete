@@ -3,6 +3,7 @@ import { ChevronDown, Clock3, Download, PanelLeftClose, PanelLeftOpen, Plus, Sea
 import { LARGEUR_ETENDUE_MAX, LARGEUR_ETENDUE_MIN, barreCompacte, largeurApresTouche, largeurBarre } from '../../../shared/barre'
 import type { BrowserState, SidebarState } from '../../../shared/types'
 import { useOverlay } from '../state'
+import { ColorModal } from './ColorModal'
 import { MenuOverlay } from './Overlay'
 import { PinButton } from './PinButton'
 import { IconButton } from './ui/IconButton'
@@ -47,12 +48,21 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
   const overlay = useOverlay()
   const [menuOnglet, setMenuOnglet] = useState<{ tabId: string; x: number; y: number } | null>(null)
   const ongletDuMenu = menuOnglet && state.tabs.find((tab) => tab.id === menuOnglet.tabId)
+  // Menu d'un espace puis modale de sa couleur (ARB-134) : même couche d'overlays, la modale remplace le menu sans la fermer.
+  const [menuEspace, setMenuEspace] = useState<{ id: number; x: number; y: number } | null>(null)
+  const [modaleEspace, setModaleEspace] = useState<number | null>(null)
+  const espaceDuMenu = state.workspaces.find((e) => e.id === (menuEspace?.id ?? modaleEspace))
   const compacte = barreCompacte(sidebar)
   const espaceActif = state.workspaces.find((e) => e.id === state.activeWorkspaceId)
 
   useEffect(() => {
-    if (!overlay) setMenuOnglet(null)
+    if (!overlay) { setMenuOnglet(null); setMenuEspace(null); setModaleEspace(null) }
   }, [overlay])
+
+  // L'espace a été supprimé pendant que son menu ou sa modale était ouvert : ils n'ont plus d'objet.
+  useEffect(() => {
+    if ((menuEspace || modaleEspace !== null) && !espaceDuMenu) void window.arbalete.setOverlay(false)
+  }, [menuEspace, modaleEspace, espaceDuMenu])
 
   // L'onglet a été fermé autrement (Ctrl+W, une page) : son menu n'a plus d'objet.
   useEffect(() => {
@@ -64,6 +74,12 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
     // Overlay refusé ou non ouvert : le menu ne doit pas ressurgir avec le prochain overlay.
     void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
       .then((ouvert) => { if (!ouvert) setMenuOnglet(null) }, () => setMenuOnglet(null))
+  }
+  const ouvrirMenuEspace = (id: number, x: number, y: number) => {
+    setShowWorkspaceMenu(false)
+    setMenuEspace({ id, x, y })
+    void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
+      .then((ouvert) => { if (!ouvert) setMenuEspace(null) }, () => setMenuEspace(null))
   }
   const fermerOverlay = () => void window.arbalete.setOverlay(false)
 
@@ -101,7 +117,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
             {!compacte && <PinButton pinned={sidebar.pinned} className={sidebar.pinned ? undefined : 'sidebar-toggle'} />}
           </div>
 
-          <WorkspaceSwitcher workspaces={state.workspaces} active={state.activeWorkspaceId} onWorkspaceChange={(id) => void window.arbalete.setWorkspace(id)} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} />
+          <WorkspaceSwitcher workspaces={state.workspaces} active={state.activeWorkspaceId} onWorkspaceChange={(id) => void window.arbalete.setWorkspace(id)} menuOpen={showWorkspaceMenu} onMenuOpenChange={setShowWorkspaceMenu} compact={compacte} onEspaceMenu={ouvrirMenuEspace} />
 
           {state.favorites.length > 0 && (
             <ul className="favorites-grid" aria-label="Favoris">
@@ -139,6 +155,15 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
           { label: 'Nouvel onglet', action: () => void window.arbalete.createTab() },
           { label: 'Fermer l’onglet', action: () => void window.arbalete.closeTab(ongletDuMenu.id) }
         ]} />
+      )}
+      {overlay && menuEspace && espaceDuMenu && (
+        <MenuOverlay x={menuEspace.x} y={menuEspace.y} label={`Espace ${espaceDuMenu.nom}`} onClose={fermerOverlay} entrees={[
+          { label: 'Changer la couleur…', remplace: true, action: () => { setModaleEspace(menuEspace.id); setMenuEspace(null) } }
+        ]} />
+      )}
+      {overlay && modaleEspace !== null && espaceDuMenu && (
+        <ColorModal espace={espaceDuMenu} onClose={fermerOverlay}
+          onChoisir={(couleur) => { void window.arbalete.setWorkspaceColor(espaceDuMenu.id, couleur); fermerOverlay() }} />
       )}
     </div>
   )

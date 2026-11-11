@@ -113,6 +113,9 @@ export type BrowserAPI = {
   renameWorkspace: (id: number, name: string) => Promise<void>
   moveWorkspace: (id: number, direction: -1 | 1) => Promise<void>
   deleteWorkspace: (id: number) => Promise<void>
+  // Couleur d'un espace (ARB-134) : le nom d'une couleur de `COULEURS_ESPACE` ; un nom hors liste est refusé, un espace
+  // inconnu est sans effet.
+  setWorkspaceColor: (id: number, color: string) => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

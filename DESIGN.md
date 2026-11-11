@@ -33,10 +33,30 @@ colors:
   dark-workspace-development: "#8C91E8"
   dark-workspace-work: "#D99A69"
   dark-workspace-research: "#83A78D"
+  dark-workspace-azur: "#81A6DA"
+  dark-workspace-lagune: "#89D2C3"
+  dark-workspace-mousse: "#ABCA91"
+  dark-workspace-sable: "#D2BF89"
+  dark-workspace-amethyste: "#B085D6"
+  dark-workspace-orchidee: "#CE8DCE"
+  dark-workspace-rose: "#D685AB"
+  dark-workspace-framboise: "#D28995"
+  dark-workspace-ardoise: "#A2AFB9"
+  dark-workspace-brume: "#A69BBF"
   light-workspace-personal: "#3491A0"
   light-workspace-development: "#757BE3"
   light-workspace-work: "#C27031"
   light-workspace-research: "#658F71"
+  light-workspace-azur: "#3061A6"
+  light-workspace-lagune: "#37907E"
+  light-workspace-mousse: "#668D44"
+  light-workspace-sable: "#9B823B"
+  light-workspace-amethyste: "#6F36A1"
+  light-workspace-orchidee: "#964096"
+  light-workspace-rose: "#A13668"
+  light-workspace-framboise: "#9B3B4B"
+  light-workspace-ardoise: "#5C6E7A"
+  light-workspace-brume: "#625483"
 typography:
   display:
     fontFamily: "Manrope, Segoe UI, sans-serif"
@@ -170,7 +190,7 @@ Palette claire :
 | Amber | `#905D37` | Accent, plus sombre qu'en mode sombre (hover `#815331`, actif `#724A2C`) |
 | Success / Warning / Error | `#4B7258` / `#87632C` / `#AE4949` | États fonctionnels |
 
-Couleurs contextuelles des espaces, une variante par thème pour rester visibles sur la barre latérale :
+Couleurs contextuelles des espaces, une variante par thème pour rester visibles sur la barre latérale. Les quatre premières sont celles d'origine ; les dix suivantes complètent la palette que l'utilisateur parcourt pour choisir la couleur d'un espace (ARB-134, clic droit sur le nom de l'espace puis « Changer la couleur… »), à raison de 14 au total :
 
 | Espace | Sombre | Clair |
 |---|---|---|
@@ -178,6 +198,16 @@ Couleurs contextuelles des espaces, une variante par thème pour rester visibles
 | Development **Iris** | `#8C91E8` | `#757BE3` |
 | Work **Amber** | `#D99A69` | `#C27031` |
 | Research **Sage** | `#83A78D` | `#658F71` |
+| Azur (choix) | `#81A6DA` | `#3061A6` |
+| Lagune (choix) | `#89D2C3` | `#37907E` |
+| Mousse (choix) | `#ABCA91` | `#668D44` |
+| Sable (choix) | `#D2BF89` | `#9B823B` |
+| Améthyste (choix) | `#B085D6` | `#6F36A1` |
+| Orchidée (choix) | `#CE8DCE` | `#964096` |
+| Rose (choix) | `#D685AB` | `#A13668` |
+| Framboise (choix) | `#D28995` | `#9B3B4B` |
+| Ardoise (choix) | `#A2AFB9` | `#5C6E7A` |
+| Brume (choix) | `#A69BBF` | `#625483` |
 | Custom | configurable | configurable |
 
 Règles :
@@ -200,7 +230,7 @@ textuel (anneau de focus, couleur d'espace).
 | Accent Amber en texte ou lien | 4,59:1 | 4,56:1 |
 | Success / Warning / Error en texte | 4,54 / 5,38 / 4,55:1 | 4,51 / 4,51 / 4,51:1 |
 | Anneau de focus (Amber) | 4,59:1 | 4,56:1 |
-| Couleur d'espace sur la barre latérale | 5,23:1 | 3,03:1 |
+| Couleur d'espace sur la barre latérale (les 14) | 5,12:1 | 3,03:1 |
 
 Texte sur un bouton Amber : **Obsidian** en sombre (8,0:1 ; 9,0:1 au survol, 5,4:1 actif), **blanc** en
 clair (5,5:1 ; 6,5:1 au survol, 7,7:1 actif). L'inverse échoue (blanc sur Amber sombre 2,2:1, Obsidian

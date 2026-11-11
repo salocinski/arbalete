@@ -1,7 +1,18 @@
 // Espaces de travail (ARB-60, EP-12). La couleur est le nom d'un token `--color-workspace-<nom>` (tokens.css), jamais une
 // valeur hexadécimale : les palettes Dark et Light la résolvent.
-export const COULEURS_ESPACE = ['personal', 'development', 'work', 'research'] as const
+// Les quatre premières sont celles du référentiel (ARB-60) ; les dix suivantes complètent la palette de choix (ARB-134).
+export const COULEURS_ESPACE = [
+  'personal', 'development', 'work', 'research',
+  'azur', 'lagune', 'mousse', 'sable', 'amethyste', 'orchidee', 'rose', 'framboise', 'ardoise', 'brume'
+] as const
 export type CouleurEspace = (typeof COULEURS_ESPACE)[number]
+
+// Nom affiché dans la modale de choix de la couleur (DESIGN.md, couleurs contextuelles des espaces).
+export const NOMS_COULEUR_ESPACE: Record<CouleurEspace, string> = {
+  personal: 'Glacier', development: 'Iris', work: 'Amber', research: 'Sage',
+  azur: 'Azur', lagune: 'Lagune', mousse: 'Mousse', sable: 'Sable', amethyste: 'Améthyste', orchidee: 'Orchidée',
+  rose: 'Rose', framboise: 'Framboise', ardoise: 'Ardoise', brume: 'Brume'
+}
 
 export const LONGUEUR_MAX_NOM_ESPACE = 40
 export const LONGUEUR_MAX_ICONE_ESPACE = 8

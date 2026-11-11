@@ -1,5 +1,5 @@
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, transitionBarre } from '../../shared/barre'
-import { ESPACES_INITIAUX, LONGUEUR_MAX_NOM_ESPACE, champsNouvelEspace, ordreApresDeplacement, type Espace } from '../../shared/espaces'
+import { COULEURS_ESPACE, ESPACES_INITIAUX, LONGUEUR_MAX_NOM_ESPACE, champsNouvelEspace, ordreApresDeplacement, type CouleurEspace, type Espace } from '../../shared/espaces'
 import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
 /**
@@ -150,6 +150,13 @@ export function installPreviewApi(): boolean {
       const space = workspaces.find((item) => item.id === id)
       if (!space) return
       space.nom = nom
+      emit()
+    },
+    setWorkspaceColor: async (id, color) => {
+      if (!(COULEURS_ESPACE as readonly string[]).includes(color)) throw new Error('Couleur d’espace inconnue')
+      const space = workspaces.find((item) => item.id === id)
+      if (!space) return
+      space.couleur = color as CouleurEspace
       emit()
     },
     moveWorkspace: async (id, direction) => {

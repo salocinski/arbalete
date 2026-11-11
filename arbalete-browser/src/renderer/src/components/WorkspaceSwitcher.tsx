@@ -12,6 +12,8 @@ type WorkspaceSwitcherProps = {
   menuOpen: boolean
   onMenuOpenChange: (open: boolean) => void
   compact?: boolean
+  // Clic droit sur un nom d'espace (ARB-134) : le menu contextuel est affiché par Sidebar, dans la couche d'overlays.
+  onEspaceMenu?: (id: number, x: number, y: number) => void
 }
 
 // La couleur d'un espace est le nom d'un token (ARB-60) : jamais de valeur en dur.
@@ -42,7 +44,7 @@ function ChampNom({ initial, onValider, onAnnuler }: { initial: string, onValide
 // la barre au départ de la souris. Le menu gère les espaces (ARB-62) : création, renommage, ordre, suppression.
 // shortcut: en mode compact, un clic passe à l'espace suivant, le menu n'ayant pas la place de s'ouvrir dans 68 px ; la
 // gestion des espaces n'y est pas offerte. À reprendre avec la couche d'overlays (EP-06).
-export function WorkspaceSwitcher({ workspaces, active, onWorkspaceChange, menuOpen, onMenuOpenChange, compact = false }: WorkspaceSwitcherProps) {
+export function WorkspaceSwitcher({ workspaces, active, onWorkspaceChange, menuOpen, onMenuOpenChange, compact = false, onEspaceMenu }: WorkspaceSwitcherProps) {
   const [action, setAction] = useState<Action | null>(null)
   // Un menu refermé ne garde ni saisie ni suppression en attente.
   useEffect(() => {
@@ -54,9 +56,14 @@ export function WorkspaceSwitcher({ workspaces, active, onWorkspaceChange, menuO
   const activeWorkspace = workspaces[index]
   const onClick = compact ? () => onWorkspaceChange(workspaces[(index + 1) % workspaces.length].id) : () => onMenuOpenChange(!menuOpen)
   const terminer = () => setAction(null)
+  const menuContextuel = (id: number) => (event: React.MouseEvent) => {
+    event.preventDefault()
+    onEspaceMenu?.(id, event.clientX, event.clientY)
+  }
   return (
     <>
-      <button className="workspace-switcher" title={compact ? `Espace : ${activeWorkspace.nom} (cliquer pour changer)` : undefined} onClick={onClick}>
+      <button className="workspace-switcher" title={compact ? `Espace : ${activeWorkspace.nom} (cliquer pour changer)` : undefined} onClick={onClick}
+        onContextMenu={menuContextuel(activeWorkspace.id)}>
         <span className="workspace-dot" style={{ background: couleur(activeWorkspace) }} />
         <span>{activeWorkspace.nom}</span>
         <ChevronDown size={14} className="muted-icon" />
@@ -77,7 +84,8 @@ export function WorkspaceSwitcher({ workspaces, active, onWorkspaceChange, menuO
             </div>
           }
           return <div key={item.id} className="workspace-row">
-            <button className="workspace-choice" onClick={() => { onWorkspaceChange(item.id); onMenuOpenChange(false) }}>
+            <button className="workspace-choice" onClick={() => { onWorkspaceChange(item.id); onMenuOpenChange(false) }}
+              onContextMenu={menuContextuel(item.id)}>
               <span className="workspace-dot" style={{ background: couleur(item) }} /><span className="workspace-name">{item.nom}</span>
             </button>
             <IconButton size="sm" title={`Monter ${item.nom}`} disabled={rang === 0} onClick={() => void window.arbalete.moveWorkspace(item.id, -1)}><ArrowUp size={13} /></IconButton>

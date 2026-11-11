@@ -45,6 +45,7 @@ const api: BrowserAPI = {
   renameWorkspace: (id, name) => ipcRenderer.invoke('browser:rename-workspace', id, name),
   moveWorkspace: (id, direction) => ipcRenderer.invoke('browser:move-workspace', id, direction),
   deleteWorkspace: (id) => ipcRenderer.invoke('browser:delete-workspace', id),
+  setWorkspaceColor: (id, color) => ipcRenderer.invoke('browser:set-workspace-color', id, color),
   getTheme: () => ipcRenderer.invoke('browser:get-theme'),
   setTheme: (choice) => ipcRenderer.invoke('browser:set-theme', choice),
   onTheme: (callback) => ecouter('browser:theme', callback),
