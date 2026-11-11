@@ -40,7 +40,17 @@ export const MIGRATIONS: readonly string[] = [
     url TEXT NOT NULL UNIQUE,
     titre TEXT NOT NULL DEFAULT '',
     date INTEGER NOT NULL
-  )`
+  )`,
+  // 5 — Espaces (ARB-60) : nom, couleur (nom d'un token), icône et ordre (position croissante) ; chaque onglet de la
+  // session peut appartenir à un espace (NULL : aucun, ou espace supprimé).
+  `CREATE TABLE espace (
+    id INTEGER PRIMARY KEY,
+    nom TEXT NOT NULL,
+    couleur TEXT NOT NULL,
+    icone TEXT NOT NULL,
+    position INTEGER NOT NULL
+  );
+  ALTER TABLE onglet ADD COLUMN espace INTEGER REFERENCES espace (id) ON DELETE SET NULL`
 ]
 
 export function versionDuSchema(db: DatabaseSync): number {
