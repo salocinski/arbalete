@@ -42,7 +42,7 @@ npm run dev:web   # http://localhost:5180
 - Ces raccourcis agissent aussi depuis une page web ou la barre latérale (interceptés par le processus principal)
 - Navigation Chromium réelle via `WebContentsView`
 - Onglets créés, sélectionnés et fermés
-- Espaces de travail : le sélecteur de la barre latérale liste Développement, Personnel et Recherche ; changer d'espace affiche les onglets de cet espace (les autres restent ouverts, masqués), chaque espace garde son dernier onglet actif, et l'espace affiché revient au redémarrage
+- Espaces de travail : le sélecteur de la barre latérale liste les espaces (Développement, Personnel et Recherche au premier lancement) ; son menu crée, renomme, réordonne et supprime un espace (le dernier ne se supprime pas ; supprimer un espace ferme ses onglets) ; changer d'espace affiche les onglets de cet espace (les autres restent ouverts, masqués), chaque espace garde son dernier onglet actif, et l'espace affiché revient au redémarrage
 - Thème manuel sombre / clair / système (le mode système est le défaut initial ; le thème choisi est conservé au redémarrage)
 - Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
 - Historique enregistré à chaque navigation vers une autre page
@@ -55,7 +55,7 @@ npm run dev:web   # http://localhost:5180
 
 Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les téléchargements ne sont pas encore persistés, et les espaces ne se créent, renomment ni suppriment pas encore (ARB-62) ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
+- Les téléchargements ne sont pas encore persistés ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
 - Le sélecteur d'espaces change les onglets affichés et la session les rattache à leur espace ; le rendu du sélecteur n'a été essayé que dans l'aperçu navigateur.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
@@ -87,6 +87,5 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 ## Prochaines étapes recommandées
 
 1. Tester le démarrage sur Windows et corriger les éventuels écarts de configuration.
-2. Gérer les espaces depuis l'interface : création, renommage, réordonnancement et suppression (ARB-62).
-3. Réaliser un prototype de compatibilité des extensions avant de figer l'architecture.
-4. Préparer le packaging et les mises à jour automatiques.
+2. Réaliser un prototype de compatibilité des extensions avant de figer l'architecture.
+3. Préparer le packaging et les mises à jour automatiques.
