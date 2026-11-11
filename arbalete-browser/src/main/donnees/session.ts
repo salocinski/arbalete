@@ -37,6 +37,29 @@ export function sauverSession(db: DatabaseSync, onglets: readonly OngletSauve[])
   })
 }
 
+// Rattache chaque onglet à un espace existant (ARB-61) : un onglet sans espace, ou dont l'espace a été supprimé, passe au
+// premier espace ; sans aucun espace (base indisponible), les onglets n'en ont pas.
+export function rattacherAuxEspaces(onglets: readonly OngletSauve[], espaces: readonly number[]): OngletSauve[] {
+  return onglets.map(({ espace, ...reste }) => {
+    const rattache = espace !== undefined && espaces.includes(espace) ? espace : espaces[0]
+    return rattache === undefined ? reste : { ...reste, espace: rattache }
+  })
+}
+
+// Indice de l'onglet actif de chaque espace (clé undefined : onglets sans espace) : le premier marqué actif, sinon le
+// dernier de l'espace. Un seul actif par espace est une règle du code, pas de la base (ARB-61) : une contrainte d'index
+// ferait échouer l'écriture entière de la session sur une violation, alors qu'ici une base écrite à la main se répare.
+export function actifsParEspace(onglets: readonly OngletSauve[]): Map<number | undefined, number> {
+  const actifs = new Map<number | undefined, number>()
+  const marques = new Set<number | undefined>()
+  onglets.forEach((onglet, indice) => {
+    if (marques.has(onglet.espace)) return
+    actifs.set(onglet.espace, indice)
+    if (onglet.actif) marques.add(onglet.espace)
+  })
+  return actifs
+}
+
 // Onglets à rouvrir au démarrage (ARB-45) : seules les adresses web le sont, comme les ouvertures des pages (ARB-102),
 // car la restauration charge depuis le processus principal. actif est l'indice de l'onglet actif parmi eux, le dernier
 // si aucun n'était marqué (onglet actif écarté ou base écrite à la main).
