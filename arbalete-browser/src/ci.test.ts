@@ -46,3 +46,12 @@ test('aucune étape de la CI ne masque un échec', () => {
   ok(!/continue-on-error/.test(sansCommentaires), 'continue-on-error rendrait un smoke rouge vert')
   ok(!/\bretries?\b/i.test(sansCommentaires), 'pas de nouvel essai automatique')
 })
+
+// Le cache du binaire d'Electron est rangé sous une clé qui nomme sa version : sans ce lien, une mise à jour
+// d'Electron resservirait l'ancien binaire.
+test('la clé du cache du binaire d’Electron porte la version épinglée dans package.json', () => {
+  const version = JSON.parse(readFileSync(racine + 'arbalete-browser/package.json', 'utf8')).devDependencies.electron
+  const cles = [...ci.matchAll(/CLE_CACHE_ELECTRON: (\S+)/g)].map((m) => m[1])
+  strictEqual(cles.length, 2, 'une clé par job')
+  for (const cle of cles) ok(cle.endsWith(`-${version}`), `clé ${cle} sans la version ${version}`)
+})
