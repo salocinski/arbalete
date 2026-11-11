@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.29.0] - 2026-11-11
+
+### Ajouté
+- Vous choisissez la couleur de chaque espace : un clic droit sur le nom de l'espace dans la barre latérale (ou sur son point, en barre compacte) ouvre un menu, « Changer la couleur… » ouvre une fenêtre avec 14 couleurs, et celle que vous choisissez colore aussitôt le filet de la barre, le point du sélecteur et la liste des espaces. Elle revient quand vous fermez puis rouvrez Arbalète. Échap ou un clic à côté referment la fenêtre sans rien changer ; les flèches, Début et Fin parcourent les couleurs au clavier.
+- Les couleurs s'adaptent au thème : des teintes claires en thème sombre, plus profondes en thème clair, toutes assez contrastées pour se distinguer sur la barre latérale.
+
+### Limites connues
+- Les couleurs se choisissent dans une liste de 14 : une couleur libre n'est pas encore possible.
+- Dans la fenêtre de choix, la touche Tab peut sortir de la grille vers la barre latérale ; la fermeture par Échap fonctionne toujours.
+- Si l'enregistrement échoue (disque plein, base verrouillée), la fenêtre se ferme sans message et la couleur reste inchangée.
+- Le rendu n'a été essayé que dans l'aperçu navigateur et par les tests automatiques, pas à la main dans la fenêtre d'Arbalète.
+
 ## [0.12.28.0] - 2026-11-11
 
 ### Ajouté
