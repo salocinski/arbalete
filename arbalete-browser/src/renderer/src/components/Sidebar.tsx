@@ -6,6 +6,7 @@ import { LIBELLES_MENU_PAGE } from '../../../shared/menuPage'
 import { useDownloads, useOverlay, usePageMenu } from '../state'
 import { ColorModal } from './ColorModal'
 import { DownloadsOverlay } from './DownloadsOverlay'
+import { FavoritesPanel } from './FavoritesPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { MenuOverlay } from './Overlay'
 import { PinButton } from './PinButton'
@@ -60,7 +61,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
   const espaceActif = state.workspaces.find((e) => e.id === state.activeWorkspaceId)
 
   useEffect(() => {
-    if (!overlay) { setMenuOnglet(null); setMenuEspace(null); setModaleEspace(null); setPanneauTelechargements(null); setPanneauHistorique(false); setPanneauMoteur(false) }
+    if (!overlay) { setMenuOnglet(null); setMenuEspace(null); setModaleEspace(null); setPanneauTelechargements(null); setPanneauHistorique(false); setPanneauFavoris(false); setPanneauMoteur(false) }
   }, [overlay])
 
   // L'espace a été supprimé pendant que son menu ou sa modale était ouvert : ils n'ont plus d'objet.
@@ -100,6 +101,13 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
     setPanneauHistorique(true)
     void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
       .then((ouvert) => { if (!ouvert) setPanneauHistorique(false) }, () => setPanneauHistorique(false))
+  }
+  // Panneau des favoris (ARB-48) : modale centrée, comme l'historique.
+  const [panneauFavoris, setPanneauFavoris] = useState(false)
+  const ouvrirFavoris = () => {
+    setPanneauFavoris(true)
+    void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
+      .then((ouvert) => { if (!ouvert) setPanneauFavoris(false) }, () => setPanneauFavoris(false))
   }
   // Moteur de recherche (ARB-58) : modale ouverte par « Paramètres », seul réglage pour l'instant.
   const [panneauMoteur, setPanneauMoteur] = useState(false)
@@ -162,7 +170,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
 
           <nav className="sidebar-nav">
             <button className="nav-item" title="Rechercher (Ctrl K)" onClick={() => void window.arbalete.openPalette()}><Search size={16} /><span>Rechercher</span><kbd>Ctrl K</kbd></button>
-            <button className="nav-item" title="Favoris"><Star size={16} /><span>Favoris</span></button>
+            <button className="nav-item" title="Favoris" onClick={ouvrirFavoris}><Star size={16} /><span>Favoris</span></button>
             <button className="nav-item" title="Historique" onClick={ouvrirHistorique}><Clock3 size={16} /><span>Historique</span></button>
           </nav>
 
@@ -201,6 +209,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
       {overlay && panneauTelechargements && (
         <DownloadsOverlay x={panneauTelechargements.x} y={panneauTelechargements.y} downloads={downloads} onClose={fermerOverlay} />
       )}
+      {overlay && panneauFavoris && <FavoritesPanel onClose={fermerOverlay} />}
       {overlay && panneauHistorique && <HistoryPanel onClose={fermerOverlay} />}
       {overlay && panneauMoteur && <SearchEngineModal onClose={fermerOverlay} />}
       {overlay && modaleEspace !== null && espaceDuMenu && (

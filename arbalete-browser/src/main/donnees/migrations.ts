@@ -34,7 +34,7 @@ export const MIGRATIONS: readonly string[] = [
   CREATE INDEX visite_date ON visite (date);
   CREATE INDEX visite_page ON visite (page)`,
   // 4 — Favoris (ARB-47) : une ligne par adresse, avec le titre de la page à l'ajout et la date d'ajout (millisecondes
-  // depuis 1970). Les dossiers (ARB-48) s'ajouteront par une migration.
+  // depuis 1970). Les dossiers (ARB-48) s'ajoutent par la migration 7.
   `CREATE TABLE favori (
     id INTEGER PRIMARY KEY,
     url TEXT NOT NULL UNIQUE,
@@ -62,7 +62,14 @@ export const MIGRATIONS: readonly string[] = [
     recu INTEGER NOT NULL DEFAULT 0,
     etat TEXT NOT NULL CHECK (etat IN ('en-cours', 'en-pause', 'termine', 'annule', 'interrompu')),
     date INTEGER NOT NULL
-  )`
+  )`,
+  // 7 — Dossiers de favoris (ARB-48) : un niveau, dans l'ordre de création ; un favori sans dossier (NULL) reste à la
+  // racine, y compris quand son dossier est supprimé.
+  `CREATE TABLE dossier_favori (
+    id INTEGER PRIMARY KEY,
+    nom TEXT NOT NULL
+  );
+  ALTER TABLE favori ADD COLUMN dossier INTEGER REFERENCES dossier_favori (id) ON DELETE SET NULL`
 ]
 
 export function versionDuSchema(db: DatabaseSync): number {

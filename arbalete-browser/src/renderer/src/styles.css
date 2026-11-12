@@ -105,6 +105,12 @@ html.vue-barre .sidebar-zone { right: 0; }
 .palette-liste { display: grid; max-height: min(360px, 60vh); overflow-y: auto; }
 .history-day { margin: 0; padding: var(--space-2) 10px 4px; color: var(--color-text-secondary); font-size: 11px; font-weight: 600; }
 .history-time { margin-left: auto; padding-left: var(--space-2); color: var(--color-text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* Panneau des favoris (ARB-48) */
+.favorite-folder { display: flex; align-items: center; gap: var(--space-2); }
+.favorite-folder h3 { flex: 1; margin: 0; font: inherit; }
+.favorite-row { padding-block: 4px; }
+.favorite-open { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.favorite-row select { max-width: 120px; height: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: inherit; font: inherit; font-size: 12px; }
 .history-clear { display: grid; gap: var(--space-2); margin: 0; padding: var(--space-2) 10px 0; border: 0; border-top: 1px solid var(--color-border); font-size: 12px; color: var(--color-text-primary); }
 .history-clear legend { padding: 0; color: var(--color-text-secondary); font-size: 11px; font-weight: 600; }
 .history-clear label { display: flex; align-items: center; gap: var(--space-2); }
