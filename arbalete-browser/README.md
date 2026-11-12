@@ -77,6 +77,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 - `src/main/recherche.ts` : placement de la petite vue native de recherche (coin haut-droit de la page) et texte accepté ; sa vue est `?vue=recherche` (`views/FindView.tsx`).
 - `src/main/menuPage.ts` : choix des entrées du menu contextuel d'une page selon le clic (lien, image, sélection) et filtre des adresses web ; liste fermée d'entrées dans `src/shared/menuPage.ts` ; le menu est affiché par la vue de la barre latérale, qui seule choisit une entrée.
 - `src/shared/menuOnglet.ts` : actions du menu d'un onglet (liste fermée validée par le processus principal, canal `browser:tab-action`) et onglets à fermer par « Fermer les autres » (épinglés gardés).
+- `src/shared/ordreOnglets.ts` : nouvel ordre des onglets après un glisser-déposer (canal `browser:move-tab`) ; les onglets des autres espaces gardent leur place.
 - `src/main/suggestions.ts` : construction de la liste des suggestions, flèches et validation des entrées ; la liste est affichée par la vue de la barre latérale (`components/SuggestionsOverlay.tsx`).
 - `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts (session, historique, favoris, espaces, téléchargements) et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.

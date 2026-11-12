@@ -65,6 +65,7 @@ export type BrowserAPI = {
   createTab: (url?: string) => Promise<string>
   closeTab: (id: string) => Promise<void>
   tabAction: (id: string, action: ActionOnglet) => Promise<void>
+  moveTab: (id: string, index: number) => Promise<void>
   activateTab: (id: string) => Promise<void>
   navigate: (url: string) => Promise<void>
   goBack: () => Promise<void>

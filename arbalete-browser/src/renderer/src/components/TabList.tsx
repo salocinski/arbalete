@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { TabItem } from './TabItem'
 import type { BrowserState } from '../../../shared/types'
 
 // onMenu : clic droit sur un onglet, avec la position du pointeur dans la vue (menu de l'onglet, ARB-39).
 export function TabList({ state, onMenu }: { state: BrowserState; onMenu?: (tabId: string, x: number, y: number) => void }) {
   const liste = useRef<HTMLDivElement>(null)
+  const [tenu, setTenu] = useState<string | null>(null) // onglet en cours de glissement (ARB-68)
   const positions = useRef(new Map<string, number>())
   // Les positions ne changent que si la liste des identifiants change, pas à chaque mise à jour de titre ou d'état.
   const cleOrdre = state.tabs.map((tab) => tab.id).join()
@@ -30,7 +31,10 @@ export function TabList({ state, onMenu }: { state: BrowserState; onMenu?: (tabI
 
   return (
     <div className="tab-list" ref={liste}>
-      {state.tabs.map((tab) => <TabItem key={tab.id} tab={tab} active={tab.id === state.activeTabId} onSelect={() => void window.arbalete.activateTab(tab.id)} onClose={() => void window.arbalete.closeTab(tab.id)}
+      {state.tabs.map((tab, index) => <TabItem key={tab.id} tab={tab} active={tab.id === state.activeTabId}
+        drag={{ dragging: tenu === tab.id, onDragStart: () => setTenu(tab.id), onDragEnd: () => setTenu(null),
+          onDrop: (id) => { if (id) void window.arbalete.moveTab(id, index); setTenu(null) } }}
+        onSelect={() => void window.arbalete.activateTab(tab.id)} onClose={() => void window.arbalete.closeTab(tab.id)}
         onMenu={(x, y) => onMenu?.(tab.id, x, y)} />)}
     </div>
   )

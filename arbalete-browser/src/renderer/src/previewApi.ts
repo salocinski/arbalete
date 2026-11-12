@@ -16,6 +16,7 @@ import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } 
  */
 
 import { ongletsAFermer } from '../../shared/menuOnglet'
+import { fusionnerOrdre, ordreApresDeplacementOnglet } from '../../shared/ordreOnglets'
 type PreviewTab = BrowserTab & { history: string[]; index: number }
 
 let previewMode = false
@@ -224,6 +225,12 @@ export function installPreviewApi(): boolean {
         activeTabId = id
         emit()
       }
+    },
+    moveTab: async (id, index) => {
+      const ordre = ordreApresDeplacementOnglet(visible().map((tab) => tab.id), id, index)
+      const nouveaux = fusionnerOrdre(tabs.map((tab) => tab.id), visible().map((tab) => tab.id), ordre)
+      tabs.sort((a, b) => nouveaux.indexOf(a.id) - nouveaux.indexOf(b.id))
+      emit()
     },
     activateTab: async (id) => {
       if (!visible().some((tab) => tab.id === id)) return

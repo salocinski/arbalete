@@ -7,16 +7,23 @@ import type { BrowserTab } from '../../../shared/types'
 // Onglet de la barre latérale (DESIGN.md §5.3). Les états passent par des classes `tab-item--<état>` (tabState.ts) ;
 // l'indicateur sonore et l'état Muted sont des icônes en plus de la couleur, jamais la couleur seule.
 // shortcut: Muted s'affiche sans bouton pour couper le son ; à brancher avec la gestion du son par onglet.
-export function TabItem({ tab, active, onSelect, onClose, onMenu }: { tab: BrowserTab; active: boolean; onSelect: () => void; onClose: () => void; onMenu: (x: number, y: number) => void }) {
+// Glisser-déposer (ARB-68) : `drag` relie l'élément à la liste, qui garde l'onglet tenu et décide du déplacement.
+// L'identifiant voyage dans le glissé : un dépôt venu d'ailleurs (texte, fichier) n'en porte pas et ne déplace rien.
+const TYPE_GLISSE = 'application/x-arbalete-tab'
+export type GlisserOnglet = { onDragStart: () => void; onDrop: (id: string) => void; onDragEnd: () => void; dragging: boolean }
+export function TabItem({ tab, active, onSelect, onClose, onMenu, drag }: { tab: BrowserTab; active: boolean; onSelect: () => void; onClose: () => void; onMenu: (x: number, y: number) => void; drag?: GlisserOnglet }) {
   const etats = etatsOnglet(tab, active)
   const son = iconeSonore(tab)
   const favicon = iconeFavicon(tab)
   const sonore = son === 'muet' ? <span className="tab-audio" title="Onglet muet"><VolumeX size={12}/></span>
     : son === 'son' ? <span className="tab-audio" title="Cet onglet joue du son"><Volume2 size={12}/></span> : null
   return (
-    <div className={cx('tab-item', ...etats.map((etat) => `tab-item--${etat}`))} data-tab-id={tab.id} onContextMenu={(event) => { event.preventDefault(); onMenu(event.clientX, event.clientY) }}>
+    <div className={cx('tab-item', ...etats.map((etat) => `tab-item--${etat}`), drag?.dragging && 'tab-item--dragging')} data-tab-id={tab.id}
+      draggable={!!drag} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(TYPE_GLISSE, tab.id); drag?.onDragStart() }}
+      onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); drag?.onDrop(event.dataTransfer.getData(TYPE_GLISSE)) }} onDragEnd={drag?.onDragEnd}
+      onContextMenu={(event) => { event.preventDefault(); onMenu(event.clientX, event.clientY) }}>
       <button className="tab-select" title={tab.title} aria-current={active ? 'page' : undefined} onClick={onSelect}>
-        <span className="tab-favicon">{favicon === 'erreur' ? <AlertTriangle size={14}/> : favicon === 'chargement' ? <Loader2 size={14} className="tab-spinner"/> : tab.favicon ? <img className="tab-favicon-img" src={tab.favicon} alt="" width={14} height={14}/> : <Globe2 size={14}/>}</span>
+        <span className="tab-favicon">{favicon === 'erreur' ? <AlertTriangle size={14}/> : favicon === 'chargement' ? <Loader2 size={14} className="tab-spinner"/> : tab.favicon ? <img className="tab-favicon-img" draggable={false} src={tab.favicon} alt="" width={14} height={14}/> : <Globe2 size={14}/>}</span>
         <span className="tab-title">{tab.title}</span>
         {sonore}
         {etats.includes('error') && <span className="sr-only">, erreur de chargement</span>}

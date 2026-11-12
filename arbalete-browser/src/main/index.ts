@@ -15,6 +15,7 @@ import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type
 import { placerRecherche, texteRecherche } from './recherche.ts'
 import { entreeMenuPageValide, type EntreeMenuPage, type MenuPage } from '../shared/menuPage.ts'
 import { adresseWeb, entreesMenuPage } from './menuPage.ts'
+import { reordonnerOnglets } from '../shared/ordreOnglets.ts'
 import { estActionOnglet, ongletsAFermer, type ActionOnglet } from '../shared/menuOnglet.ts'
 import { SUGGESTIONS_MAX, construireSuggestions, deplacerSelection, indexValide, texteSuggestion } from './suggestions.ts'
 import { faviconAcceptable } from './favicon.ts'
@@ -1402,6 +1403,13 @@ app.whenReady().then(() => {
   traiter('browser:tab-action', (id, action) => {
     if (!estActionOnglet(action)) throw new Error('Argument IPC invalide : action inconnue')
     actionOnglet(exigerTexte(id), action)
+  })
+  // Réordonner (ARB-68) : l'index vise la liste de l'espace affiché ; la Map, et donc la session écrite, suit l'ordre.
+  traiter('browser:move-tab', (id, index) => {
+    const nouveau = reordonnerOnglets(tabs, ongletsVisibles(), exigerTexte(id), exigerEntier(index))
+    tabs.clear()
+    for (const [cle, record] of nouveau) tabs.set(cle, record)
+    broadcastState()
   })
   traiter('browser:activate-tab', (valeur) => {
     const id = exigerTexte(valeur)
