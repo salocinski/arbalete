@@ -16,6 +16,7 @@ import { placerRecherche, texteRecherche } from './recherche.ts'
 import { entreeMenuPageValide, type EntreeMenuPage, type MenuPage } from '../shared/menuPage.ts'
 import { adresseWeb, entreesMenuPage } from './menuPage.ts'
 import { reordonnerOnglets } from '../shared/ordreOnglets.ts'
+import { construirePalette, type ActionPalette, type EntreePalette } from '../shared/palette.ts'
 import { estActionOnglet, ongletsAFermer, type ActionOnglet } from '../shared/menuOnglet.ts'
 import { SUGGESTIONS_MAX, construireSuggestions, deplacerSelection, indexValide, texteSuggestion } from './suggestions.ts'
 import { faviconAcceptable } from './favicon.ts'
@@ -68,6 +69,9 @@ let suggestions: SuggestionsState | null = null
 // Menu contextuel d'une page (ARB-40) : tenu ici avec l'adresse du lien et de l'image du clic, que l'interface ne voit
 // pas ; elle n'envoie que l'entrée choisie. Fermé avec l'overlay.
 let menuPage: (MenuPage & { tabId: string, lien: string, image: string, pageX: number, pageY: number }) | null = null
+// Palette de commandes (ARB-67) : les lignes proposées, avec la clé (onglet, adresse, action) que l'interface ne choisit
+// que par index. null tant qu'elle est fermée ; fermée avec l'overlay.
+let palette: EntreePalette[] | null = null
 let choixTheme: ThemeChoice = 'system'
 // Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
 // --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
@@ -85,6 +89,19 @@ function themeEffectif(): 'dark' | 'light' {
 function overlayBoutons() {
   const theme = themeEffectif()
   return { color: FOND_FENETRE[theme], symbolColor: SYMBOLES_FENETRE[theme], height: HAUTEUR_BARRE_CONTROLE }
+}
+// Thème choisi (set-theme, palette) : tenu ici, écrit en base, diffusé aux interfaces (ARB-59).
+function appliquerTheme(choix: ThemeChoice) {
+  choixTheme = choix
+  if (base) {
+    try {
+      ecrireTheme(base, choixTheme)
+    } catch (erreur) {
+      console.error('Thème non enregistré :', erreur)
+    }
+  }
+  envoyerAuxInterfaces('browser:theme', choixTheme)
+  appliquerThemeFenetre()
 }
 // Fond natif et boutons Windows suivent le thème effectif.
 function appliquerThemeFenetre() {
@@ -348,12 +365,19 @@ function fermerOverlay() {
   overlayOuvert = false
   const duChamp = suggestions !== null
   const duMenu = menuPage !== null
+  const dePalette = palette !== null
   suggestions = null
   menuPage = null
+  palette = null
   placerBarre()
   envoyerAuxInterfaces('browser:overlay', false)
   envoyerAuxInterfaces('browser:suggestions', null)
   if (duMenu) envoyerAuxInterfaces('browser:page-menu', null)
+  if (dePalette) {
+    envoyerAuxInterfaces('browser:palette', null)
+    // Le champ de la palette avait le clavier : il revient à la page, barre épinglée comprise.
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()) activeRecord()?.view.webContents.focus()
+  }
   if (!mainWindow || mainWindow.isDestroyed() || barre.pinned) return
   const pointeur = screen.getCursorScreenPoint()
   const zone = mainWindow.getContentBounds()
@@ -404,6 +428,53 @@ function agirSurMenuPage(entree: EntreeMenuPage) {
   else if (entree === 'copier-lien') clipboard.writeText(menu.lien)
   else if (entree === 'enregistrer-image') wc.downloadURL(menu.image)
   else wc.inspectElement(menu.pageX, menu.pageY)
+}
+
+// Palette de commandes (ARB-67) : onglets de l'espace affiché, favoris, pages de l'historique et actions qui correspondent
+// au texte. Sans texte, l'historique n'est pas lu.
+function entreesPalette(texte: string) {
+  let favoris: { url: string, titre: string }[] = []
+  let pages: { url: string, titre: string }[] = []
+  if (base) {
+    try {
+      favoris = texte ? favorisGrille(base, 500) : []
+      pages = texte ? rechercherPages(base, texte, 20) : []
+    } catch (erreur) {
+      console.error('Favoris ou historique non lus pour la palette :', erreur)
+    }
+  }
+  const ouverts = [...tabs.values()].filter((tab) => tab.espace === espaceActif)
+    .map(({ data }) => ({ id: data.id, titre: data.title, url: data.url, adresse: adresseHistorique(data.url) ?? data.url }))
+  return construirePalette(texte, ouverts, favoris, pages)
+}
+
+// Ctrl+K ou le bouton « Rechercher » : la vue de la barre prend le clavier, son champ cherche. Un overlay déjà ouvert n'est
+// pas remplacé.
+function ouvrirPalette() {
+  if (overlayOuvert || !barreView) return
+  palette = entreesPalette('')
+  ouvrirOverlay()
+  if (!overlayOuvert) { palette = null; return }
+  barreView.webContents.focus()
+  envoyerAuxInterfaces('browser:palette', palette)
+}
+
+// `cle` est celle de la ligne affichée : si la liste a changé entre-temps (frappe puis Entrée), le choix est refusé.
+function choisirPalette(index: number, cle: string) {
+  const entree = palette?.[index]
+  if (!entree || entree.cle !== cle) return
+  fermerOverlay()
+  if (entree.kind === 'onglet') activerAutreOnglet(entree.cle)
+  else if (entree.kind === 'favori') { ouvrirFavori(entree.cle); activeRecord()?.view.webContents.focus() }
+  else if (entree.kind === 'historique') { if (adresseWeb(entree.cle)) createTab(entree.cle); activeRecord()?.view.webContents.focus() }
+  else actionPalette(entree.cle as ActionPalette)
+}
+
+function actionPalette(action: ActionPalette) {
+  if (action === 'nouvel-onglet') { createTab(); focaliserAdresse() }
+  else if (action === 'rouvrir-onglet') { rouvrirOnglet(); activeRecord()?.view.webContents.focus() }
+  else if (action === 'theme') appliquerTheme(themeEffectif() === 'dark' ? 'light' : 'dark')
+  else agirSurBarre('toggle-pin')
 }
 
 // Navigation de l'onglet actif vers un texte tapé ou une adresse (barre d'adresse, suggestions).
@@ -758,6 +829,7 @@ function actionDuRaccourci(input: Electron.Input): (() => void) | undefined {
     }
     if (touche === 'l') return focaliserAdresse
     if (touche === 'f') return ouvrirRecherche
+    if (touche === 'k') return ouvrirPalette
   } else if (input.alt && !input.control && !input.shift && !input.meta) {
     if (input.key === 'ArrowLeft') return reculer
     if (input.key === 'ArrowRight') return avancer
@@ -1367,18 +1439,7 @@ app.whenReady().then(() => {
   })
   // Le thème choisi est tenu ici pour que la fenêtre et la barre latérale l'affichent ensemble.
   traiter('browser:get-theme', () => choixTheme)
-  traiter('browser:set-theme', (valeur) => {
-    choixTheme = exigerChoix(valeur, THEMES)
-    if (base) {
-      try {
-        ecrireTheme(base, choixTheme)
-      } catch (erreur) {
-        console.error('Thème non enregistré :', erreur)
-      }
-    }
-    envoyerAuxInterfaces('browser:theme', choixTheme)
-    appliquerThemeFenetre()
-  })
+  traiter('browser:set-theme', (valeur) => appliquerTheme(exigerChoix(valeur, THEMES)))
   traiter('browser:get-sidebar', () => ({ ...barre }))
   traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin', 'toggle-compact'] as const)))
   traiter('browser:set-sidebar-width', (valeur) => {
@@ -1456,6 +1517,24 @@ app.whenReady().then(() => {
     return true
   })
   traiter('browser:get-suggestions', () => suggestions)
+  // Palette de commandes (ARB-67) : seule la vue de la barre, qui l'affiche et porte son champ, l'ouvre, cherche et choisit.
+  const exigerBarre = (event: IpcMainInvokeEvent) => {
+    if (!emetteurAutorise(event) || event.sender !== barreView?.webContents) throw new Error('Émetteur IPC non autorisé')
+  }
+  traiter('browser:get-palette', () => palette)
+  ipcMain.handle('browser:open-palette', (event) => { exigerBarre(event); ouvrirPalette() })
+  ipcMain.handle('browser:palette-search', (event, texte) => {
+    exigerBarre(event)
+    const recherche = texteSuggestion(texte)
+    if (!palette) return
+    palette = entreesPalette(recherche)
+    envoyerAuxInterfaces('browser:palette', palette)
+  })
+  ipcMain.handle('browser:palette-choose', (event, index, cle) => {
+    exigerBarre(event)
+    const rang = indexValide(index, palette?.length ?? 0)
+    if (rang !== undefined && typeof cle === 'string') choisirPalette(rang, cle)
+  })
   // Menu contextuel d'une page (ARB-40) : seule la vue de la barre, qui l'affiche, choisit une entrée.
   traiter('browser:get-page-menu', () => menuPage && { x: menuPage.x, y: menuPage.y, entrees: menuPage.entrees })
   ipcMain.handle('browser:page-menu-action', (event, valeur) => {

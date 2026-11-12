@@ -96,6 +96,10 @@ html.vue-barre .sidebar-zone { right: 0; }
 .suggestion:hover, .suggestion[aria-selected="true"] { background: var(--color-surface-hover); }
 .suggestion-title { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .suggestion-url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); font-size: 12px; }
+/* Palette de commandes (ARB-67) : modale centrée, champ puis liste défilante. */
+.palette { box-sizing: border-box; width: 560px; max-width: calc(100vw - 32px); display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-floating); color: var(--color-text-primary); }
+.palette-liste { display: grid; max-height: min(360px, 60vh); overflow-y: auto; }
+.palette-vide { margin: 0; padding: var(--space-3) 10px; color: var(--color-text-secondary); font-size: 12px; }
 /* Recherche dans la page (ARB-70) : la vue native a la taille de la barre (44 px), arrondie par setBorderRadius. */
 html.vue-recherche, html.vue-recherche body { background: transparent; min-width: 0; min-height: 0; overflow: hidden; }
 .find-bar { box-sizing: border-box; display: flex; align-items: center; gap: var(--space-1); height: 100vh; padding: 0 var(--space-2) 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); }

@@ -2,6 +2,7 @@ import type { Espace } from './espaces'
 import type { Telechargement } from './telechargements'
 import type { EntreeMenuPage, MenuPage } from './menuPage'
 import type { ActionOnglet } from './menuOnglet'
+import type { EntreePalette } from './palette'
 
 export type BrowserTab = {
   id: string
@@ -100,6 +101,14 @@ export type BrowserAPI = {
   getPageMenu: () => Promise<MenuPage | null>
   onPageMenu: (callback: (menu: MenuPage | null) => void) => () => void
   pageMenuAction: (entree: EntreeMenuPage) => Promise<void>
+  // Palette de commandes Ctrl+K (ARB-67) : le processus principal l'ouvre au raccourci (ou à `openPalette`, bouton « Rechercher »),
+  // garde les lignes proposées et les diffuse (null : fermée) ; le champ de la vue de la barre envoie son texte
+  // (`searchPalette`) et l'index de la ligne choisie (`choosePalette`), qui ferme l'overlay et agit. Index hors liste : sans effet.
+  getPalette: () => Promise<EntreePalette[] | null>
+  onPalette: (callback: (lignes: EntreePalette[] | null) => void) => () => void
+  openPalette: () => Promise<void>
+  searchPalette: (text: string) => Promise<void>
+  choosePalette: (index: number, cle: string) => Promise<void>
   // Recherche dans la page (ARB-70), pilotée par la seule vue de la recherche. `next` : continuer la recherche en cours
   // (Entrée) plutôt que la recommencer (frappe) ; `forward` faux remonte. Un texte vide efface les résultats.
   findInPage: (text: string, forward: boolean, next: boolean) => Promise<void>

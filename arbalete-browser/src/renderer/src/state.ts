@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ETAT_BARRE_INITIAL } from '../../shared/barre'
 import type { Telechargement } from '../../shared/telechargements'
 import type { MenuPage } from '../../shared/menuPage'
+import type { EntreePalette } from '../../shared/palette'
 import type { BrowserState, DataIncident, SidebarState, SuggestionsState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
@@ -92,6 +93,16 @@ export function useSuggestions(): SuggestionsState | null {
     return window.arbalete.onSuggestions(setState)
   }, [])
   return state
+}
+
+// Palette de commandes (ARB-67) : lignes proposées, null tant qu'elle est fermée.
+export function usePalette(): EntreePalette[] | null {
+  const [lignes, setLignes] = useState<EntreePalette[] | null>(null)
+  useEffect(() => {
+    void window.arbalete.getPalette().then(setLignes).catch(() => {})
+    return window.arbalete.onPalette(setLignes)
+  }, [])
+  return lignes
 }
 
 // Choix de thème tenu par le processus principal, partagé par la fenêtre et la barre latérale.

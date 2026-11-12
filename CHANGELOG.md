@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.35.0] - 2026-11-12
+
+### Ajouté
+- Ctrl+K (ou le bouton « Rechercher » de la barre latérale) ouvre la palette de commandes : taper « git » puis Entrée active l’onglet GitHub. Elle cherche dans les onglets de l’espace affiché, quatre actions (nouvel onglet, rouvrir le dernier onglet fermé, basculer clair / sombre, épingler la barre), les favoris et l’historique ; chaque mot tapé doit se trouver dans le titre ou l’adresse. Flèches, Entrée ou clic choisissent, Échap ferme et rend le clavier à la page.
+
+### Limites connues
+- Les accents ne sont pas repliés (« theme » ne trouve pas « thème »), et la liste des actions est fixe.
+- Choisir un favori, une page d’historique, « Rouvrir le dernier onglet fermé » ou « Épingler la barre » n’est couvert que par les tests unitaires de la recherche ; l’aperçu navigateur n’a pas de palette, et le clavier AZERTY réel n’a pas été essayé à la main.
+
 ## [0.12.34.0] - 2026-11-12
 
 ### Ajouté
