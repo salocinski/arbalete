@@ -1,5 +1,6 @@
 import type { Espace } from './espaces'
 import type { Telechargement } from './telechargements'
+import type { EntreeMenuPage, MenuPage } from './menuPage'
 
 export type BrowserTab = {
   id: string
@@ -91,6 +92,11 @@ export type BrowserAPI = {
   closeSuggestions: () => Promise<void>
   getSuggestions: () => Promise<SuggestionsState | null>
   onSuggestions: (callback: (state: SuggestionsState | null) => void) => () => void
+  // Menu contextuel des pages (ARB-40) : le processus principal le décide et l'ouvre au clic droit dans la page ; la vue de
+  // la barre l'affiche et ne renvoie que l'entrée choisie (`pageMenuAction`), qui ferme l'overlay.
+  getPageMenu: () => Promise<MenuPage | null>
+  onPageMenu: (callback: (menu: MenuPage | null) => void) => () => void
+  pageMenuAction: (entree: EntreeMenuPage) => Promise<void>
   // Recherche dans la page (ARB-70), pilotée par la seule vue de la recherche. `next` : continuer la recherche en cours
   // (Entrée) plutôt que la recommencer (frappe) ; `forward` faux remonte. Un texte vide efface les résultats.
   findInPage: (text: string, forward: boolean, next: boolean) => Promise<void>

@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.32.0] - 2026-11-11
+
+### Ajouté
+- Un clic droit dans une page ouvre un menu : « Précédent » et « Suivant » (quand c’est possible) et « Recharger » sur la page, « Ouvrir le lien dans un nouvel onglet » et « Copier l’adresse du lien » sur un lien, « Enregistrer l’image » sur une image, « Copier » sur un texte sélectionné.
+- Le menu se ferme avec Échap, un clic ailleurs ou le choix d’une entrée. Les liens javascript:, data: et blob: n’offrent aucune entrée de lien.
+
+### Limites connues
+- « Inspecter » n’apparaît que dans Arbalète lancée en développement.
+- Pas de correcteur orthographique ni de menu dans les champs de saisie.
+- Le rendu du menu et le vrai clic droit (Enregistrer l’image, Copier, Inspecter) n’ont pas été essayés à la main dans la fenêtre d’Arbalète.
+
 ## [0.12.31.0] - 2026-11-11
 
 ### Ajouté

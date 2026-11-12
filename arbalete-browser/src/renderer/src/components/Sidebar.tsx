@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, Clock3, Download, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Star } from 'lucide-react'
 import { LARGEUR_ETENDUE_MAX, LARGEUR_ETENDUE_MIN, barreCompacte, largeurApresTouche, largeurBarre } from '../../../shared/barre'
 import type { BrowserState, SidebarState } from '../../../shared/types'
-import { useDownloads, useOverlay } from '../state'
+import { LIBELLES_MENU_PAGE } from '../../../shared/menuPage'
+import { useDownloads, useOverlay, usePageMenu } from '../state'
 import { ColorModal } from './ColorModal'
 import { DownloadsOverlay } from './DownloadsOverlay'
 import { MenuOverlay } from './Overlay'
@@ -92,6 +93,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
       .then((ouvert) => { if (!ouvert) setPanneauTelechargements(null) }, () => setPanneauTelechargements(null))
   }
   const fermerOverlay = () => void window.arbalete.setOverlay(false)
+  const menuPage = usePageMenu()
 
   // L'utilisateur y travaille encore : menu des espaces ouvert ou champ de saisie actif. Un simple clic sur un bouton
   // (onglet, nouvel onglet) ne la retient pas : sinon elle resterait sur la page après le geste principal.
@@ -165,6 +167,11 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
           { label: 'Nouvel onglet', action: () => void window.arbalete.createTab() },
           { label: 'Fermer l’onglet', action: () => void window.arbalete.closeTab(ongletDuMenu.id) }
         ]} />
+      )}
+      {overlay && menuPage && (
+        // `remplace` : le processus principal ferme l'overlay en agissant, après avoir lu l'adresse qu'il a gardée.
+        <MenuOverlay x={menuPage.x} y={menuPage.y} label="Page" onClose={fermerOverlay}
+          entrees={menuPage.entrees.map((entree) => ({ label: LIBELLES_MENU_PAGE[entree], remplace: true, action: () => void window.arbalete.pageMenuAction(entree) }))} />
       )}
       {overlay && menuEspace && espaceDuMenu && (
         <MenuOverlay x={menuEspace.x} y={menuEspace.y} label={`Espace ${espaceDuMenu.nom}`} onClose={fermerOverlay} entrees={[
