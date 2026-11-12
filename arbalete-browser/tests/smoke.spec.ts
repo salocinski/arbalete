@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { createServer, type Server } from 'node:http'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer, type Server, type ServerResponse } from 'node:http'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
@@ -44,6 +44,30 @@ const pages: Record<string, string> = {
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">`
 }
 
+const MO = 1024 * 1024
+const TAILLE_GROS_FICHIER = 100 * MO
+
+// Le serveur respecte la contre-pression : un téléchargement en pause (Chromium cesse de lire) arrête l'envoi.
+async function envoyerGrosFichier(res: ServerResponse, ms: number) {
+  res.writeHead(200, {
+    'content-type': 'application/octet-stream',
+    'content-length': String(TAILLE_GROS_FICHIER),
+    'content-disposition': 'attachment; filename="gros-fichier.bin"'
+  })
+  const bloc = Buffer.alloc(MO, 97)
+  for (let envoye = 0; envoye < TAILLE_GROS_FICHIER && !res.destroyed; envoye += MO) {
+    if (!res.write(bloc)) {
+      await new Promise<void>((fin) => {
+        const fini = () => { res.off('drain', fini); res.off('close', fini); fin() }
+        res.once('drain', fini)
+        res.once('close', fini)
+      })
+    }
+    await new Promise((fin) => setTimeout(fin, ms))
+  }
+  res.end()
+}
+
 // Nombre de requêtes reçues par chemin : prouve qu'un rechargement repasse bien par le réseau.
 const requetes: Record<string, number> = {}
 
@@ -60,6 +84,11 @@ test.describe.configure({ mode: 'serial' })
 
 test.beforeAll(async () => {
   serveur = createServer((req, res) => {
+    // Fichier de 100 Mo envoyé par blocs de 1 Mo, un bloc toutes les `ms` millisecondes (ARB-55).
+    if (req.url?.startsWith('/gros-fichier.bin')) {
+      void envoyerGrosFichier(res, Number(new URL(req.url, 'http://x').searchParams.get('ms') ?? 20))
+      return
+    }
     const corps = pages[req.url ?? '']
     requetes[req.url ?? ''] = (requetes[req.url ?? ''] ?? 0) + 1
     res.writeHead(corps ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' })
@@ -3193,5 +3222,81 @@ test('C65 : F11 bascule le plein écran depuis la page, la barre et la fenêtre,
     expect(await pleinEcran()).toBe(false)
   } finally {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setFullScreen(false))
+  }
+})
+
+// Value: protects=ARB-55 : une page qui lance un téléchargement de 100 Mo le voit enregistré sans invite dans le dossier
+//   Téléchargements (celui du profil de test), avec sa progression ; pause, reprise puis fin (fichier de 100 Mo complet),
+//   un second téléchargement du même nom prend « (1) » puis s'annule, la liste du panneau (vue de la barre) reflète les
+//   états et permet de retirer une ligne terminée, et un téléchargement actif ne se retire pas; fails_when=will-download
+//   n'est plus écouté (boîte « Enregistrer sous » ou fichier perdu), la pause ne retient pas l'envoi, un nom existant est
+//   écrasé, l'annulation ne donne pas l'état annulé, ou un id aberrant est accepté par les canaux; why_new=aucun test
+//   n'atteint les téléchargements; seam=downloadURL de la page de l'onglet actif (la page elle-même n'a pas de lien
+//   cliqué); no_claim=ni la persistance au redémarrage (test unitaire du dépôt et du gestionnaire), ni le dossier
+//   Téléchargements réel de l'utilisateur, ni le rendu visuel du panneau (aperçu web).
+test('C78 : téléchargement de 100 Mo avec progression, pause, reprise, annulation, liste et retrait', async () => {
+  test.setTimeout(90_000)
+  const liste = () => ui.evaluate(() => window.arbalete.getDownloads())
+  const lancer = (ms: number) => app.evaluate(({ BrowserWindow, WebContentsView }, url) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children
+      .find((enfant) => enfant instanceof WebContentsView && /^https?:/.test(enfant.webContents.getURL())) as InstanceType<typeof WebContentsView>
+    vue.webContents.downloadURL(url)
+  }, `${origine}/gros-fichier.bin?ms=${ms}`)
+  const dossier = join(profil, 'telechargements')
+
+  // Premier téléchargement, rapide : progression en cours puis pause.
+  await lancer(30)
+  await expect.poll(async () => (await liste())[0]).toMatchObject({ nom: 'gros-fichier.bin', etat: 'en-cours', total: TAILLE_GROS_FICHIER })
+  await expect.poll(async () => (await liste())[0].recu).toBeGreaterThan(0)
+  const premier = (await liste())[0]
+  expect(premier.chemin).toBe(join(dossier, 'gros-fichier.bin'))
+  await ui.evaluate((id) => window.arbalete.pauseDownload(id), premier.id)
+  await expect.poll(async () => (await liste())[0].etat).toBe('en-pause')
+  // L'envoi s'arrête : les octets reçus ne bougent plus (quelques blocs déjà en route peuvent encore arriver).
+  let recuEnPause = (await liste())[0].recu
+  await expect.poll(async () => {
+    const maintenant = (await liste())[0].recu
+    const stable = maintenant === recuEnPause
+    recuEnPause = maintenant
+    return stable
+  }, { timeout: 15_000, intervals: [500] }).toBe(true)
+  expect(recuEnPause).toBeLessThan(TAILLE_GROS_FICHIER)
+  expect((await liste())[0].etat).toBe('en-pause')
+
+  // Un téléchargement actif ne se retire pas ; un id aberrant est refusé.
+  await ui.evaluate((id) => window.arbalete.removeDownload(id), premier.id)
+  expect((await liste()).length).toBe(1)
+  await expect(ui.evaluate(() => window.arbalete.pauseDownload('1' as never))).rejects.toThrow()
+
+  // Reprise puis fin : le fichier est complet.
+  await ui.evaluate((id) => window.arbalete.resumeDownload(id), premier.id)
+  await expect.poll(async () => (await liste())[0].etat, { timeout: 30_000 }).toBe('termine')
+  expect((await liste())[0].recu).toBe(TAILLE_GROS_FICHIER)
+  expect(statSync(premier.chemin).size).toBe(TAILLE_GROS_FICHIER)
+
+  // Second téléchargement du même nom, lent : il ne l'écrase pas, puis s'annule.
+  await lancer(200)
+  await expect.poll(async () => (await liste())[0]).toMatchObject({ nom: 'gros-fichier (1).bin', etat: 'en-cours' })
+  await expect.poll(async () => (await liste())[0].recu).toBeGreaterThan(0)
+  const second = (await liste())[0]
+  await ui.evaluate((id) => window.arbalete.cancelDownload(id), second.id)
+  await expect.poll(async () => (await liste())[0].etat).toBe('annule')
+  expect(statSync(premier.chemin).size).toBe(TAILLE_GROS_FICHIER)
+
+  // Le panneau de la vue de la barre liste les deux, du plus récent au plus ancien, et retire une ligne terminée.
+  await epinglerBarre(true)
+  try {
+    await barreUi.getByRole('button', { name: 'Téléchargements' }).click()
+    const lignes = barreUi.getByTestId('download-item')
+    await expect(lignes).toHaveCount(2)
+    await expect(lignes.nth(0)).toContainText('gros-fichier (1).bin')
+    await expect(lignes.nth(0)).toContainText('Annulé')
+    await expect(lignes.nth(1)).toContainText('Terminé')
+    await lignes.nth(0).getByRole('button', { name: 'Retirer de la liste' }).click()
+    await expect(lignes).toHaveCount(1)
+    expect((await liste()).map((t) => t.nom)).toEqual(['gros-fichier.bin'])
+  } finally {
+    if (await barreUi.evaluate(() => window.arbalete.getOverlay())) await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+    await epinglerBarre(false)
   }
 })

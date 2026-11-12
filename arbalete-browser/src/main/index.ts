@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, WebContentsView, ipcMain, screen, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import { mkdirSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
@@ -25,6 +26,7 @@ import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnee
 import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
 import { creerEspace, ecrireEspaceActif, lireEspaceActif, lireEspaces, modifierEspace, ordonnerEspaces, semerEspaces, supprimerEspace } from './donnees/espaces.ts'
 import { champsNouvelEspace, ordreApresDeplacement, type CouleurEspace, type Espace } from '../shared/espaces.ts'
+import { creerGestionnaire } from './gestionnaireTelechargements.ts'
 
 const CHEMIN_INTERFACE = join(__dirname, '../renderer/index.html')
 // shortcut: icône lue sur disque (dev et build), l'empaquetage devra la fournir à l'installeur (EP-14).
@@ -118,7 +120,11 @@ function adressesLancees(valeurs: unknown): string[] {
 // unique, qui dépend du dossier userData : l'app des tests ne bute donc pas sur un Arbalète déjà ouvert. Ignoré dans
 // l'app empaquetée.
 const profilTest = app.isPackaged ? undefined : process.env.ARBALETE_PROFIL_TEST
-if (profilTest && isAbsolute(profilTest)) app.setPath('userData', profilTest)
+if (profilTest && isAbsolute(profilTest)) {
+  app.setPath('userData', profilTest)
+  // Les téléchargements des tests (ARB-55) ne vont jamais dans le dossier Téléchargements de l'utilisateur.
+  app.setPath('downloads', join(profilTest, 'telechargements'))
+}
 
 const adressesAuLancement = adressesLancees(process.argv.slice(1))
 // Les adresses passent par additionalData : Windows peut réordonner ou compléter l'argv reçu par second-instance.
@@ -208,6 +214,17 @@ function contenusInterface(): WebContents[] {
 function envoyerAuxInterfaces(canal: string, valeur: unknown) {
   for (const contenu of contenusInterface()) contenu.send(canal, valeur)
 }
+
+// Téléchargements (ARB-55) : enregistrés sans invite dans le dossier Téléchargements de l'utilisateur (créé au besoin).
+const telechargements = creerGestionnaire({
+  dossier: () => {
+    const dossier = app.getPath('downloads')
+    mkdirSync(dossier, { recursive: true })
+    return dossier
+  },
+  base: () => base,
+  diffuser: (liste) => envoyerAuxInterfaces('browser:downloads', liste)
+})
 
 // Session des onglets (ARB-44) : écrite une seconde après le dernier changement, au plus tard 5 secondes après le
 // premier, et à la fermeture. Les chargements changent l'état sans changer la session : une session identique à la
@@ -1228,6 +1245,8 @@ app.whenReady().then(() => {
     } catch (erreur) {
       console.error('Barre latérale non relue :', erreur)
     }
+    // Historique des téléchargements (ARB-55) : ceux restés actifs à l'arrêt précédent deviennent interrompus.
+    telechargements.charger()
     // Une base neuve mise à la place d'une base corrompue sans copie utilisable ne doit pas écraser les copies qui
     // existent encore : aucune copie pendant cette session.
     copiesSuspendues = ouverture.incident?.type === 'corrompue' && !ouverture.incident.restauree
@@ -1242,6 +1261,15 @@ app.whenReady().then(() => {
   })
   // Le refus vaut aussi pour les vérifications (navigator.permissions, accès sans demande) et les périphériques
   // (ARB-120) : sans ces gestionnaires, Electron les accorde et les pages se voient tout permis.
+  // Téléchargements (ARB-55) : un échec (dossier illisible…) annule le téléchargement sans faire tomber le processus.
+  session.defaultSession.on('will-download', (_event, item) => {
+    try {
+      telechargements.nouveau(item)
+    } catch (erreur) {
+      console.error('Téléchargement refusé :', erreur)
+      item.cancel()
+    }
+  })
   session.defaultSession.setPermissionCheckHandler(() => false)
   session.defaultSession.setDevicePermissionHandler(() => false)
   session.defaultSession.on('select-hid-device', (event, _details, callback) => {
@@ -1354,6 +1382,11 @@ app.whenReady().then(() => {
   traiter('browser:set-workspace-color', (id, couleur) => colorerEspace(exigerEntier(id), exigerTexte(couleur)))
   traiter('browser:move-workspace', (id, sens) => deplacerEspace(exigerEntier(id), exigerSens(sens)))
   traiter('browser:delete-workspace', (id) => supprimerEspaceUtilisateur(exigerEntier(id)))
+  traiter('browser:get-downloads', () => telechargements.liste())
+  traiter('browser:pause-download', (id) => telechargements.pause(exigerEntier(id)))
+  traiter('browser:resume-download', (id) => telechargements.reprendre(exigerEntier(id)))
+  traiter('browser:cancel-download', (id) => telechargements.annuler(exigerEntier(id)))
+  traiter('browser:remove-download', (id) => telechargements.retirer(exigerEntier(id)))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)
   traiter('browser:dismiss-data-incident', () => {
@@ -1415,6 +1448,7 @@ app.on('will-quit', () => {
   } catch (erreur) {
     console.error('Fermeture de la session non notée :', erreur)
   }
+  telechargements.apresFermeture()
   copieDeSecours()
   base?.close()
   base = null

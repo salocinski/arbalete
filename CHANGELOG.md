@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.30.0] - 2026-11-11
+
+### Ajouté
+- Vous téléchargez des fichiers : un lien de téléchargement enregistre aussitôt le fichier dans votre dossier Téléchargements, sans boîte de dialogue. Si un fichier du même nom existe déjà, ou est en cours de téléchargement, le nouveau devient « nom (1).ext » au lieu de l'écraser.
+- Le bouton « Téléchargements » de la barre latérale ouvre la liste : chaque fichier montre sa progression (« 12,3 Mo sur 100 Mo · 12 % »), et vous pouvez mettre un téléchargement en pause, le reprendre ou l'annuler. Une ligne terminée se retire de la liste sans effacer le fichier.
+- La liste est conservée quand vous fermez puis rouvrez Arbalète (200 téléchargements au plus). Un téléchargement qui était en cours à la fermeture apparaît alors comme « Interrompu ».
+- Une coupure du réseau met le téléchargement en pause, et vous le reprenez ; une interruption qui ne peut pas reprendre est marquée « Interrompu » tout de suite.
+
+### Limites connues
+- Aucune invite : une page peut déposer un fichier dans Téléchargements sans que vous l'ayez demandé, quel que soit son type (exécutables compris), et au-delà de 20 téléchargements en cours les suivants sont refusés sans message. Les invites et les réglages par site sont prévus avant l'ouverture du dépôt.
+- On ne choisit pas le dossier ni le nom du fichier avant l'enregistrement, et on ne peut pas ouvrir le fichier ou son dossier depuis la liste.
+- Un téléchargement interrompu par la fermeture d'Arbalète ne reprend pas tout seul.
+- Dans un nom de fichier, les caractères d'inversion de sens d'écriture ne sont pas encore filtrés : l'extension réelle peut être masquée dans la liste.
+- Le rendu du panneau n'a été essayé que dans l'aperçu navigateur et par les tests automatiques, pas à la main dans la fenêtre d'Arbalète.
+
 ## [0.12.29.2] - 2026-11-11
 
 ### Corrigé

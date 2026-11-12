@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ETAT_BARRE_INITIAL } from '../../shared/barre'
+import type { Telechargement } from '../../shared/telechargements'
 import type { BrowserState, DataIncident, SidebarState, SuggestionsState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
@@ -41,6 +42,16 @@ export function useDataIncident(): DataIncident | null {
     return window.arbalete.onDataIncident(setIncident)
   }, [])
   return incident
+}
+
+// Liste des téléchargements (ARB-55), du plus récent au plus ancien.
+export function useDownloads(): Telechargement[] {
+  const [downloads, setDownloads] = useState<Telechargement[]>([])
+  useEffect(() => {
+    void window.arbalete.getDownloads().then(setDownloads).catch(() => {})
+    return window.arbalete.onDownloads(setDownloads)
+  }, [])
+  return downloads
 }
 
 export function useSidebar(): SidebarState {

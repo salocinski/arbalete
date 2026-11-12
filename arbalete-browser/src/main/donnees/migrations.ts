@@ -50,7 +50,19 @@ export const MIGRATIONS: readonly string[] = [
     icone TEXT NOT NULL,
     position INTEGER NOT NULL
   );
-  ALTER TABLE onglet ADD COLUMN espace INTEGER REFERENCES espace (id) ON DELETE SET NULL`
+  ALTER TABLE onglet ADD COLUMN espace INTEGER REFERENCES espace (id) ON DELETE SET NULL`,
+  // 6 — Téléchargements (ARB-55) : adresse d'origine (sans identifiants), nom et chemin du fichier, octets reçus et
+  // attendus (total 0 : taille inconnue), état et date de début (millisecondes depuis 1970).
+  `CREATE TABLE telechargement (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL,
+    nom TEXT NOT NULL,
+    chemin TEXT NOT NULL,
+    total INTEGER NOT NULL DEFAULT 0,
+    recu INTEGER NOT NULL DEFAULT 0,
+    etat TEXT NOT NULL CHECK (etat IN ('en-cours', 'en-pause', 'termine', 'annule', 'interrompu')),
+    date INTEGER NOT NULL
+  )`
 ]
 
 export function versionDuSchema(db: DatabaseSync): number {
