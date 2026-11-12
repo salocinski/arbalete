@@ -1,9 +1,10 @@
-import { app, BrowserWindow, Menu, clipboard, WebContentsView, ipcMain, screen, session, shell, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
-import { mkdirSync } from 'node:fs'
+import { app, BrowserWindow, Menu, clipboard, dialog, WebContentsView, ipcMain, screen, session, shell, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import { mkdirSync, statSync, readFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { pathToFileURL } from 'node:url'
 import type { BrowserState, BrowserTab, DataIncident, RestoreAnswer, SidebarAction, SidebarState, SuggestionsState, ThemeChoice } from '../shared/types'
+import { importerFavoris, lireFavorisHtml, TAILLE_MAX_IMPORT } from './donnees/importFavoris.ts'
 import { ouvrirBaseOuRecuperer, type IncidentBase } from './donnees/base.ts'
 import { estAboutBlank, retourPermis } from './aboutBlank.ts'
 import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } from './navigationClavier.ts'
@@ -65,6 +66,7 @@ let barre: SidebarState = { ...ETAT_BARRE_INITIAL }
 // Couche d'overlays (ARB-39, décision 0002) : menus et palettes s'affichent dans la vue de la barre, agrandie à toute
 // la fenêtre tant qu'un overlay est ouvert. Le contenu de l'overlay ne regarde que cette vue.
 let overlayOuvert = false
+let boiteFichierOuverte = false // boîte « Ouvrir » de l'import des favoris (ARB-50) : le blur qu'elle cause ne ferme pas l'overlay
 let echapAvale = false
 // Suggestions de la barre d'adresse (ARB-53) : liste affichée dans l'overlay tant qu'elle existe, fermée avec lui. Le
 // champ qui les a demandées garde le clavier, donc sa fermeture ne rend pas le focus à la page (sauf choix d'une ligne).
@@ -1347,7 +1349,7 @@ function createWindow(adresses: readonly string[] = []) {
     placerRechercheVue()
   })
   // Comme un menu, un overlay se ferme quand la fenêtre perd le focus (Alt+Tab, clic dans une autre application).
-  mainWindow.on('blur', fermerOverlay)
+  mainWindow.on('blur', () => { if (!boiteFichierOuverte) fermerOverlay() })
   // Avant que les vues des onglets disparaissent : la session écrite est celle que l'utilisateur ferme.
   mainWindow.on('close', () => sauvegardeSession.vider())
   mainWindow.on('closed', () => {
@@ -1613,6 +1615,25 @@ app.whenReady().then(() => {
   ecritureFavoris('browser:delete-favorite-folder', (db, id) => supprimerDossier(db, exigerEntier(id)))
   ecritureFavoris('browser:move-favorite', (db, id, dossier) => deplacerFavori(db, exigerEntier(id), dossier === null ? null : exigerEntier(dossier)))
   ecritureFavoris('browser:remove-favorite', (db, id) => retirerFavori(db, exigerEntier(id)))
+  // Import des favoris (ARB-50) : le fichier HTML exporté par Chrome ou Edge, choisi dans une boîte système ; renvoie le
+  // nombre de favoris ajoutés, null si l'utilisateur annule. Le chemin vient de la boîte, jamais de l'interface.
+  ipcMain.handle('browser:import-favorites', async (event) => {
+    exigerBarre(event)
+    if (boiteFichierOuverte) return null
+    // La boîte prend le focus : sans ce drapeau, le blur de la fenêtre fermerait le panneau sous elle.
+    boiteFichierOuverte = true
+    let choix
+    try {
+      choix = await (mainWindow ? dialog.showOpenDialog(mainWindow, { title: 'Importer des favoris', properties: ['openFile'], filters: [{ name: 'Favoris HTML', extensions: ['html', 'htm'] }] })
+        : dialog.showOpenDialog({ properties: ['openFile'] }))
+    } finally { boiteFichierOuverte = false }
+    if (choix.canceled || choix.filePaths.length === 0) return null
+    const chemin = choix.filePaths[0]
+    if (statSync(chemin).size > TAILLE_MAX_IMPORT) throw new Error('Fichier trop volumineux')
+    const ajoutes = favorisBase((db) => importerFavoris(db, lireFavorisHtml(readFileSync(chemin, 'utf8'))))
+    broadcastState()
+    return ajoutes
+  })
   // Effacer les données de navigation (ARB-54) : période et types viennent de listes fermées, validés ici.
   // shortcut: Electron ne date pas les cookies ni le cache, ils sont effacés en entier quelle que soit la période ; à revoir
   // avec un filtre par date si l'API le permet.
