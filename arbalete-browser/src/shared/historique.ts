@@ -19,6 +19,19 @@ export function libelleJour(date: number, maintenant = Date.now()): string {
   return jour.toLocaleDateString('fr-FR', options)
 }
 
+// Effacement des données de navigation (ARB-54) : période (liste fermée, validée par le processus principal) et types.
+export const PERIODES_EFFACEMENT = ['heure', 'jour', 'semaine', 'tout'] as const
+export type PeriodeEffacement = typeof PERIODES_EFFACEMENT[number]
+export const TYPES_EFFACEMENT = ['historique', 'cookies', 'cache'] as const
+export type TypeEffacement = typeof TYPES_EFFACEMENT[number]
+
+const DUREES_MS: Record<Exclude<PeriodeEffacement, 'tout'>, number> = { heure: 3_600_000, jour: MS_PAR_JOUR, semaine: 7 * MS_PAR_JOUR }
+
+// Date (ms) à partir de laquelle effacer : 0 pour « tout ». `maintenant` est injecté pour les tests.
+export function debutEffacement(periode: PeriodeEffacement, maintenant = Date.now()): number {
+  return periode === 'tout' ? 0 : maintenant - DUREES_MS[periode]
+}
+
 // Les visites arrivent de la plus récente à la plus ancienne : les jours se suivent dans le même ordre.
 export function grouperParJour(visites: VisiteHistorique[], maintenant = Date.now()): JourHistorique[] {
   const jours: JourHistorique[] = []

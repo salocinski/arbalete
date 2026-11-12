@@ -25,7 +25,8 @@ import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
 import { basculerFavori, estFavori, favorisGrille } from './donnees/favoris.ts'
-import { adresseHistorique, ajouterVisite, lirePage, listerHistorique, nommerPage, rechercherPages } from './donnees/historique.ts'
+import { adresseHistorique, ajouterVisite, effacerHistorique, lirePage, listerHistorique, nommerPage, rechercherPages } from './donnees/historique.ts'
+import { PERIODES_EFFACEMENT, TYPES_EFFACEMENT, debutEffacement, type PeriodeEffacement, type TypeEffacement } from '../shared/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
 import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
@@ -1549,6 +1550,25 @@ app.whenReady().then(() => {
     fermerOverlay()
     createTab(url)
     activeRecord()?.view.webContents.focus()
+  })
+  // Effacer les données de navigation (ARB-54) : période et types viennent de listes fermées, validés ici.
+  // shortcut: Electron ne date pas les cookies ni le cache, ils sont effacés en entier quelle que soit la période ; à revoir
+  // avec un filtre par date si l'API le permet.
+  // shortcut: l'historique effacé reste lisible dans les copies de secours de la base (jusqu'à leur réécriture, 24 h) et le
+  // WAL ; les onglets fermés, la session, les téléchargements et le stockage des sites (localStorage, IndexedDB) ne sont pas
+  // touchés ; à traiter dans un ticket de suivi avant toute promesse de confidentialité.
+  ipcMain.handle('browser:clear-browsing-data', async (event, periode, types) => {
+    exigerBarre(event)
+    if (!PERIODES_EFFACEMENT.includes(periode) || !Array.isArray(types) || types.length > TYPES_EFFACEMENT.length
+      || !types.every((type) => TYPES_EFFACEMENT.includes(type))) throw new Error('Argument IPC invalide : période et types attendus')
+    const choisis = new Set<TypeEffacement>(types)
+    if (choisis.has('historique') && base) effacerHistorique(base, debutEffacement(periode as PeriodeEffacement))
+    // Chaque type est tenté même si un autre échoue ; l'échec est rendu à l'interface, qui relit la liste.
+    const echecs = (await Promise.allSettled([
+      choisis.has('cookies') ? session.defaultSession.clearStorageData({ storages: ['cookies'] }) : undefined,
+      choisis.has('cache') ? session.defaultSession.clearCache() : undefined
+    ])).filter((r) => r.status === 'rejected')
+    if (echecs.length) throw new Error('Effacement incomplet : cookies ou cache')
   })
   // Menu contextuel d'une page (ARB-40) : seule la vue de la barre, qui l'affiche, choisit une entrée.
   traiter('browser:get-page-menu', () => menuPage && { x: menuPage.x, y: menuPage.y, entrees: menuPage.entrees })

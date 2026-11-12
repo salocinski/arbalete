@@ -3,7 +3,7 @@ import type { Telechargement } from './telechargements'
 import type { EntreeMenuPage, MenuPage } from './menuPage'
 import type { ActionOnglet } from './menuOnglet'
 import type { EntreePalette } from './palette'
-import type { VisiteHistorique } from './historique'
+import type { PeriodeEffacement, TypeEffacement, VisiteHistorique } from './historique'
 
 export type BrowserTab = {
   id: string
@@ -115,6 +115,8 @@ export type BrowserAPI = {
   // Seule la vue de la barre, qui affiche le panneau, les appelle.
   searchHistory: (text: string) => Promise<VisiteHistorique[]>
   openHistoryPage: (url: string) => Promise<void>
+  // Effacement (ARB-54) : l'historique depuis la période choisie ; cookies et cache, en entier. Période et types hors listes refusés.
+  clearBrowsingData: (period: PeriodeEffacement, types: TypeEffacement[]) => Promise<void>
   // Recherche dans la page (ARB-70), pilotée par la seule vue de la recherche. `next` : continuer la recherche en cours
   // (Entrée) plutôt que la recommencer (frappe) ; `forward` faux remonte. Un texte vide efface les résultats.
   findInPage: (text: string, forward: boolean, next: boolean) => Promise<void>

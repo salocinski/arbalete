@@ -90,7 +90,7 @@ export function rechercherPages(db: DatabaseSync, texte: string, limite = 5): Pa
 // Panneau Historique (ARB-52) : les visites les plus récentes d'abord, filtrées par les mêmes mots que les suggestions (sans
 // texte, toutes). Une page visitée plusieurs fois le même jour (heure locale) n'y figure qu'une fois, à sa dernière visite
 // de ce jour ; le regroupement par jour lui-même est dans src/shared/historique.ts.
-// shortcut: 200 lignes au plus, sans pagination ni suppression d'entrées ; à revoir avec l'effacement par période (ARB-54).
+// shortcut: 200 lignes au plus, sans pagination ni suppression d'une entrée isolée (l'effacement se fait par période, ARB-54).
 export const HISTORIQUE_MAX = 200
 
 export type VisiteJour = { url: string, titre: string, date: number }
@@ -102,4 +102,17 @@ export function listerHistorique(db: DatabaseSync, texte: string, limite = HISTO
     GROUP BY page.id, date(visite.date / 1000, 'unixepoch', 'localtime') ORDER BY date DESC LIMIT ?`).all(
     ...motifs.flatMap((motif) => [motif, motif]), Math.max(0, Math.min(limite, HISTORIQUE_MAX))
   ) as VisiteJour[]
+}
+
+// Efface les visites datées de `depuis` (ms) à maintenant (ARB-54). Une page sans visite restante disparaît ; les autres
+// gardent leur nombre de visites et leur dernière visite recalculés. Les favoris ne dépendent pas de ces tables.
+export function effacerHistorique(db: DatabaseSync, depuis: number): void {
+  enTransaction(db, () => {
+    db.prepare('DELETE FROM visite WHERE date >= ?').run(depuis)
+    db.exec('DELETE FROM page WHERE id NOT IN (SELECT page FROM visite)')
+    // shortcut: recalcule les compteurs de toutes les pages (synchrone, index visite_page) ; à limiter aux pages touchées si l'historique devient très gros.
+    db.exec(`UPDATE page SET
+      visites = (SELECT COUNT(*) FROM visite WHERE visite.page = page.id),
+      derniere_visite = (SELECT MAX(date) FROM visite WHERE visite.page = page.id)`)
+  })
 }
