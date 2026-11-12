@@ -5,6 +5,7 @@ import type { EntreeMenuPage, MenuPage } from './menuPage'
 import type { ActionOnglet } from './menuOnglet'
 import type { EntreePalette } from './palette'
 import type { ListeFavoris } from './favoris'
+import type { DemandePermission, ReponsePermission } from './permissions'
 import type { PeriodeEffacement, TypeEffacement, VisiteHistorique } from './historique'
 
 export type BrowserTab = {
@@ -89,6 +90,11 @@ export type BrowserAPI = {
   getOverlay: () => Promise<boolean>
   setOverlay: (open: boolean) => Promise<void>
   onOverlay: (callback: (open: boolean) => void) => () => void
+  // Permissions de site (ARB-15) : le processus principal tient l'invite en cours (null : aucune) et la diffuse ; la vue de la
+  // barre l'affiche en modale et ne renvoie que la réponse, mémorisée pour le site. Fermer l'overlay sans répondre refuse sans mémoriser.
+  getPermissionRequest: () => Promise<DemandePermission | null>
+  onPermissionRequest: (callback: (demande: DemandePermission | null) => void) => () => void
+  answerPermission: (reponse: ReponsePermission) => Promise<void>
   // Suggestions de la barre d'adresse (ARB-53). Le champ de la fenêtre garde le clavier : il envoie le texte (`suggest`) et
   // les flèches (`moveSuggestion`), le processus principal tient la liste, ouvre l'overlay et la diffuse à la vue de la
   // barre, qui l'affiche. Un texte vide ou `closeSuggestions` ferme la liste ; `chooseSuggestion` ouvre la ligne donnée

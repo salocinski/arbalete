@@ -295,6 +295,10 @@ export function installPreviewApi(): boolean {
     closeSuggestions: async () => undefined,
     getSuggestions: async () => null,
     onSuggestions: () => () => undefined,
+    // Pas d'invite de permission dans l'aperçu : les pages n'y sont pas réelles (ARB-15).
+    getPermissionRequest: async () => null,
+    onPermissionRequest: () => () => undefined,
+    answerPermission: async () => undefined,
     // Pas de palette dans l'aperçu : elle suit la couche d'overlays du processus principal (ARB-67).
     getPalette: async () => null,
     onPalette: () => () => undefined,
