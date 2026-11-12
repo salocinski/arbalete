@@ -59,6 +59,7 @@ const api: BrowserAPI = {
   deleteFavoriteFolder: (id) => ipcRenderer.invoke('browser:delete-favorite-folder', id),
   moveFavorite: (id, dossier) => ipcRenderer.invoke('browser:move-favorite', id, dossier),
   removeFavorite: (id) => ipcRenderer.invoke('browser:remove-favorite', id),
+  importFavorites: () => ipcRenderer.invoke('browser:import-favorites'),
   setWorkspace: (id) => ipcRenderer.invoke('browser:set-workspace', id),
   createWorkspace: (name) => ipcRenderer.invoke('browser:create-workspace', name),
   renameWorkspace: (id, name) => ipcRenderer.invoke('browser:rename-workspace', id, name),

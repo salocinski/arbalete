@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.41.0] - 2026-11-12
+
+### Ajouté
+- Le panneau des favoris importe ceux de Chrome ou d’Edge : le bouton « Importer depuis Chrome ou Edge (fichier HTML) » ouvre une boîte de choix du fichier exporté par le navigateur (jusqu’à 20 Mo). Les dossiers sont recréés (ou réutilisés s’ils portent déjà le même nom), les adresses déjà présentes sont ignorées, et le panneau indique combien de favoris ont été ajoutés. Seules les adresses web sont gardées.
+
+### Limites connues
+- Seul le fichier HTML exporté est lu, pas le profil du navigateur ; les sous-dossiers sont aplatis dans le dossier le plus proche, et l’import s’arrête à 20 000 favoris.
+- La boîte de fichier, le plafond de 20 Mo et le panneau n’ont pas de test automatique ; la lecture et l’import sont testés.
+
 ## [0.12.40.0] - 2026-11-12
 
 ### Ajouté

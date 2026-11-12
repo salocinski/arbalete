@@ -141,6 +141,9 @@ export type BrowserAPI = {
   deleteFavoriteFolder: (id: number) => Promise<void>
   moveFavorite: (id: number, dossier: number | null) => Promise<void>
   removeFavorite: (id: number) => Promise<void>
+  // Importe les favoris d'un fichier HTML exporté de Chrome ou Edge, choisi dans une boîte système (ARB-50) : nombre de
+  // favoris ajoutés, null si annulé.
+  importFavorites: () => Promise<number | null>
   // Passe à cet espace (ARB-61) : ses onglets remplacent ceux affichés, son dernier onglet actif reprend la page ; un espace
   // sans onglet en ouvre un. Sans effet si l'espace est inconnu ou déjà actif.
   setWorkspace: (id: number) => Promise<void>
