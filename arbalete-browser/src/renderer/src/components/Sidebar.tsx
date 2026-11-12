@@ -165,6 +165,10 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
       {overlay && menuOnglet && ongletDuMenu && (
         <MenuOverlay x={menuOnglet.x} y={menuOnglet.y} label={`Onglet ${ongletDuMenu.title}`} onClose={fermerOverlay} entrees={[
           { label: 'Nouvel onglet', action: () => void window.arbalete.createTab() },
+          { label: 'Dupliquer', action: () => void window.arbalete.tabAction(ongletDuMenu.id, 'dupliquer') },
+          { label: ongletDuMenu.pinned ? 'Désépingler' : 'Épingler', action: () => void window.arbalete.tabAction(ongletDuMenu.id, 'epingler') },
+          { label: 'Copier l’adresse', action: () => void window.arbalete.tabAction(ongletDuMenu.id, 'copier-adresse') },
+          { label: 'Fermer les autres onglets', action: () => void window.arbalete.tabAction(ongletDuMenu.id, 'fermer-autres') },
           { label: 'Fermer l’onglet', action: () => void window.arbalete.closeTab(ongletDuMenu.id) }
         ]} />
       )}
