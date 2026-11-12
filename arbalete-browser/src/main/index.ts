@@ -11,6 +11,7 @@ import { ongletVoisin } from './voisin.ts'
 import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
+import { ecrireZoomSite, hoteZoom, lireZoomSite } from './donnees/zoomSites.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { placerRecherche, texteRecherche } from './recherche.ts'
 import { entreeMenuPageValide, type EntreeMenuPage, type MenuPage } from '../shared/menuPage.ts'
@@ -786,11 +787,34 @@ function focaliserAdresse() {
 }
 
 // Ctrl+=, Ctrl+- et Ctrl+0 zooment la page de l'onglet actif, jamais l'interface (le rôle zoom de l'ancien menu zoomait
-// l'interface). shortcut: le zoom n'est pas conservé au redémarrage ni par site, à faire avec ARB-71.
+// l'interface). Le facteur est mémorisé par site (ARB-71) et réappliqué à chaque navigation (`appliquerZoomSite`).
 function zoomerPage(sens: SensZoom) {
   const contenu = activeRecord()?.view.webContents
   if (!contenu || contenu.isDestroyed()) return
-  contenu.setZoomFactor(palierZoom(contenu.getZoomFactor(), sens))
+  const facteur = palierZoom(contenu.getZoomFactor(), sens)
+  contenu.setZoomFactor(facteur)
+  const hote = hoteZoom(contenu.getURL())
+  if (!base || !hote) return
+  try {
+    ecrireZoomSite(base, hote, facteur)
+  } catch (erreur) {
+    console.error('Zoom non enregistré :', erreur)
+  }
+}
+
+// Zoom mémorisé du site que l'onglet vient d'atteindre, 100 % pour une page sans zoom ou hors web.
+function appliquerZoomSite(contenu: Electron.WebContents, url: string) {
+  if (contenu.isDestroyed()) return
+  const hote = hoteZoom(url)
+  let facteur = 1
+  if (base && hote) {
+    try {
+      facteur = lireZoomSite(base, hote)
+    } catch (erreur) {
+      console.error('Zoom non relu :', erreur)
+    }
+  }
+  contenu.setZoomFactor(facteur)
 }
 
 // F11 : plein écran de la fenêtre. La page et la barre suivent le redimensionnement qui en résulte.
@@ -918,6 +942,7 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   })
   view.webContents.on('did-navigate', (_event, url) => {
     noterVisite(record, url)
+    appliquerZoomSite(view.webContents, url)
     updateTabFromView(id)
   })
   view.webContents.on('did-navigate-in-page', (_event, url, cadrePrincipal) => {

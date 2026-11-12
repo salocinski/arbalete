@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.38.0] - 2026-11-12
+
+### Ajouté
+- Le zoom d’une page est retenu par site : Ctrl+=, Ctrl+- et Ctrl+0 règlent le niveau, et le site le retrouve à chaque visite, dans n’importe quel onglet. Les autres sites restent à 100 %.
+
+### Limites connues
+- Le zoom suit le nom du site, pas son protocole : http et https d’un même site partagent le même niveau.
+- Le zoom n’est pas effacé avec les données de navigation.
+- Une page peut s’afficher un instant à 100 % avant de prendre son zoom.
+- Le retour du zoom après un redémarrage n’a pas de test automatique.
+
 ## [0.12.37.0] - 2026-11-12
 
 ### Ajouté
