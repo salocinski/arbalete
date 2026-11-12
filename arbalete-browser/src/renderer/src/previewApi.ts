@@ -303,6 +303,13 @@ export function installPreviewApi(): boolean {
     choosePalette: async () => undefined,
     // Pas d'historique dans l'aperçu : il vit dans la base du processus principal (ARB-52).
     searchHistory: async () => [],
+    // Pas de dossiers dans l'aperçu : la liste des favoris vit dans la base du processus principal (ARB-48).
+    listFavorites: async () => ({ dossiers: [], favoris: [] }),
+    createFavoriteFolder: async () => undefined,
+    renameFavoriteFolder: async () => undefined,
+    deleteFavoriteFolder: async () => undefined,
+    moveFavorite: async () => undefined,
+    removeFavorite: async () => undefined,
     openHistoryPage: async () => undefined,
     clearBrowsingData: async () => undefined,
     // Pas de menu contextuel dans l'aperçu : les pages y sont un cadre, sans clic droit de Chromium (ARB-40).

@@ -26,7 +26,7 @@ import { lireUrlDev } from './urlDev.ts'
 import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
-import { basculerFavori, estFavori, favorisGrille } from './donnees/favoris.ts'
+import { basculerFavori, creerDossier, deplacerFavori, estFavori, favorisGrille, listerFavoris, renommerDossier, retirerFavori, supprimerDossier } from './donnees/favoris.ts'
 import { adresseHistorique, ajouterVisite, effacerHistorique, lirePage, listerHistorique, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { PERIODES_EFFACEMENT, TYPES_EFFACEMENT, debutEffacement, type PeriodeEffacement, type TypeEffacement } from '../shared/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
@@ -1592,6 +1592,27 @@ app.whenReady().then(() => {
     createTab(url)
     activeRecord()?.view.webContents.focus()
   })
+  // Panneau des favoris (ARB-48) : lu et modifié par la vue de la barre seule ; les arguments sont validés ici, une
+  // écriture qui échoue remonte à la modale, et la grille de la barre latérale suit (broadcastState).
+  const favorisBase = <T>(travail: (db: NonNullable<typeof base>) => T): T => {
+    if (!base) throw new Error('Base indisponible')
+    return travail(base)
+  }
+  ipcMain.handle('browser:list-favorites', (event) => {
+    exigerBarre(event)
+    try { return base ? listerFavoris(base) : { dossiers: [], favoris: [] } } catch (erreur) { console.error('Favoris non lus :', erreur); return { dossiers: [], favoris: [] } }
+  })
+  const ecritureFavoris = (canal: string, ecrire: (db: NonNullable<typeof base>, ...args: unknown[]) => unknown) =>
+    ipcMain.handle(canal, (event, ...args) => {
+      exigerBarre(event)
+      favorisBase((db) => ecrire(db, ...args))
+      broadcastState()
+    })
+  ecritureFavoris('browser:create-favorite-folder', (db, nom) => creerDossier(db, nom))
+  ecritureFavoris('browser:rename-favorite-folder', (db, id, nom) => renommerDossier(db, exigerEntier(id), nom))
+  ecritureFavoris('browser:delete-favorite-folder', (db, id) => supprimerDossier(db, exigerEntier(id)))
+  ecritureFavoris('browser:move-favorite', (db, id, dossier) => deplacerFavori(db, exigerEntier(id), dossier === null ? null : exigerEntier(dossier)))
+  ecritureFavoris('browser:remove-favorite', (db, id) => retirerFavori(db, exigerEntier(id)))
   // Effacer les données de navigation (ARB-54) : période et types viennent de listes fermées, validés ici.
   // shortcut: Electron ne date pas les cookies ni le cache, ils sont effacés en entier quelle que soit la période ; à revoir
   // avec un filtre par date si l'API le permet.

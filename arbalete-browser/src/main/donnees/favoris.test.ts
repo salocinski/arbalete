@@ -1,7 +1,9 @@
-import { deepStrictEqual, strictEqual } from 'node:assert/strict'
+import { DatabaseSync } from 'node:sqlite'
+import { MIGRATIONS, appliquerMigrations } from './migrations.ts'
+import { deepStrictEqual, strictEqual, throws } from 'node:assert/strict'
 import { test } from 'node:test'
 import { ouvrirBase } from './base.ts'
-import { FAVORIS_GRILLE_MAX, basculerFavori, estFavori, favorisGrille } from './favoris.ts'
+import { FAVORIS_GRILLE_MAX, basculerFavori, creerDossier, deplacerFavori, estFavori, favorisGrille, listerFavoris, renommerDossier, retirerFavori, supprimerDossier } from './favoris.ts'
 import { LONGUEUR_MAX_TITRE } from './historique.ts'
 
 // Tests unitaires des favoris (ARB-47).
@@ -45,4 +47,64 @@ test('le titre est tronqué', () => {
   const db = ouvrirBase(':memory:')
   basculerFavori(db, 'https://example.com/', 'x'.repeat(LONGUEUR_MAX_TITRE + 10))
   strictEqual((db.prepare('SELECT titre FROM favori').get() as { titre: string }).titre.length, LONGUEUR_MAX_TITRE)
+})
+
+// Panneau des favoris et dossiers (ARB-48).
+
+test('créer, renommer et ranger un favori dans un dossier', () => {
+  const db = ouvrirBase(':memory:')
+  basculerFavori(db, 'https://example.com/a', 'A', 1)
+  const dossier = creerDossier(db, '  Travail ')
+  const [{ id }] = listerFavoris(db).favoris
+  strictEqual(renommerDossier(db, dossier, 'Boulot'), true)
+  strictEqual(deplacerFavori(db, id, dossier), true)
+  deepStrictEqual(listerFavoris(db), {
+    dossiers: [{ id: dossier, nom: 'Boulot' }],
+    favoris: [{ id, url: 'https://example.com/a', titre: 'A', dossier }]
+  })
+  strictEqual(deplacerFavori(db, id, null), true)
+  strictEqual(listerFavoris(db).favoris[0].dossier, null)
+})
+
+test('un nom de dossier vide ou trop long est refusé, un dossier ou un favori inconnu ne change rien', () => {
+  const db = ouvrirBase(':memory:')
+  throws(() => creerDossier(db, '   '))
+  throws(() => creerDossier(db, 'x'.repeat(61)))
+  throws(() => creerDossier(db, 3))
+  const dossier = creerDossier(db, 'D')
+  throws(() => renommerDossier(db, dossier, ''))
+  strictEqual(renommerDossier(db, 999, 'X'), false)
+  basculerFavori(db, 'https://example.com/a', 'A')
+  const [{ id }] = listerFavoris(db).favoris
+  strictEqual(deplacerFavori(db, id, 999), false)
+  strictEqual(deplacerFavori(db, 999, dossier), false)
+  strictEqual(listerFavoris(db).favoris[0].dossier, null)
+})
+
+test('supprimer un dossier garde ses favoris, à la racine', () => {
+  const db = ouvrirBase(':memory:')
+  basculerFavori(db, 'https://example.com/a', 'A')
+  const dossier = creerDossier(db, 'D')
+  deplacerFavori(db, listerFavoris(db).favoris[0].id, dossier)
+  strictEqual(supprimerDossier(db, dossier), true)
+  strictEqual(supprimerDossier(db, dossier), false)
+  deepStrictEqual(listerFavoris(db).dossiers, [])
+  strictEqual(estFavori(db, 'https://example.com/a'), true)
+  strictEqual(listerFavoris(db).favoris[0].dossier, null)
+})
+
+test('retirer un favori par id', () => {
+  const db = ouvrirBase(':memory:')
+  basculerFavori(db, 'https://example.com/a', 'A')
+  strictEqual(retirerFavori(db, listerFavoris(db).favoris[0].id), true)
+  strictEqual(estFavori(db, 'https://example.com/a'), false)
+  strictEqual(retirerFavori(db, 1), false)
+})
+
+test('la migration 7 garde les favoris d\'une base au schéma 6, à la racine', () => {
+  const db = new DatabaseSync(':memory:')
+  appliquerMigrations(db, MIGRATIONS.slice(0, 6))
+  db.prepare('INSERT INTO favori (url, titre, date) VALUES (?, ?, ?)').run('https://a.fr/', 'A', 1)
+  appliquerMigrations(db, MIGRATIONS)
+  deepStrictEqual(listerFavoris(db), { dossiers: [], favoris: [{ id: 1, url: 'https://a.fr/', titre: 'A', dossier: null }] })
 })

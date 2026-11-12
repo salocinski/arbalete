@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.40.0] - 2026-11-12
+
+### Ajouté
+- Le bouton « Favoris » de la barre latérale ouvre un panneau : tous les favoris, rangés par dossier puis « Sans dossier ». On y crée, renomme et supprime des dossiers (de 1 à 60 caractères), on range un favori par sa liste « Dossier » ou on le retire, et un clic sur un favori l’ouvre. Supprimer un dossier garde ses favoris, qui reviennent à la racine.
+
+### Limites connues
+- Un seul niveau de dossiers, sans ordre choisi ni glisser-déposer ; deux dossiers peuvent porter le même nom.
+- La grille de favoris de la barre latérale ne tient pas compte des dossiers.
+- Le panneau et ses canaux n’ont pas de test automatique (couche de données et migration testées seulement) ; l’aperçu navigateur n’a pas de dossiers.
+
 ## [0.12.39.0] - 2026-11-12
 
 ### Ajouté

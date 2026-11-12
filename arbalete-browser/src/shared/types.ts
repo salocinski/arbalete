@@ -4,6 +4,7 @@ import type { Telechargement } from './telechargements'
 import type { EntreeMenuPage, MenuPage } from './menuPage'
 import type { ActionOnglet } from './menuOnglet'
 import type { EntreePalette } from './palette'
+import type { ListeFavoris } from './favoris'
 import type { PeriodeEffacement, TypeEffacement, VisiteHistorique } from './historique'
 
 export type BrowserTab = {
@@ -131,6 +132,15 @@ export type BrowserAPI = {
   toggleFavorite: () => Promise<void>
   // Active l'onglet ouvert sur ce favori, ou l'ouvre dans un nouvel onglet (ARB-49) ; sans effet si ce n'est pas un favori.
   openFavorite: (url: string) => Promise<void>
+  // Panneau des favoris (ARB-48), vue de la barre seule : tous les favoris et les dossiers ; créer, renommer, supprimer un
+  // dossier (ses favoris reviennent à la racine), ranger un favori dans un dossier (null : racine) ou le retirer. Un nom
+  // invalide ou un id inconnu est refusé ; `listFavorites` rend la liste à jour.
+  listFavorites: () => Promise<ListeFavoris>
+  createFavoriteFolder: (nom: string) => Promise<void>
+  renameFavoriteFolder: (id: number, nom: string) => Promise<void>
+  deleteFavoriteFolder: (id: number) => Promise<void>
+  moveFavorite: (id: number, dossier: number | null) => Promise<void>
+  removeFavorite: (id: number) => Promise<void>
   // Passe à cet espace (ARB-61) : ses onglets remplacent ceux affichés, son dernier onglet actif reprend la page ; un espace
   // sans onglet en ouvre un. Sans effet si l'espace est inconnu ou déjà actif.
   setWorkspace: (id: number) => Promise<void>
