@@ -66,6 +66,10 @@ html.vue-barre .sidebar-zone { right: 0; }
 .overlay-layer--centre .overlay-content { position: static; }
 /* Modale de la couleur d'un espace (ARB-134). */
 .color-modal { width: 300px; padding: var(--space-4); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-floating); color: var(--color-text-primary); display: flex; flex-direction: column; gap: var(--space-3); }
+.engine-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.engine-option { height: 32px; padding: 0 10px; text-align: left; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: transparent; color: var(--color-text-primary); font: inherit; font-size: 12px; cursor: pointer; }
+.engine-option:hover { background: var(--color-sidebar); }
+.engine-option[aria-checked="true"] { border-color: var(--color-accent); font-weight: 600; }
 .color-modal-title { font-size: 12px; font-weight: 600; }
 .color-modal-card { display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 10px; border: 1px solid var(--color-border); background: var(--color-sidebar); border-radius: var(--radius-md); font-size: 12px; font-weight: 600; }
 .color-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-2); justify-items: center; }

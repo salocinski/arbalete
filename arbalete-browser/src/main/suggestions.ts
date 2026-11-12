@@ -1,12 +1,11 @@
 // Suggestions de la barre d'adresse (ARB-53, décision 0002) : la liste est construite ici, dans le processus principal, et
 // affichée par la vue de la barre latérale (couche d'overlays) ; le champ, lui, reste dans la fenêtre et garde le clavier.
+import { urlRecherche } from '../shared/moteurs.ts'
 import type { Suggestion } from '../shared/types'
 import type { PageVisitee } from './donnees/historique.ts'
 
 export const SUGGESTIONS_MAX = 6
 export const LONGUEUR_TEXTE_MAX = 256
-
-const PREFIXE_RECHERCHE = 'https://www.google.com/search?q='
 
 // Texte tapé : une chaîne. Vide (ou fait d'espaces), ou plus long que LONGUEUR_TEXTE_MAX (une adresse collée, que la
 // première ligne ne doit pas tronquer), il n'y a rien à suggérer.
@@ -16,10 +15,11 @@ export function texteSuggestion(valeur: unknown): string {
 }
 
 // Première ligne : ce que ferait Entrée (aller à l'adresse ou chercher), puis les pages déjà visitées qui correspondent,
-// sans répéter l'adresse de la première ligne. `adresse` est le texte normalisé comme le fait la navigation.
-export function construireSuggestions(texte: string, adresse: string, pages: PageVisitee[]): Suggestion[] {
+// sans répéter l'adresse de la première ligne. `adresse` est le texte normalisé comme le fait la navigation ;
+// `modele` est celui du moteur choisi (ARB-58), qui dit si cette adresse est une recherche.
+export function construireSuggestions(texte: string, adresse: string, pages: PageVisitee[], modele: string): Suggestion[] {
   if (!texte) return []
-  const premiere: Suggestion = adresse.startsWith(PREFIXE_RECHERCHE)
+  const premiere: Suggestion = adresse === urlRecherche(modele, texte)
     ? { kind: 'recherche', titre: texte, url: adresse }
     : { kind: 'adresse', titre: texte, url: adresse }
   const historique = pages

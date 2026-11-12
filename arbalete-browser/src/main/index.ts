@@ -19,6 +19,7 @@ import { adresseWeb, entreesMenuPage } from './menuPage.ts'
 import { reordonnerOnglets } from '../shared/ordreOnglets.ts'
 import { construirePalette, type ActionPalette, type EntreePalette } from '../shared/palette.ts'
 import { estActionOnglet, ongletsAFermer, type ActionOnglet } from '../shared/menuOnglet.ts'
+import { MOTEUR_DEFAUT, choixMoteurValide, modeleDe, urlRecherche, type ChoixMoteur } from '../shared/moteurs.ts'
 import { SUGGESTIONS_MAX, construireSuggestions, deplacerSelection, indexValide, texteSuggestion } from './suggestions.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
@@ -29,7 +30,7 @@ import { basculerFavori, estFavori, favorisGrille } from './donnees/favoris.ts'
 import { adresseHistorique, ajouterVisite, effacerHistorique, lirePage, listerHistorique, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { PERIODES_EFFACEMENT, TYPES_EFFACEMENT, debutEffacement, type PeriodeEffacement, type TypeEffacement } from '../shared/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
-import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
+import { THEMES, ecrireBarre, ecrireMoteur, ecrireTheme, lireBarre, lireMoteur, lireTheme } from './donnees/preferences.ts'
 import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
 import { creerEspace, ecrireEspaceActif, lireEspaceActif, lireEspaces, modifierEspace, ordonnerEspaces, semerEspaces, supprimerEspace } from './donnees/espaces.ts'
 import { champsNouvelEspace, ordreApresDeplacement, type CouleurEspace, type Espace } from '../shared/espaces.ts'
@@ -75,6 +76,8 @@ let menuPage: (MenuPage & { tabId: string, lien: string, image: string, pageX: n
 // que par index. null tant qu'elle est fermée ; fermée avec l'overlay.
 let palette: EntreePalette[] | null = null
 let choixTheme: ThemeChoice = 'system'
+// Moteur de la barre d'adresse (ARB-58) : relu de la base au démarrage, changé par set-search-engine.
+let moteur: ChoixMoteur = MOTEUR_DEFAUT
 // Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
 // --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
 const FOND_FENETRE = { dark: '#111820', light: '#F3F5F7' } as const
@@ -163,7 +166,13 @@ function normalizeUrl(input: string): string {
   if (/^(https?:\/\/|file:\/\/)/i.test(value)) return value
   if (/^(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(value)) return `http://${value}`
   if (!value.includes(' ') && value.includes('.') && !value.startsWith('about:')) return `https://${value}`
-  return `https://www.google.com/search?q=${encodeURIComponent(value)}`
+  return urlRecherche(modeleDe(moteur), value)
+}
+
+function appliquerMoteur(choix: ChoixMoteur) {
+  // Écrit d'abord : un échec remonte à la modale, qui reste ouverte, au lieu d'un choix perdu au redémarrage.
+  if (base) ecrireMoteur(base, choix)
+  moteur = choix
 }
 
 function stateSnapshot(): BrowserState {
@@ -500,7 +509,7 @@ function proposerSuggestions(texte: string, ancre: SuggestionsState['anchor']) {
   } catch (erreur) {
     console.error('Historique non lu pour les suggestions :', erreur)
   }
-  const items = construireSuggestions(texte, normalizeUrl(texte), pages)
+  const items = construireSuggestions(texte, normalizeUrl(texte), pages, modeleDe(moteur))
   if (!items.length) return fermerSuggestions()
   suggestions = { items, selection: -1, anchor: ancre }
   ouvrirOverlay()
@@ -1403,6 +1412,11 @@ app.whenReady().then(() => {
     } catch (erreur) {
       console.error('Thème non relu :', erreur)
     }
+    try {
+      moteur = lireMoteur(base)
+    } catch (erreur) {
+      console.error('Moteur de recherche non relu :', erreur)
+    }
     // Espaces (ARB-61) : créés au premier lancement, espace affiché relu avant la restauration de la session.
     try {
       semerEspaces(base)
@@ -1466,6 +1480,8 @@ app.whenReady().then(() => {
   // Le thème choisi est tenu ici pour que la fenêtre et la barre latérale l'affichent ensemble.
   traiter('browser:get-theme', () => choixTheme)
   traiter('browser:set-theme', (valeur) => appliquerTheme(exigerChoix(valeur, THEMES)))
+  traiter('browser:get-search-engine', () => ({ ...moteur }))
+  traiter('browser:set-search-engine', (valeur) => appliquerMoteur(choixMoteurValide(valeur)))
   traiter('browser:get-sidebar', () => ({ ...barre }))
   traiter('browser:set-sidebar', (valeur) => agirSurBarre(exigerChoix(valeur, ['open', 'hide', 'toggle-pin', 'toggle-compact'] as const)))
   traiter('browser:set-sidebar-width', (valeur) => {
