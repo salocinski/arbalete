@@ -99,6 +99,8 @@ html.vue-barre .sidebar-zone { right: 0; }
 /* Palette de commandes (ARB-67) : modale centrée, champ puis liste défilante. */
 .palette { box-sizing: border-box; width: 560px; max-width: calc(100vw - 32px); display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-floating); color: var(--color-text-primary); }
 .palette-liste { display: grid; max-height: min(360px, 60vh); overflow-y: auto; }
+.history-day { margin: 0; padding: var(--space-2) 10px 4px; color: var(--color-text-secondary); font-size: 11px; font-weight: 600; }
+.history-time { margin-left: auto; padding-left: var(--space-2); color: var(--color-text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
 .palette-vide { margin: 0; padding: var(--space-3) 10px; color: var(--color-text-secondary); font-size: 12px; }
 /* Recherche dans la page (ARB-70) : la vue native a la taille de la barre (44 px), arrondie par setBorderRadius. */
 html.vue-recherche, html.vue-recherche body { background: transparent; min-width: 0; min-height: 0; overflow: hidden; }
