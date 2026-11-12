@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.39.0] - 2026-11-12
+
+### Ajouté
+- Le moteur de recherche de la barre d’adresse se choisit : le bouton « Paramètres » de la barre latérale ouvre une fenêtre avec Google (par défaut), Bing, DuckDuckGo, Qwant ou un moteur personnalisé (adresse https contenant un seul `%s`, remplacé par le texte tapé). Le choix sert à la recherche comme aux suggestions et revient au redémarrage.
+
+### Limites connues
+- Le modèle personnalisé n’est gardé que tant que « Personnalisé » est sélectionné ; il ne peut pas contenir d’identifiants, ni de `%s` dans le nom de domaine.
+- Une saisie vide ouvre toujours google.com (page d’accueil), quel que soit le moteur.
+- Le branchement de la barre d’adresse sur le moteur choisi et la fenêtre de choix n’ont pas de test automatique (logique pure testée seulement).
+
 ## [0.12.38.0] - 2026-11-12
 
 ### Ajouté

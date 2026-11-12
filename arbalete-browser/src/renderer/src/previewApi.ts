@@ -1,5 +1,6 @@
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, transitionBarre } from '../../shared/barre'
 import { COULEURS_ESPACE, ESPACES_INITIAUX, LONGUEUR_MAX_NOM_ESPACE, champsNouvelEspace, ordreApresDeplacement, type CouleurEspace, type Espace } from '../../shared/espaces'
+import { MOTEUR_DEFAUT, modeleDe, urlRecherche, type ChoixMoteur } from '../../shared/moteurs'
 import { estActif, type Telechargement } from '../../shared/telechargements'
 import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
@@ -34,12 +35,14 @@ function titleFor(url: string): string {
   }
 }
 
+let moteur: ChoixMoteur = MOTEUR_DEFAUT
+
 function normalizeUrl(input: string): string {
   const value = input.trim()
   if (!value) return 'https://www.google.com'
   if (/^https?:\/\//i.test(value)) return value
   if (!value.includes(' ') && value.includes('.')) return `https://${value}`
-  return `https://www.google.com/search?q=${encodeURIComponent(value)}`
+  return urlRecherche(modeleDe(moteur), value)
 }
 
 export function installPreviewApi(): boolean {
@@ -328,6 +331,8 @@ export function installPreviewApi(): boolean {
       downloads = downloads.filter((candidate) => candidate.id !== id)
       downloadListeners.forEach((fn) => fn(downloads))
     },
+    getSearchEngine: async () => ({ ...moteur }),
+    setSearchEngine: async (choix) => { moteur = choix },
     getTheme: async () => theme,
     setTheme: async (choice) => {
       theme = choice

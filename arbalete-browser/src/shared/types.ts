@@ -1,4 +1,5 @@
 import type { Espace } from './espaces'
+import type { ChoixMoteur } from './moteurs'
 import type { Telechargement } from './telechargements'
 import type { EntreeMenuPage, MenuPage } from './menuPage'
 import type { ActionOnglet } from './menuOnglet'
@@ -159,6 +160,9 @@ export type BrowserAPI = {
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void
+  // Moteur de recherche de la barre d'adresse (ARB-58) ; un choix invalide est refusé par le processus principal.
+  getSearchEngine: () => Promise<ChoixMoteur>
+  setSearchEngine: (choix: ChoixMoteur) => Promise<void>
   // Ctrl+L pressé hors de la fenêtre (page, barre latérale) : la fenêtre sélectionne sa barre d'adresse.
   onFocusAddress: (callback: () => void) => () => void
   // Invite de restauration (ARB-46) : vraie tant qu'une session interrompue par un arrêt forcé attend une réponse.

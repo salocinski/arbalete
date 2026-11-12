@@ -1,7 +1,7 @@
 import { deepEqual, strictEqual } from 'node:assert/strict'
 import { test } from 'node:test'
 import { ouvrirBase } from './base.ts'
-import { ecrireBarre, ecrirePreference, ecrireTheme, lireBarre, lirePreference, lireTheme } from './preferences.ts'
+import { ecrireBarre, ecrireMoteur, ecrirePreference, ecrireTheme, lireBarre, lireMoteur, lirePreference, lireTheme } from './preferences.ts'
 import { noterFermetureNormale, noterOuverture } from './fermeture.ts'
 
 // Tests unitaires des préférences (ARB-59).
@@ -55,4 +55,17 @@ test('les préférences ne se mêlent pas aux notes de l’état de l’applicat
   noterFermetureNormale(db)
   strictEqual(lirePreference(db, 'theme'), 'dark')
   strictEqual(lirePreference(db, 'inconnue'), undefined)
+})
+
+test('moteur de recherche (ARB-58) : Google par défaut, choix relu, valeur invalide redonne Google', () => {
+  const db = ouvrirBase(':memory:')
+  deepEqual(lireMoteur(db), { id: 'google', modele: '' })
+  ecrireMoteur(db, { id: 'qwant', modele: '' })
+  deepEqual(lireMoteur(db), { id: 'qwant', modele: '' })
+  ecrireMoteur(db, { id: 'perso', modele: 'https://x.org/?q=%s' })
+  deepEqual(lireMoteur(db), { id: 'perso', modele: 'https://x.org/?q=%s' })
+  ecrireMoteur(db, { id: 'perso', modele: 'http://x.org/' })
+  deepEqual(lireMoteur(db), { id: 'google', modele: '' })
+  ecrirePreference(db, 'moteur', 'yahoo')
+  deepEqual(lireMoteur(db), { id: 'google', modele: '' })
 })

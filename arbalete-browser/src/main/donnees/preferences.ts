@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre } from '../../shared/barre.ts'
+import { MOTEUR_DEFAUT, choixMoteurValide, type ChoixMoteur } from '../../shared/moteurs.ts'
+import { enTransaction } from './transaction.ts'
 import type { SidebarState, ThemeChoice } from '../../shared/types.ts'
 
 // Préférences de l'utilisateur (ARB-59, EP-11), dans la table clé/valeur `etat` sous le préfixe `pref.` : pas de
@@ -27,6 +29,23 @@ export function lireTheme(db: DatabaseSync): ThemeChoice {
 
 export function ecrireTheme(db: DatabaseSync, choix: ThemeChoice): void {
   ecrirePreference(db, 'theme', choix)
+}
+
+// Moteur de recherche (ARB-58) : clés `moteur` et `moteur.modele` (seulement pour « perso »). Une valeur absente, inconnue
+// ou un modèle invalide redonne Google.
+export function lireMoteur(db: DatabaseSync): ChoixMoteur {
+  try {
+    return choixMoteurValide({ id: lirePreference(db, 'moteur'), modele: lirePreference(db, 'moteur.modele') })
+  } catch {
+    return MOTEUR_DEFAUT
+  }
+}
+
+export function ecrireMoteur(db: DatabaseSync, choix: ChoixMoteur): void {
+  enTransaction(db, () => {
+    ecrirePreference(db, 'moteur', choix.id)
+    ecrirePreference(db, 'moteur.modele', choix.modele)
+  })
 }
 
 // Barre latérale (ARB-123) : mode (épinglée ou masquée, compacte ou étendue) et largeur étendue. Au démarrage, une barre
