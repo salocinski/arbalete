@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { after, test } from 'node:test'
 import { ouvrirBase } from './base.ts'
-import { LONGUEUR_MAX_TITRE, LONGUEUR_MAX_URL, adresseHistorique, ajouterVisite, lirePage, listerHistorique, nommerPage, rechercherPages, LONGUEUR_MOT_MAX, MOTS_MAX } from './historique.ts'
+import { LONGUEUR_MAX_TITRE, LONGUEUR_MAX_URL, adresseHistorique, ajouterVisite, effacerHistorique, lirePage, listerHistorique, nommerPage, rechercherPages, LONGUEUR_MOT_MAX, MOTS_MAX } from './historique.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
 import { lireSession, sauverSession } from './session.ts'
 
@@ -158,5 +158,27 @@ test('le panneau plafonne ses lignes à 200, refuse une limite négative et coup
   ajouterVisite(db, 'https://nuit.test/', '', new Date(2026, 10, 2, 23, 59).getTime())
   ajouterVisite(db, 'https://nuit.test/', '', new Date(2026, 10, 3, 0, 1).getTime())
   strictEqual(listerHistorique(db, 'nuit.test').length, 2)
+  db.close()
+})
+
+test('effacer depuis une date retire les visites récentes, les pages sans visite et recalcule les autres', () => {
+  const db = ouvrirBase(':memory:')
+  ajouterVisite(db, 'https://ancienne.example/', 'Ancienne', 1000)
+  ajouterVisite(db, 'https://mixte.example/', 'Mixte', 1500)
+  ajouterVisite(db, 'https://mixte.example/', 'Mixte', 5000)
+  ajouterVisite(db, 'https://recente.example/', 'Récente', 6000)
+  effacerHistorique(db, 4000)
+  strictEqual(lirePage(db, 'https://recente.example/'), undefined)
+  deepStrictEqual(lirePage(db, 'https://mixte.example/'), { url: 'https://mixte.example/', titre: 'Mixte', visites: 1, derniereVisite: 1500 })
+  strictEqual(lirePage(db, 'https://ancienne.example/')?.visites, 1)
+  // Borne inclusive : une visite datée exactement à `depuis` est effacée, celle d'un instant avant reste.
+  ajouterVisite(db, 'https://avant.example/', 'Avant', 3999)
+  ajouterVisite(db, 'https://pile.example/', 'Pile', 4000)
+  effacerHistorique(db, 4000)
+  strictEqual(lirePage(db, 'https://avant.example/')?.visites, 1)
+  strictEqual(lirePage(db, 'https://pile.example/'), undefined)
+  effacerHistorique(db, 0)
+  deepStrictEqual(listerHistorique(db, ''), [])
+  strictEqual(lirePage(db, 'https://mixte.example/'), undefined)
   db.close()
 })

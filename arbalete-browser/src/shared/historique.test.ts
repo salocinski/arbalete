@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict'
 import { test } from 'node:test'
-import { grouperParJour, libelleJour } from './historique.ts'
+import { debutEffacement, grouperParJour, libelleJour } from './historique.ts'
 
 // Tests unitaires du regroupement par jour du panneau Historique (ARB-52).
 
@@ -31,4 +31,11 @@ test('les visites se regroupent par jour dans l’ordre reçu', () => {
 
 test('un jour dans le futur s’écrit en toutes lettres, jamais « Hier »', () => {
   strictEqual(libelleJour(heure(2026, 11, 14), maintenant), 'samedi 14 novembre')
+})
+
+test('le début de l’effacement remonte d’une heure, d’un jour, d’une semaine, ou à zéro', () => {
+  strictEqual(debutEffacement('heure', 10_000_000), 10_000_000 - 3_600_000)
+  strictEqual(debutEffacement('jour', 100_000_000), 100_000_000 - 86_400_000)
+  strictEqual(debutEffacement('semaine', 1_000_000_000), 1_000_000_000 - 7 * 86_400_000)
+  strictEqual(debutEffacement('tout', 1_000_000_000), 0)
 })
