@@ -160,7 +160,7 @@ export function creerGestionnaire({ dossier, base, diffuser, maintenant = Date.n
     // liste, jamais de l'interface. « Ouvrir » refuse les fichiers exécutables (voir `extensionExecutable`).
     ouvrir(id: number) {
       const ligne = liste.find((t) => t.id === id)
-      if (ligne?.etat === 'termine' && existe(ligne.chemin) && !extensionExecutable(ligne.nom)) ouvrir(ligne.chemin)
+      if (ligne?.etat === 'termine' && existe(ligne.chemin) && !extensionExecutable(ligne.chemin)) ouvrir(ligne.chemin)
     },
 
     reveler(id: number) {

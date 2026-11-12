@@ -1,4 +1,4 @@
-import { extname, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import { adresseHistorique } from './donnees/historique.ts'
 
 // Téléchargements (ARB-55) : calculs purs du nom de fichier et de l'adresse enregistrée ; le reste est dans index.ts.
@@ -52,5 +52,6 @@ const EXTENSIONS_EXECUTABLES = new Set(['.exe', '.msi', '.bat', '.cmd', '.com', 
   '.jnlp', '.inf', '.scf', '.sct', '.ws', '.wsc', '.vb', '.msp', '.mst', '.dll', '.xll', '.diagcab', '.theme', '.settingcontent-ms', '.library-ms', '.appref-ms', '.xbap', '.ps1xml', '.psc1', '.docm', '.xlsm', '.pptm'])
 
 export function extensionExecutable(nom: string): boolean {
-  return EXTENSIONS_EXECUTABLES.has(extname(nom).toLowerCase())
+  // Le préfixe « _ » : un fichier nommé exactement « .bat » a pour extension .bat sous Windows, pas pour `extname`.
+  return EXTENSIONS_EXECUTABLES.has(extname('_' + basename(nom)).toLowerCase())
 }
