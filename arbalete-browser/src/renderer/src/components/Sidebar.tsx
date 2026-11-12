@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, Clock3, Download, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings2, Star } from 'lucide-react'
 import { LARGEUR_ETENDUE_MAX, LARGEUR_ETENDUE_MIN, barreCompacte, largeurApresTouche, largeurBarre } from '../../../shared/barre'
 import type { BrowserState, SidebarState } from '../../../shared/types'
-import { useOverlay } from '../state'
+import { useDownloads, useOverlay } from '../state'
 import { ColorModal } from './ColorModal'
+import { DownloadsOverlay } from './DownloadsOverlay'
 import { MenuOverlay } from './Overlay'
 import { PinButton } from './PinButton'
 import { IconButton } from './ui/IconButton'
@@ -56,7 +57,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
   const espaceActif = state.workspaces.find((e) => e.id === state.activeWorkspaceId)
 
   useEffect(() => {
-    if (!overlay) { setMenuOnglet(null); setMenuEspace(null); setModaleEspace(null) }
+    if (!overlay) { setMenuOnglet(null); setMenuEspace(null); setModaleEspace(null); setPanneauTelechargements(null) }
   }, [overlay])
 
   // L'espace a été supprimé pendant que son menu ou sa modale était ouvert : ils n'ont plus d'objet.
@@ -80,6 +81,15 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
     setMenuEspace({ id, x, y })
     void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
       .then((ouvert) => { if (!ouvert) setMenuEspace(null) }, () => setMenuEspace(null))
+  }
+  // Liste des téléchargements (ARB-55) : ouverte à droite du bouton, retournée vers le haut par Overlay faute de place en bas.
+  const downloads = useDownloads()
+  const [panneauTelechargements, setPanneauTelechargements] = useState<{ x: number; y: number } | null>(null)
+  const ouvrirTelechargements = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const { right, bottom } = event.currentTarget.getBoundingClientRect()
+    setPanneauTelechargements({ x: right + 8, y: bottom })
+    void window.arbalete.setOverlay(true).then(() => window.arbalete.getOverlay())
+      .then((ouvert) => { if (!ouvert) setPanneauTelechargements(null) }, () => setPanneauTelechargements(null))
   }
   const fermerOverlay = () => void window.arbalete.setOverlay(false)
 
@@ -143,7 +153,7 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
           <button className="new-tab-button" title="Nouvel onglet (Ctrl T)" onClick={() => void window.arbalete.createTab()}><Plus size={16}/><span>Nouvel onglet</span><kbd>Ctrl T</kbd></button>
           <div className="sidebar-spacer" />
           <div className="sidebar-bottom">
-            <button className="nav-item" title="Téléchargements"><Download size={16}/><span>Téléchargements</span></button>
+            <button className="nav-item" title="Téléchargements" onClick={ouvrirTelechargements}><Download size={16}/><span>Téléchargements</span></button>
             <button className="nav-item" title="Paramètres"><Settings2 size={16}/><span>Paramètres</span></button>
             <div className="profile-row" title="Profil local"><div className="avatar">A</div><div className="profile-copy"><strong>Profil local</strong><span>Synchronisation inactive</span></div><ChevronDown size={14}/></div>
           </div>
@@ -160,6 +170,9 @@ export function Sidebar({ state, sidebar }: { state: BrowserState; sidebar: Side
         <MenuOverlay x={menuEspace.x} y={menuEspace.y} label={`Espace ${espaceDuMenu.nom}`} onClose={fermerOverlay} entrees={[
           { label: 'Changer la couleur…', remplace: true, action: () => { setModaleEspace(menuEspace.id); setMenuEspace(null) } }
         ]} />
+      )}
+      {overlay && panneauTelechargements && (
+        <DownloadsOverlay x={panneauTelechargements.x} y={panneauTelechargements.y} downloads={downloads} onClose={fermerOverlay} />
       )}
       {overlay && modaleEspace !== null && espaceDuMenu && (
         <ColorModal espace={espaceDuMenu} onClose={fermerOverlay}

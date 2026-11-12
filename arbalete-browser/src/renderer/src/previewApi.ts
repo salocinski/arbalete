@@ -1,5 +1,6 @@
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, transitionBarre } from '../../shared/barre'
 import { COULEURS_ESPACE, ESPACES_INITIAUX, LONGUEUR_MAX_NOM_ESPACE, champsNouvelEspace, ordreApresDeplacement, type CouleurEspace, type Espace } from '../../shared/espaces'
+import { estActif, type Telechargement } from '../../shared/telechargements'
 import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } from '../../shared/types'
 
 /**
@@ -58,6 +59,24 @@ export function installPreviewApi(): boolean {
   // Dans l'aperçu, la barre est dans le même document que la page simulée : l'overlay n'a rien à agrandir.
   let overlay = false
   const overlayListeners = new Set<(open: boolean) => void>()
+  // Téléchargements de l'aperçu (ARB-55) : un en cours qui avance seul, un terminé et un interrompu, en mémoire.
+  const MO = 1024 * 1024
+  let downloads: Telechargement[] = [
+    { id: 3, url: 'https://example.com/archive-100-mo.zip', nom: 'archive-100-mo.zip', chemin: 'C:\\Téléchargements\\archive-100-mo.zip', total: 100 * MO, recu: 12 * MO, etat: 'en-cours', date: Date.now() },
+    { id: 2, url: 'https://example.com/rapport.pdf', nom: 'rapport.pdf', chemin: 'C:\\Téléchargements\\rapport.pdf', total: 2 * MO, recu: 2 * MO, etat: 'termine', date: Date.now() - 60_000 },
+    { id: 1, url: 'https://example.com/video.mp4', nom: 'video.mp4', chemin: 'C:\\Téléchargements\\video.mp4', total: 0, recu: 30 * MO, etat: 'interrompu', date: Date.now() - 120_000 }
+  ]
+  const downloadListeners = new Set<(list: Telechargement[]) => void>()
+  const setDownload = (id: number, champs: Partial<Telechargement>) => {
+    downloads = downloads.map((item) => (item.id === id ? { ...item, ...champs } : item))
+    downloadListeners.forEach((fn) => fn(downloads))
+  }
+  setInterval(() => {
+    const item = downloads.find((candidate) => candidate.etat === 'en-cours')
+    if (!item) return
+    const recu = Math.min(item.total, item.recu + 2 * MO)
+    setDownload(item.id, { recu, etat: recu >= item.total ? 'termine' : 'en-cours' })
+  }, 500)
   let theme: ThemeChoice = 'system'
   const themeChoiceListeners = new Set<(choice: ThemeChoice) => void>()
   const media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -255,6 +274,20 @@ export function installPreviewApi(): boolean {
     closeFind: async () => undefined,
     onFindResult: () => () => undefined,
     onFindFocus: () => () => undefined,
+    getDownloads: async () => downloads,
+    onDownloads: (callback) => {
+      downloadListeners.add(callback)
+      return () => downloadListeners.delete(callback)
+    },
+    pauseDownload: async (id) => { if (downloads.find((item) => item.id === id)?.etat === 'en-cours') setDownload(id, { etat: 'en-pause' }) },
+    resumeDownload: async (id) => { if (downloads.find((item) => item.id === id)?.etat === 'en-pause') setDownload(id, { etat: 'en-cours' }) },
+    cancelDownload: async (id) => { if (estActif(downloads.find((item) => item.id === id)?.etat ?? 'annule')) setDownload(id, { etat: 'annule' }) },
+    removeDownload: async (id) => {
+      const item = downloads.find((candidate) => candidate.id === id)
+      if (!item || estActif(item.etat)) return
+      downloads = downloads.filter((candidate) => candidate.id !== id)
+      downloadListeners.forEach((fn) => fn(downloads))
+    },
     getTheme: async () => theme,
     setTheme: async (choice) => {
       theme = choice

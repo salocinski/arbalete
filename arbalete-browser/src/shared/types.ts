@@ -1,4 +1,5 @@
 import type { Espace } from './espaces'
+import type { Telechargement } from './telechargements'
 
 export type BrowserTab = {
   id: string
@@ -116,6 +117,15 @@ export type BrowserAPI = {
   // Couleur d'un espace (ARB-134) : le nom d'une couleur de `COULEURS_ESPACE` ; un nom hors liste est refusé, un espace
   // inconnu est sans effet.
   setWorkspaceColor: (id: number, color: string) => Promise<void>
+  // Téléchargements (ARB-55) : enregistrés sans invite dans le dossier Téléchargements, du plus récent au plus ancien, et
+  // conservés au redémarrage (un téléchargement alors actif devient `interrompu`). Pause, reprise et annulation ne
+  // concernent qu'un téléchargement actif ; `removeDownload` retire une ligne terminée de la liste, sans effacer le fichier.
+  getDownloads: () => Promise<Telechargement[]>
+  onDownloads: (callback: (downloads: Telechargement[]) => void) => () => void
+  pauseDownload: (id: number) => Promise<void>
+  resumeDownload: (id: number) => Promise<void>
+  cancelDownload: (id: number) => Promise<void>
+  removeDownload: (id: number) => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

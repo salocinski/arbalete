@@ -76,6 +76,20 @@ html.vue-barre .sidebar-zone { right: 0; }
 .overlay-menu { min-width: 200px; padding: 5px; border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-floating); color: var(--color-text-primary); }
 .overlay-menu button { display: flex; align-items: center; width: 100%; padding: 8px 10px; border: 0; background: transparent; border-radius: var(--radius-sm); font-size: 12px; text-align: left; }
 .overlay-menu button:hover, .overlay-menu button:focus-visible { background: var(--color-surface-hover); outline: none; }
+/* Liste des téléchargements (ARB-55) : panneau de la couche d'overlays, ouvert au-dessus du bouton de la barre latérale. */
+.downloads { box-sizing: border-box; width: 340px; max-width: calc(100vw - 16px); max-height: min(420px, 70vh); display: flex; flex-direction: column; padding: var(--space-3); gap: var(--space-2); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-floating); color: var(--color-text-primary); }
+.downloads-title { font-size: 12px; font-weight: 600; }
+.downloads-empty { margin: 0; padding: var(--space-3) 0; color: var(--color-text-secondary); font-size: 12px; }
+.downloads-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: grid; gap: 2px; }
+.download-item { display: flex; align-items: center; gap: var(--space-1); padding: 6px 4px 6px 8px; border-radius: var(--radius-sm); }
+.download-item:hover { background: var(--color-surface-hover); }
+.download-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.download-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.download-state { color: var(--color-text-secondary); font-size: 11px; }
+.download-item[data-etat='annule'] .download-name, .download-item[data-etat='interrompu'] .download-name { color: var(--color-text-secondary); }
+.download-bar { height: 3px; border-radius: 2px; background: var(--color-border); overflow: hidden; }
+.download-bar span { display: block; height: 100%; background: var(--color-accent); }
+.download-item[data-etat='en-pause'] .download-bar span { background: var(--color-text-secondary); }
 /* Suggestions de la barre d'adresse (ARB-53) : liste dans la couche d'overlays, sous le champ. */
 .suggestions { box-sizing: border-box; display: grid; padding: var(--space-1); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--shadow-floating); border-radius: var(--radius-floating); color: var(--color-text-primary); }
 .suggestion { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 8px 10px; border: 0; background: transparent; border-radius: var(--radius-sm); font-size: 13px; text-align: left; }
