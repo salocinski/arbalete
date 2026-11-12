@@ -3,7 +3,7 @@ import { basename } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { estActif, type EtatTelechargement, type Telechargement } from '../shared/telechargements.ts'
 import { TELECHARGEMENTS_GARDES, apresArret, creerTelechargement, dernierId, lireTelechargements, majTelechargement, retirerTelechargement } from './donnees/telechargements.ts'
-import { adresseTelechargement, cheminLibre, nomFichierSur, schemaAutorise } from './telechargements.ts'
+import { adresseTelechargement, cheminLibre, extensionExecutable, nomFichierSur, schemaAutorise } from './telechargements.ts'
 
 // Gestionnaire des téléchargements (ARB-55, EP-10) : tient la liste en mémoire, la reflète dans la base (au mieux) et la
 // diffuse à l'interface. La partie d'Electron qu'il utilise est réduite à `Article`, un DownloadItem pour le gestionnaire,
@@ -40,9 +40,12 @@ type Options = {
   diffuser: (liste: Telechargement[]) => void
   maintenant?: () => number
   existe?: (chemin: string) => boolean
+  // ARB-56 : `shell.openPath` et `shell.showItemInFolder` d'Electron, injectés pour les tests.
+  ouvrir: (chemin: string) => void
+  reveler: (chemin: string) => void
 }
 
-export function creerGestionnaire({ dossier, base, diffuser, maintenant = Date.now, existe = existsSync }: Options) {
+export function creerGestionnaire({ dossier, base, diffuser, maintenant = Date.now, existe = existsSync, ouvrir, reveler }: Options) {
   let liste: Telechargement[] = []
   const articles = new Map<number, Article>()
   let prochainId = 1
@@ -151,6 +154,18 @@ export function creerGestionnaire({ dossier, base, diffuser, maintenant = Date.n
     // L'état `annule` vient de l'événement `done` que l'annulation déclenche.
     annuler(id: number) {
       articles.get(id)?.cancel()
+    },
+
+    // ARB-56 : seul un téléchargement terminé dont le fichier existe encore s'ouvre ou se montre ; le chemin vient de la
+    // liste, jamais de l'interface. « Ouvrir » refuse les fichiers exécutables (voir `extensionExecutable`).
+    ouvrir(id: number) {
+      const ligne = liste.find((t) => t.id === id)
+      if (ligne?.etat === 'termine' && existe(ligne.chemin) && !extensionExecutable(ligne.nom)) ouvrir(ligne.chemin)
+    },
+
+    reveler(id: number) {
+      const ligne = liste.find((t) => t.id === id)
+      if (ligne?.etat === 'termine' && existe(ligne.chemin)) reveler(ligne.chemin)
     },
 
     // Retire une ligne terminée de la liste ; un téléchargement actif reste. Le fichier téléchargé n'est pas touché.

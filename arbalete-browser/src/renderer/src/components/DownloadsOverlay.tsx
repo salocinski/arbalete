@@ -1,4 +1,4 @@
-import { Pause, Play, X } from 'lucide-react'
+import { File, FolderOpen, Pause, Play, X } from 'lucide-react'
 import { estActif, formaterTaille, pourcentage, type Telechargement } from '../../../shared/telechargements'
 import { Overlay } from './Overlay'
 import { IconButton } from './ui/IconButton'
@@ -47,7 +47,15 @@ export function DownloadsOverlay({ x, y, downloads, onClose }: { x: number; y: n
                       <IconButton size="sm" title="Annuler" onClick={() => void window.arbalete.cancelDownload(t.id)}><X size={14} /></IconButton>
                     </>
                   ) : (
-                    <IconButton size="sm" title="Retirer de la liste" onClick={() => void window.arbalete.removeDownload(t.id)}><X size={14} /></IconButton>
+                    <>
+                      {t.etat === 'termine' && (
+                        <>
+                          <IconButton size="sm" title="Ouvrir le fichier" onClick={() => void window.arbalete.openDownload(t.id)}><File size={14} /></IconButton>
+                          <IconButton size="sm" title="Afficher dans le dossier" onClick={() => void window.arbalete.revealDownload(t.id)}><FolderOpen size={14} /></IconButton>
+                        </>
+                      )}
+                      <IconButton size="sm" title="Retirer de la liste" onClick={() => void window.arbalete.removeDownload(t.id)}><X size={14} /></IconButton>
+                    </>
                   )}
                 </li>
               )

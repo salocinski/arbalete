@@ -282,6 +282,9 @@ export function installPreviewApi(): boolean {
     pauseDownload: async (id) => { if (downloads.find((item) => item.id === id)?.etat === 'en-cours') setDownload(id, { etat: 'en-pause' }) },
     resumeDownload: async (id) => { if (downloads.find((item) => item.id === id)?.etat === 'en-pause') setDownload(id, { etat: 'en-cours' }) },
     cancelDownload: async (id) => { if (estActif(downloads.find((item) => item.id === id)?.etat ?? 'annule')) setDownload(id, { etat: 'annule' }) },
+    // Pas d'Explorateur dans l'aperçu (ARB-56).
+    openDownload: async () => undefined,
+    revealDownload: async () => undefined,
     removeDownload: async (id) => {
       const item = downloads.find((candidate) => candidate.id === id)
       if (!item || estActif(item.etat)) return

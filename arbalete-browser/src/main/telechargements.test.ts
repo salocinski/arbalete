@@ -1,7 +1,7 @@
 import { strictEqual } from 'node:assert/strict'
 import { test } from 'node:test'
 import { formaterTaille, pourcentage } from '../shared/telechargements.ts'
-import { adresseTelechargement, cheminLibre, nomFichierSur, schemaAutorise } from './telechargements.ts'
+import { adresseTelechargement, cheminLibre, extensionExecutable, nomFichierSur, schemaAutorise } from './telechargements.ts'
 
 // Tests unitaires des calculs purs des téléchargements (ARB-55).
 
@@ -76,4 +76,10 @@ test('la recherche d’un nom libre est bornée', () => {
   const chemin = cheminLibre('D', 'a.zip', () => { appels++; return true })
   strictEqual(appels <= 1002, true)
   strictEqual(/^D\\a \(\d{10,}\)\.zip$/.test(chemin), true)
+})
+
+// protects: refus d'ouverture d'un exécutable selon sa dernière extension ; fails_when: extension retirée, casse non normalisée, double extension mal classée ; why_new: aucun test direct ; seam: none ; no_claim: SmartScreen, contenu réel du fichier
+test('extensionExecutable : se fie à la dernière extension, sans tenir compte de la casse (ARB-56)', () => {
+  for (const nom of ['a.exe', 'A.EXE', 'x.txt.exe', 'a.ps1', 'a.msi', 'a.lnk', 'a.jnlp', 'a.dll', 'a.xlsm', 'a.settingcontent-ms']) strictEqual(extensionExecutable(nom), true, nom)
+  for (const nom of ['a.pdf', 'x.exe.txt', 'sans-extension', '.exe', '']) strictEqual(extensionExecutable(nom), false, nom)
 })
