@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.37.0] - 2026-11-12
+
+### Ajouté
+- Le panneau Historique efface vos données de navigation : choisissez la période (dernière heure, 24 heures, 7 jours, depuis toujours) et ce qu’il faut effacer (historique, cookies, cache), puis confirmez en un second clic. L’historique perd les visites de la période et les pages qui n’en ont plus aucune ; la liste se met à jour aussitôt.
+
+### Limites connues
+- Cookies et cache sont effacés en entier quelle que soit la période (Electron ne les date pas) : « la dernière heure » vous déconnecte donc de tous les sites.
+- L’historique effacé peut rester lisible dans les copies de secours de la base jusqu’à leur réécriture (24 h) ; les onglets fermés, la session, les téléchargements et le stockage des sites (localStorage, IndexedDB) ne sont pas touchés.
+- Si l’effacement des cookies ou du cache échoue, le panneau ne l’indique pas (la liste est simplement relue).
+- L’effacement côté processus principal et le panneau n’ont pas de test automatique (tests unitaires des données et du calcul de période seulement).
+
 ## [0.12.36.0] - 2026-11-12
 
 ### Ajouté
