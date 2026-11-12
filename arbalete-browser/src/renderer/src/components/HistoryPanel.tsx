@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Clock, Search } from 'lucide-react'
-import { grouperParJour, type VisiteHistorique } from '../../../shared/historique'
+import { grouperParJour, type PeriodeEffacement, type TypeEffacement, type VisiteHistorique } from '../../../shared/historique'
 import { Overlay } from './Overlay'
+import { Button } from './ui/Button'
 import { Input } from './ui/Input'
+
+const PERIODES: Array<[PeriodeEffacement, string]> = [['heure', 'La dernière heure'], ['jour', 'Les dernières 24 heures'], ['semaine', 'Les 7 derniers jours'], ['tout', 'Depuis toujours']]
+const TYPES: Array<[TypeEffacement, string]> = [['historique', 'Historique de navigation'], ['cookies', 'Cookies (en entier)'], ['cache', 'Cache (en entier)']]
 
 const heure = (date: number) => new Date(date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
@@ -12,6 +16,10 @@ const heure = (date: number) => new Date(date).toLocaleTimeString('fr-FR', { hou
 export function HistoryPanel({ onClose }: { onClose: () => void }) {
   const [texte, setTexte] = useState('')
   // La liste garde le texte qui l'a produite : Entrée n'ouvre pas la première ligne d'une frappe précédente.
+  const [periode, setPeriode] = useState<PeriodeEffacement>('heure')
+  const [types, setTypes] = useState<TypeEffacement[]>(['historique'])
+  const [confirme, setConfirme] = useState(false)
+  const [rafraichir, setRafraichir] = useState(0)
   const [resultat, setResultat] = useState<{ pour: string, visites: VisiteHistorique[] } | null>(null)
   const visites = resultat && resultat.pour === texte ? resultat.visites : null
 
@@ -19,15 +27,23 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
     let perime = false
     window.arbalete.searchHistory(texte).then((liste) => { if (!perime) setResultat({ pour: texte, visites: liste }) }, () => { if (!perime) setResultat({ pour: texte, visites: [] }) })
     return () => { perime = true }
-  }, [texte])
+  }, [texte, rafraichir])
 
   const jours = useMemo(() => grouperParJour(visites ?? []), [visites])
   const ouvrir = (url: string) => void window.arbalete.openHistoryPage(url)
+  // Un premier clic demande confirmation, le second efface ; toute modification du choix annule la demande.
+  const effacer = () => {
+    if (!confirme) { setConfirme(true); return }
+    setConfirme(false)
+    // Rafraîchi aussi en cas d'échec : l'historique a pu être effacé avant l'erreur (cookies, cache).
+    const relire = () => setRafraichir((n) => n + 1)
+    void window.arbalete.clearBrowsingData(periode, types).then(relire, relire)
+  }
 
   return (
     <Overlay centre onClose={onClose}>
       <div className="palette history" role="dialog" aria-label="Historique">
-        <Input autoFocus value={texte} onChange={(event) => setTexte(event.target.value)} placeholder="Rechercher dans l’historique"
+        <Input autoFocus value={texte} onChange={(event) => { setTexte(event.target.value); setConfirme(false) }} placeholder="Rechercher dans l’historique"
           aria-label="Rechercher dans l’historique" leading={<Search size={14} className="muted-icon" aria-hidden="true" />}
           onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing && visites?.[0]) { event.preventDefault(); ouvrir(visites[0].url) } }} />
         <div className="palette-liste">
@@ -46,6 +62,20 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
             </section>
           ))}
         </div>
+        <fieldset className="history-clear" onChange={() => setConfirme(false)}>
+          <legend>Effacer les données de navigation</legend>
+          <select aria-label="Période" value={periode} onChange={(event) => setPeriode(event.target.value as PeriodeEffacement)}>
+            {PERIODES.map(([valeur, libelle]) => <option key={valeur} value={valeur}>{libelle}</option>)}
+          </select>
+          {TYPES.map(([valeur, libelle]) => (
+            <label key={valeur}>
+              <input type="checkbox" checked={types.includes(valeur)}
+                onChange={(event) => setTypes((actuels) => event.target.checked ? [...actuels, valeur] : actuels.filter((type) => type !== valeur))} />
+              {libelle}
+            </label>
+          ))}
+          <Button variant="destructive" size="sm" disabled={!types.length} onClick={effacer}>{confirme ? 'Confirmer l’effacement' : 'Effacer'}</Button>
+        </fieldset>
       </div>
     </Overlay>
   )

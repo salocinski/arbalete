@@ -43,6 +43,7 @@ const api: BrowserAPI = {
   choosePalette: (index, cle) => ipcRenderer.invoke('browser:palette-choose', index, cle),
   searchHistory: (text) => ipcRenderer.invoke('browser:search-history', text),
   openHistoryPage: (url) => ipcRenderer.invoke('browser:open-history-page', url),
+  clearBrowsingData: (period, types) => ipcRenderer.invoke('browser:clear-browsing-data', period, types),
   getPageMenu: () => ipcRenderer.invoke('browser:get-page-menu'),
   onPageMenu: (callback) => ecouter('browser:page-menu', callback),
   pageMenuAction: (entree) => ipcRenderer.invoke('browser:page-menu-action', entree),
