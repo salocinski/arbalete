@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, WebContentsView, ipcMain, screen, session, shell, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import { app, BrowserWindow, Menu, clipboard, WebContentsView, ipcMain, screen, session, shell, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
@@ -13,6 +13,8 @@ import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { placerRecherche, texteRecherche } from './recherche.ts'
+import { entreeMenuPageValide, type EntreeMenuPage, type MenuPage } from '../shared/menuPage.ts'
+import { entreesMenuPage } from './menuPage.ts'
 import { SUGGESTIONS_MAX, construireSuggestions, deplacerSelection, indexValide, texteSuggestion } from './suggestions.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
@@ -61,6 +63,9 @@ let echapAvale = false
 // Suggestions de la barre d'adresse (ARB-53) : liste affichée dans l'overlay tant qu'elle existe, fermée avec lui. Le
 // champ qui les a demandées garde le clavier, donc sa fermeture ne rend pas le focus à la page (sauf choix d'une ligne).
 let suggestions: SuggestionsState | null = null
+// Menu contextuel d'une page (ARB-40) : tenu ici avec l'adresse du lien et de l'image du clic, que l'interface ne voit
+// pas ; elle n'envoie que l'entrée choisie. Fermé avec l'overlay.
+let menuPage: (MenuPage & { tabId: string, lien: string, image: string, pageX: number, pageY: number }) | null = null
 let choixTheme: ThemeChoice = 'system'
 // Fond natif de la fenêtre, visible avant le rendu de l'interface et au redimensionnement : jumeau de
 // --color-background dans src/renderer/src/design-system/tokens.css (ARB-34), à changer ensemble.
@@ -340,10 +345,13 @@ function fermerOverlay() {
   if (!overlayOuvert) return
   overlayOuvert = false
   const duChamp = suggestions !== null
+  const duMenu = menuPage !== null
   suggestions = null
+  menuPage = null
   placerBarre()
   envoyerAuxInterfaces('browser:overlay', false)
   envoyerAuxInterfaces('browser:suggestions', null)
+  if (duMenu) envoyerAuxInterfaces('browser:page-menu', null)
   if (!mainWindow || mainWindow.isDestroyed() || barre.pinned) return
   const pointeur = screen.getCursorScreenPoint()
   const zone = mainWindow.getContentBounds()
@@ -352,6 +360,48 @@ function fermerOverlay() {
   agirSurBarre('hide')
   // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page, sauf s'il est dans le champ d'adresse.
   if (!duChamp) activeRecord()?.view.webContents.focus()
+}
+
+// Clic droit dans la page de l'onglet actif (ARB-40) : le menu s'ouvre dans la couche d'overlays, au point du clic.
+// Un overlay déjà ouvert n'est pas remplacé.
+function ouvrirMenuPage(tabId: string, params: Electron.ContextMenuParams) {
+  const record = tabs.get(tabId)
+  if (!record || tabId !== activeTabId || overlayOuvert || !barreView) return
+  const wc = record.view.webContents
+  const entrees = entreesMenuPage({
+    lien: params.linkURL,
+    image: params.mediaType === 'image' ? params.srcURL : '',
+    texteSelectionne: params.selectionText.trim() !== '' && params.editFlags.canCopy,
+    peutReculer: wc.navigationHistory.canGoBack(),
+    peutAvancer: wc.navigationHistory.canGoForward(),
+    inspecter: !app.isPackaged
+  })
+  if (!entrees.length) return
+  const { x, y, width, height } = record.view.getBounds()
+  // Le point vient du rendu de la page : borné à la page, un nombre aberrant (négatif, NaN) ne sort pas le menu de la fenêtre.
+  const pageX = Number.isFinite(params.x) ? Math.max(0, Math.min(params.x, width)) : 0
+  const pageY = Number.isFinite(params.y) ? Math.max(0, Math.min(params.y, height)) : 0
+  menuPage = { tabId, x: x + pageX, y: y + pageY, entrees, lien: params.linkURL, image: params.srcURL, pageX, pageY }
+  ouvrirOverlay()
+  if (!overlayOuvert) { menuPage = null; return }
+  envoyerAuxInterfaces('browser:page-menu', menuPage && { x: menuPage.x, y: menuPage.y, entrees: menuPage.entrees })
+}
+
+function agirSurMenuPage(entree: EntreeMenuPage) {
+  const menu = menuPage
+  if (!menu || !menu.entrees.includes(entree)) return
+  const wc = tabs.get(menu.tabId)?.view.webContents
+  fermerOverlay()
+  if (!wc || wc.isDestroyed()) return
+  // Les actions de navigation visent l'onglet du clic, même si un autre est devenu actif pendant que le menu était ouvert.
+  if (entree === 'retour') { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack() }
+  else if (entree === 'avancer') { if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward() }
+  else if (entree === 'recharger') wc.reload()
+  else if (entree === 'copier') wc.copy()
+  else if (entree === 'ouvrir-lien') { createTab(menu.lien); activeRecord()?.view.webContents.focus() }
+  else if (entree === 'copier-lien') clipboard.writeText(menu.lien)
+  else if (entree === 'enregistrer-image') wc.downloadURL(menu.image)
+  else wc.inspectElement(menu.pageX, menu.pageY)
 }
 
 // Navigation de l'onglet actif vers un texte tapé ou une adresse (barre d'adresse, suggestions).
@@ -862,6 +912,7 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   view.webContents.on('will-navigate', (event, url) => {
     if (!/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) event.preventDefault()
   })
+  view.webContents.on('context-menu', (_event, params) => ouvrirMenuPage(id, params))
   brancherF12(view.webContents)
   brancherRaccourcis(view.webContents)
   masquerAuClic(view.webContents)
@@ -1373,6 +1424,13 @@ app.whenReady().then(() => {
     return true
   })
   traiter('browser:get-suggestions', () => suggestions)
+  // Menu contextuel d'une page (ARB-40) : seule la vue de la barre, qui l'affiche, choisit une entrée.
+  traiter('browser:get-page-menu', () => menuPage && { x: menuPage.x, y: menuPage.y, entrees: menuPage.entrees })
+  ipcMain.handle('browser:page-menu-action', (event, valeur) => {
+    if (!emetteurAutorise(event) || event.sender !== barreView?.webContents) throw new Error('Émetteur IPC non autorisé')
+    if (!entreeMenuPageValide(valeur)) throw new Error('Argument IPC invalide : entrée de menu attendue')
+    agirSurMenuPage(valeur)
+  })
   traiter('browser:back', reculer)
   traiter('browser:forward', avancer)
   traiter('browser:reload', () => recharger(false))

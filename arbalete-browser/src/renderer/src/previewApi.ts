@@ -269,6 +269,10 @@ export function installPreviewApi(): boolean {
     closeSuggestions: async () => undefined,
     getSuggestions: async () => null,
     onSuggestions: () => () => undefined,
+    // Pas de menu contextuel dans l'aperçu : les pages y sont un cadre, sans clic droit de Chromium (ARB-40).
+    getPageMenu: async () => null,
+    onPageMenu: () => () => undefined,
+    pageMenuAction: async () => undefined,
     // Pas de recherche dans l'aperçu : la page y est simulée, Ctrl+F est celui du navigateur.
     findInPage: async () => undefined,
     closeFind: async () => undefined,

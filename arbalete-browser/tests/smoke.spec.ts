@@ -224,8 +224,10 @@ function cliquerDans(cible: 'onglet' | 'fenetre') {
       : (fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView
         && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>).webContents
     const [x, y] = cible === 'fenetre' ? [700, 4] : [400, 300]
-    contenu.sendInputEvent({ type: 'mouseDown', x, y, button: 'right', clickCount: 1 })
-    contenu.sendInputEvent({ type: 'mouseUp', x, y, button: 'right', clickCount: 1 })
+    // Bouton gauche dans la page : un clic droit y ouvre le menu contextuel (ARB-40).
+    const button = cible === 'fenetre' ? 'right' : 'left'
+    contenu.sendInputEvent({ type: 'mouseDown', x, y, button, clickCount: 1 })
+    contenu.sendInputEvent({ type: 'mouseUp', x, y, button, clickCount: 1 })
   }, cible)
 }
 
@@ -3299,4 +3301,75 @@ test('C78 : téléchargement de 100 Mo avec progression, pause, reprise, annulat
     if (await barreUi.evaluate(() => window.arbalete.getOverlay())) await barreUi.evaluate(() => window.arbalete.setOverlay(false))
     await epinglerBarre(false)
   }
+})
+
+// Value: protects=menu contextuel des pages (ARB-40) : un clic droit sur un lien web ouvre, dans la couche d'overlays,
+//   « Ouvrir le lien dans un nouvel onglet » et « Copier l'adresse du lien », qui agissent sur l'adresse gardée par le
+//   processus principal ; un lien javascript: n'offre aucune entrée de lien, et seule la vue de la barre choisit une entrée;
+//   fails_when=le processus principal ne branche plus context-menu, propose une adresse non web, lit l'adresse ailleurs
+//   que dans son état, ou page-menu-action accepte la fenêtre, une entrée inconnue ou un menu fermé, ou qu'un second clic
+//   droit remplace un menu ouvert;
+//   why_new=aucun test n'exerçait un menu né d'une page; seam=none;
+//   no_claim=les liens sont émis par le test (context-menu) ; seul le clic droit sur page nue est un événement souris
+//   envoyé à la page : Précédent, Suivant, Enregistrer l'image, Copier et Inspecter restent manuels.
+test('C79 : le menu d’un lien de page ouvre le lien dans un nouvel onglet ou copie son adresse', async () => {
+  const clicDroit = (linkURL: string) => app.evaluate(({ BrowserWindow, WebContentsView }, linkURL) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+      && enfant.webContents.getURL().includes('page-a.html')) as InstanceType<typeof WebContentsView>
+    vue.webContents.emit('context-menu', {}, { x: 30, y: 40, linkURL, srcURL: '', mediaType: 'none', selectionText: '', editFlags: { canCopy: false } })
+  }, linkURL)
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const cible = `${origine}/page-b.html`
+
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await expect.poll(async () => ongletActif(await etat())?.title).toBe('Page A')
+
+  // Lien non web : le menu de la page, sans entrée de lien.
+  await clicDroit('javascript:alert(1)')
+  await expect(barreUi.getByRole('menuitem', { name: 'Recharger' })).toBeVisible() // menu de page, sans entrée de lien
+  await expect(barreUi.getByRole('menuitem', { name: 'Ouvrir le lien dans un nouvel onglet' })).toHaveCount(0)
+  await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+
+  // Lien web : copier l'adresse.
+  await clicDroit(cible)
+  await expect(barreUi.getByRole('menu')).toBeVisible()
+  await barreUi.getByRole('menuitem', { name: 'Copier l’adresse du lien' }).click()
+  await expect.poll(overlay).toBe(false)
+  expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(cible)
+
+  // Lien web : ouvrir dans un nouvel onglet.
+  const avant = (await etat()).tabs.length
+  await clicDroit(cible)
+  await barreUi.getByRole('menuitem', { name: 'Ouvrir le lien dans un nouvel onglet' }).click()
+  await attendreUrlActive(cible)
+  expect((await etat()).tabs.length).toBe(avant + 1)
+  expect(await overlay()).toBe(false)
+
+  // Seule la vue de la barre choisit une entrée : la fenêtre, comme une entrée inconnue, est refusée.
+  const action = (cible: Page, entree: string) => cible.evaluate((e) => (window.arbalete as unknown as { pageMenuAction: (e: string) => Promise<void> }).pageMenuAction(e), entree)
+  await expect(action(barreUi, 'rm')).rejects.toThrow()
+  await expect(action(ui, 'recharger')).rejects.toThrow()
+  // Aucun menu ouvert : une entrée valide ne fait rien.
+  await expect(action(barreUi, 'recharger')).resolves.toBeUndefined()
+
+  // Vrai clic droit dans la page : le menu s'ouvre au point du clic ; Inspecter, absente d'un menu de lien, est sans effet.
+  await ui.evaluate((url) => window.arbalete.navigate(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await resultatDansOngletActif('window.marque = 1; true')
+  const clicDroitReel = () => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const vue = BrowserWindow.getAllWindows()[0].contentView.children.find((enfant) => enfant instanceof WebContentsView
+      && enfant.webContents.getURL().includes('page-a.html')) as InstanceType<typeof WebContentsView>
+    vue.webContents.sendInputEvent({ type: 'mouseDown', x: 400, y: 300, button: 'right', clickCount: 1 })
+    vue.webContents.sendInputEvent({ type: 'mouseUp', x: 400, y: 300, button: 'right', clickCount: 1 })
+  })
+  await clicDroitReel()
+  await expect(barreUi.getByRole('menuitem', { name: 'Recharger' })).toBeVisible()
+  // Un menu déjà ouvert n'est pas remplacé par un second clic droit.
+  await clicDroit(cible)
+  await expect(barreUi.getByRole('menuitem', { name: 'Recharger' })).toBeVisible()
+  await expect(barreUi.getByRole('menuitem', { name: 'Ouvrir le lien dans un nouvel onglet' })).toHaveCount(0)
+  await barreUi.getByRole('menuitem', { name: 'Recharger' }).click()
+  await expect.poll(async () => resultatDansOngletActif('window.marque === undefined').catch(() => false)).toBe(true)
+  expect(await overlay()).toBe(false)
 })

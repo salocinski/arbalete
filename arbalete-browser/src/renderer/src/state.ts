@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ETAT_BARRE_INITIAL } from '../../shared/barre'
 import type { Telechargement } from '../../shared/telechargements'
+import type { MenuPage } from '../../shared/menuPage'
 import type { BrowserState, DataIncident, SidebarState, SuggestionsState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
@@ -22,6 +23,16 @@ export function useBrowserState(): BrowserState {
     return window.arbalete.onState((next) => setState(next))
   }, [])
   return state
+}
+
+// Menu contextuel d'une page (ARB-40) : null tant qu'aucun n'est ouvert.
+export function usePageMenu(): MenuPage | null {
+  const [menu, setMenu] = useState<MenuPage | null>(null)
+  useEffect(() => {
+    void window.arbalete.getPageMenu().then(setMenu).catch(() => {})
+    return window.arbalete.onPageMenu(setMenu)
+  }, [])
+  return menu
 }
 
 // Invite de restauration après un arrêt forcé (ARB-46).
