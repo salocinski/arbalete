@@ -292,6 +292,12 @@ export function installPreviewApi(): boolean {
     closeSuggestions: async () => undefined,
     getSuggestions: async () => null,
     onSuggestions: () => () => undefined,
+    // Pas de palette dans l'aperçu : elle suit la couche d'overlays du processus principal (ARB-67).
+    getPalette: async () => null,
+    onPalette: () => () => undefined,
+    openPalette: async () => undefined,
+    searchPalette: async () => undefined,
+    choosePalette: async () => undefined,
     // Pas de menu contextuel dans l'aperçu : les pages y sont un cadre, sans clic droit de Chromium (ARB-40).
     getPageMenu: async () => null,
     onPageMenu: () => () => undefined,

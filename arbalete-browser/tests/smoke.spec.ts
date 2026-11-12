@@ -3436,3 +3436,74 @@ test('C80 : le menu d’un onglet duplique, épingle, copie l’adresse et ferme
     await epinglerBarre(false)
   }
 })
+
+// Value: protects=Ctrl+K ouvre la palette dans la vue de la barre, la recherche trouve un onglet ouvert, Entrée l'active et rend le clavier à la page, Échap la ferme; fails_when=Ctrl+K sans effet, champ sans le clavier, mauvais onglet activé, overlay resté ouvert, IPC accepté d'une autre vue; why_new=aucun test n'ouvre la palette; seam=none; no_claim=favoris, historique et actions de la palette (tests unitaires de palette.ts), clavier AZERTY réel
+test('C82 : Ctrl+K ouvre la palette, « page a » active l’onglet Page A, Échap la ferme', async () => {
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const champ = barreUi.getByRole('combobox', { name: 'Rechercher' })
+  const clavierSur = () => app.evaluate(({ webContents }) => webContents.getFocusedWebContents()?.getURL() ?? null)
+  const pageA = `${origine}/page-a.html`
+
+  await ui.evaluate((url) => window.arbalete.createTab(url), pageA)
+  await attendreUrlActive(pageA)
+  await expect.poll(async () => ongletActif(await etat())?.title).toBe('Page A')
+  const idPageA = ongletActif(await etat())!.id
+  // Un autre onglet actif : la palette doit ramener Page A.
+  await ui.evaluate(() => window.arbalete.createTab())
+  await expect.poll(async () => ongletActif(await etat())?.id).not.toBe(idPageA)
+
+  await presserSur('onglet', 'K', ['control'])
+  await expect.poll(overlay).toBe(true)
+  await expect(champ).toBeFocused()
+  await champ.fill('page a')
+  await expect(barreUi.getByRole('option').first()).toContainText('Page A')
+  await champ.press('Enter')
+  await expect.poll(overlay).toBe(false)
+  // D'autres tests laissent des onglets « Page A » : la palette en active un, pas forcément celui de ce test.
+  await expect.poll(async () => ongletActif(await etat())?.url).toBe(pageA)
+  await expect.poll(clavierSur).toBe(pageA)
+
+  // Échap ferme la palette sans rien activer.
+  const actif = ongletActif(await etat())!.id
+  await presserSur('onglet', 'K', ['control'])
+  await expect.poll(overlay).toBe(true)
+  await presserSur('onglet', 'Escape', [])
+  await expect.poll(overlay).toBe(false)
+  expect(ongletActif(await etat())?.id).toBe(actif)
+
+  // Seule la vue de la barre pilote la palette ; un index hors liste ne fait rien.
+  const appel = (canal: string, ...args: unknown[]) => ui.evaluate(([c, a]) => (window.arbalete as unknown as Record<string, (...x: unknown[]) => Promise<void>>)[c](...(a as unknown[])), [canal, args] as const)
+  await expect(appel('openPalette')).rejects.toThrow()
+  await presserSur('onglet', 'K', ['control'])
+  await expect.poll(overlay).toBe(true)
+  await barreUi.evaluate(() => window.arbalete.choosePalette(999, 'x'))
+  expect(await overlay()).toBe(true)
+  // Une clé qui n'est pas celle de la ligne visée (liste changée entre la frappe et Entrée) est refusée.
+  await barreUi.evaluate(() => window.arbalete.choosePalette(0, 'x'))
+  expect(await overlay()).toBe(true)
+  await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+  await expect.poll(overlay).toBe(false)
+})
+
+// Value: protects=choisir une action de la palette l'exécute (nouvel onglet, thème basculé) et ferme l'overlay; fails_when=action choisie sans effet, mauvaise action lancée pour la clé, overlay resté ouvert; why_new=C82 ne choisit qu'un onglet; seam=none; no_claim=rouvrir-onglet, épingler-barre, favoris et historique (unitaires de palette.ts seulement)
+test('C82 : une action de la palette s’exécute (nouvel onglet, thème)', async () => {
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const champ = barreUi.getByRole('combobox', { name: 'Rechercher' })
+  const theme = () => barreUi.evaluate(() => document.documentElement.dataset.theme)
+  // Un onglet vide déjà ouvert porte le même titre que l'action : on clique la ligne de l'action (raccourci « Ctrl T »).
+  const lancer = async (texte: string, detail: string) => {
+    await presserSur('onglet', 'K', ['control'])
+    await expect.poll(overlay).toBe(true)
+    await champ.fill(texte)
+    await barreUi.getByRole('option').filter({ hasText: detail }).first().click()
+    await expect.poll(overlay).toBe(false)
+  }
+
+  const avant = (await etat()).tabs.length
+  await lancer('nouvel onglet', 'Ctrl T')
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+
+  const themeAvant = await theme()
+  await lancer('thème clair', 'Basculer')
+  await expect.poll(theme).not.toBe(themeAvant)
+})
