@@ -3,6 +3,7 @@ import { ETAT_BARRE_INITIAL } from '../../shared/barre'
 import type { Telechargement } from '../../shared/telechargements'
 import type { MenuPage } from '../../shared/menuPage'
 import type { EntreePalette } from '../../shared/palette'
+import type { DemandePermission } from '../../shared/permissions'
 import type { BrowserState, DataIncident, SidebarState, SuggestionsState, ThemeChoice } from '../../shared/types'
 
 // État de l'interface : chaque hook lit sa part dans le processus principal, qui en reste la source de vérité,
@@ -103,6 +104,16 @@ export function usePalette(): EntreePalette[] | null {
     return window.arbalete.onPalette(setLignes)
   }, [])
   return lignes
+}
+
+// Invite de permission d'un site (ARB-15) : null tant qu'aucun site n'en demande.
+export function usePermissionRequest(): DemandePermission | null {
+  const [demande, setDemande] = useState<DemandePermission | null>(null)
+  useEffect(() => {
+    void window.arbalete.getPermissionRequest().then(setDemande).catch(() => {})
+    return window.arbalete.onPermissionRequest(setDemande)
+  }, [])
+  return demande
 }
 
 // Choix de thème tenu par le processus principal, partagé par la fenêtre et la barre latérale.

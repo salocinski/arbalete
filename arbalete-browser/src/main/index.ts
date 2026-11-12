@@ -13,6 +13,8 @@ import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { ecrireZoomSite, hoteZoom, lireZoomSite } from './donnees/zoomSites.ts'
+import { ecrirePermissionSite, lirePermissionSite } from './donnees/permissionsSites.ts'
+import { REPONSES_PERMISSION, decisionPermissions, permissionsDemandees, type DemandePermission, type PermissionSite, type ReponsePermission } from '../shared/permissions.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { placerRecherche, texteRecherche } from './recherche.ts'
 import { entreeMenuPageValide, type EntreeMenuPage, type MenuPage } from '../shared/menuPage.ts'
@@ -77,6 +79,14 @@ let menuPage: (MenuPage & { tabId: string, lien: string, image: string, pageX: n
 // Palette de commandes (ARB-67) : les lignes proposées, avec la clé (onglet, adresse, action) que l'interface ne choisit
 // que par index. null tant qu'elle est fermée ; fermée avec l'overlay.
 let palette: EntreePalette[] | null = null
+// Permissions de site (ARB-15) : l'invite affichée dans l'overlay (modale) et celles qui attendent leur tour, une à la fois.
+// La page est tenue en attente par `reponse` (le callback d'Electron) ; fermer l'overlay sans répondre refuse sans mémoriser.
+type InvitePermission = DemandePermission & { reponse: (accordee: boolean) => void }
+let invitePermission: InvitePermission | null = null
+const invitesEnAttente: InvitePermission[] = []
+// Plein écran demandé par la page (ARB-15, requestFullscreen) : sa vue couvre alors toute la fenêtre, passée en plein écran.
+let pleinEcranPage: WebContentsView | null = null
+let fenetreDejaPleinEcran = false
 let choixTheme: ThemeChoice = 'system'
 // Moteur de la barre d'adresse (ARB-58) : relu de la base au démarrage, changé par set-search-engine.
 let moteur: ChoixMoteur = MOTEUR_DEFAUT
@@ -302,8 +312,46 @@ function broadcastState() {
   sauvegardeSession.demander()
 }
 
+// Rectangle de la page de l'onglet actif : le cadre de l'interface, ou toute la fenêtre pendant un plein écran de la page.
+function placerPage() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (pleinEcranPage) {
+    const { width, height } = mainWindow.getContentBounds()
+    pleinEcranPage.setBounds({ x: 0, y: 0, width, height })
+  } else activeRecord()?.view.setBounds(contentBounds)
+}
+
+// Electron n'a pas d'API pour sortir du plein écran HTML d'une page : le document le fait lui-même (script constant, sans donnée).
+function finirPleinEcranHtml(contenu: WebContents) {
+  contenu.executeJavaScript('document.fullscreenElement && document.exitFullscreen()').catch(() => {})
+}
+
+function entrerPleinEcranPage(view: WebContentsView) {
+  if (!mainWindow || mainWindow.isDestroyed() || view !== activeRecord()?.view) { finirPleinEcranHtml(view.webContents); return }
+  pleinEcranPage = view
+  fenetreDejaPleinEcran = mainWindow.isFullScreen()
+  if (!fenetreDejaPleinEcran) mainWindow.setFullScreen(true)
+  view.setBorderRadius(0)
+  placerPage()
+}
+
+// Sortie demandée par la page (Échap, fin de la vidéo), par la fenêtre (F11) ou par un changement d'onglet.
+function sortirPleinEcranPage(view: WebContentsView) {
+  if (pleinEcranPage !== view) return
+  pleinEcranPage = null
+  if (!view.webContents.isDestroyed()) {
+    view.setBorderRadius(RAYON_PAGE)
+    finirPleinEcranHtml(view.webContents)
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (!fenetreDejaPleinEcran && mainWindow.isFullScreen()) mainWindow.setFullScreen(false)
+    placerPage()
+  }
+}
+
 function setActiveView() {
   if (!mainWindow || mainWindow.isDestroyed()) return
+  if (pleinEcranPage && pleinEcranPage !== activeRecord()?.view) sortirPleinEcranPage(pleinEcranPage)
   retirerApercu()
   // La recherche suit l'onglet qu'elle cherche : un autre onglet affiché la ferme (réactiver l'actif ne la touche pas).
   if (rechercheContenu !== activeRecord()?.view.webContents) fermerRecherche()
@@ -315,7 +363,7 @@ function setActiveView() {
     }
     if (id === activeTabId) {
       mainWindow.contentView.addChildView(record.view)
-      record.view.setBounds(contentBounds)
+      placerPage()
       chargerOnglet(record)
     }
   }
@@ -382,8 +430,16 @@ function fermerOverlay() {
   suggestions = null
   menuPage = null
   palette = null
+  // Une invite de permission fermée sans réponse (Échap, clic à côté, focus perdu) refuse cette fois, sans mémoriser.
+  const invite = invitePermission
+  invitePermission = null
   placerBarre()
   envoyerAuxInterfaces('browser:overlay', false)
+  if (invite) {
+    envoyerAuxInterfaces('browser:permission', null)
+    invite.reponse(false)
+  }
+  queueMicrotask(afficherInvitePermission)
   envoyerAuxInterfaces('browser:suggestions', null)
   if (duMenu) envoyerAuxInterfaces('browser:page-menu', null)
   if (dePalette) {
@@ -399,6 +455,52 @@ function fermerOverlay() {
   agirSurBarre('hide')
   // La barre retirée gardait le clavier (clic droit, menu) : il revient à la page, sauf s'il est dans le champ d'adresse.
   if (!duChamp) activeRecord()?.view.webContents.focus()
+}
+
+// Une invite à la fois, quand l'overlay est libre (un menu ouvert la fait attendre).
+function afficherInvitePermission() {
+  if (invitePermission || overlayOuvert || !barreView || !mainWindow || mainWindow.isDestroyed()) return
+  // Un choix mémorisé entre-temps (Refuser, Autoriser) répond aux invites restées en file sans les montrer.
+  // shortcut: une invite dont l'onglet a été fermé ou a navigué reste affichée ; la réponse vaut pour l'hôte indiqué.
+  let invite = invitesEnAttente.shift()
+  while (invite) {
+    const decision = decisionSite(invite.hote, invite.permissions)
+    if (decision === 'demander') break
+    invite.reponse(decision === 'autoriser')
+    invite = invitesEnAttente.shift()
+  }
+  if (!invite) return
+  invitePermission = invite
+  ouvrirOverlay()
+  envoyerAuxInterfaces('browser:permission', { hote: invite.hote, permissions: invite.permissions })
+}
+
+function repondreInvitePermission(reponse: ReponsePermission) {
+  const invite = invitePermission
+  if (!invite) return
+  invitePermission = null
+  if (base) {
+    try {
+      for (const permission of invite.permissions) ecrirePermissionSite(base, invite.hote, permission, reponse)
+    } catch (erreur) {
+      console.error('Permission de site non enregistrée :', erreur)
+    }
+  }
+  envoyerAuxInterfaces('browser:permission', null)
+  invite.reponse(reponse === 'autoriser')
+  fermerOverlay()
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()) activeRecord()?.view.webContents.focus()
+}
+
+// Choix mémorisé du site pour ces permissions : accordé, refusé ou à demander. Une base indisponible refuse.
+function decisionSite(hote: string, permissions: PermissionSite[]): ReponsePermission | 'demander' {
+  if (!base) return 'refuser'
+  try {
+    return decisionPermissions(permissions, (permission) => lirePermissionSite(base!, hote, permission))
+  } catch (erreur) {
+    console.error('Permission de site non relue :', erreur)
+    return 'refuser'
+  }
 }
 
 // Clic droit dans la page de l'onglet actif (ARB-40) : le menu s'ouvre dans la couche d'overlays, au point du clic.
@@ -946,6 +1048,8 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   }
   tabs.set(id, record)
 
+  view.webContents.on('enter-html-full-screen', () => entrerPleinEcranPage(view))
+  view.webContents.on('leave-html-full-screen', () => sortirPleinEcranPage(view))
   view.webContents.on('page-title-updated', (_event, titre, explicite) => {
     // Sans <title>, Chromium donne l'adresse comme titre : l'historique garde alors le titre déjà connu.
     if (explicite) nommerVisite(record, titre)
@@ -1344,11 +1448,13 @@ function createWindow(adresses: readonly string[] = []) {
   placerBarre()
 
   mainWindow.on('resize', () => {
-    activeRecord()?.view.setBounds(contentBounds)
+    placerPage()
     placerBarre()
     placerRechercheVue()
   })
   // Comme un menu, un overlay se ferme quand la fenêtre perd le focus (Alt+Tab, clic dans une autre application).
+  // F11 (ou tout autre retour de la fenêtre à la normale) pendant un plein écran de la page : la page en sort aussi.
+  mainWindow.on('leave-full-screen', () => { if (pleinEcranPage) sortirPleinEcranPage(pleinEcranPage) })
   mainWindow.on('blur', () => { if (!boiteFichierOuverte) fermerOverlay() })
   // Avant que les vues des onglets disparaissent : la session écrite est celle que l'utilisateur ferme.
   mainWindow.on('close', () => sauvegardeSession.vider())
@@ -1362,6 +1468,10 @@ function createWindow(adresses: readonly string[] = []) {
     rechercheVisible = false
     rechercheContenu = null
     overlayOuvert = false
+    // Les pages en attente d'une réponse sont refusées, sans quoi leur callback reste ouvert et la file bloquée.
+    const attente = [invitePermission, ...invitesEnAttente.splice(0)]
+    invitePermission = null
+    for (const invite of attente) invite?.reponse(false)
   })
   // Les adresses du lancement s'ouvrent après la session restaurée, la dernière au premier plan (ARB-117, ARB-45).
   const restauree = restaurerSession()
@@ -1443,9 +1553,29 @@ app.whenReady().then(() => {
     setTimeout(() => copieDeSecours({ seulementSiAncienne: true }), 30_000)
   }
 
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    // Politique de départ restrictive : aucune permission distante n'est accordée automatiquement.
-    callback(false)
+  // ARB-15 : plein écran, caméra, micro, notifications et position se décident par site (hôte de la page de l'onglet, pas
+  // celui d'un sous-cadre) ; tout le reste, et toute vue qui n'est pas la page de l'onglet actif, reste refusé.
+  session.defaultSession.setPermissionRequestHandler((contenu, permission, callback, details) => {
+    const permissions = permissionsDemandees(permission, details as { mediaTypes?: string[] })
+    const hote = hoteZoom(contenu.getURL())
+    if (!permissions || !hote) return callback(false)
+    // Seule la page de l'onglet actif décide (ni vue d'interface, ni onglet masqué) ; un sous-cadre d'un autre site
+    // n'hérite jamais du choix de la page, sauf le plein écran (vidéo intégrée), accordé d'office.
+    if (contenu !== activeRecord()?.view.webContents) return callback(false)
+    if (hoteZoom(details.requestingUrl ?? '') !== hote && permissions.some((p) => p !== 'plein-ecran')) return callback(false)
+    const decision = decisionSite(hote, permissions)
+    if (decision !== 'demander') return callback(decision === 'autoriser')
+    // Mêmes hôte et permissions déjà en attente : une seule invite, qui répond aux deux demandes. File plafonnée.
+    const cle = permissions.join()
+    const existante = [invitePermission, ...invitesEnAttente].find((i) => i && i.hote === hote && i.permissions.join() === cle)
+    if (existante) {
+      const premiere = existante.reponse
+      existante.reponse = (accordee) => { premiere(accordee); callback(accordee) }
+      return
+    }
+    if (invitesEnAttente.length >= 5) return callback(false)
+    invitesEnAttente.push({ hote, permissions, reponse: callback })
+    afficherInvitePermission()
   })
   // Le refus vaut aussi pour les vérifications (navigator.permissions, accès sans demande) et les périphériques
   // (ARB-120) : sans ces gestionnaires, Electron les accorde et les pages se voient tout permis.
@@ -1458,7 +1588,15 @@ app.whenReady().then(() => {
       item.cancel()
     }
   })
-  session.defaultSession.setPermissionCheckHandler(() => false)
+  // Une vérification (navigator.permissions, Notification.permission) n'invite jamais : elle ne voit que le choix mémorisé.
+  session.defaultSession.setPermissionCheckHandler((contenu, permission, origine, details) => {
+    const permissions = permissionsDemandees(permission, details as { mediaType?: string })
+    const hote = hoteZoom(contenu?.getURL() || origine)
+    // Un sous-cadre d'un autre site ne lit pas le choix de la page.
+    const demandeur = hoteZoom((details as { requestingUrl?: string }).requestingUrl || origine)
+    if (permissions?.some((p) => p !== 'plein-ecran') && demandeur !== hote) return false
+    return !!permissions && !!hote && decisionSite(hote, permissions) === 'autoriser'
+  })
   session.defaultSession.setDevicePermissionHandler(() => false)
   session.defaultSession.on('select-hid-device', (event, _details, callback) => {
     event.preventDefault()
@@ -1491,6 +1629,12 @@ app.whenReady().then(() => {
     appliquerBarre({ ...barre, width: borneLargeurBarre(valeur) })
   })
   traiter('browser:get-overlay', () => overlayOuvert)
+  traiter('browser:get-permission-request', () => invitePermission && { hote: invitePermission.hote, permissions: invitePermission.permissions })
+  // Seule la vue de la barre, qui affiche l'invite, y répond.
+  ipcMain.handle('browser:answer-permission', (event, valeur) => {
+    if (!emetteurAutorise(event) || event.sender !== barreView?.webContents) throw new Error('Émetteur IPC non autorisé')
+    repondreInvitePermission(exigerChoix(valeur, REPONSES_PERMISSION))
+  })
   // Seule la vue de la barre rend les overlays : elle seule peut en ouvrir ou en fermer un (décision 0002).
   ipcMain.handle('browser:set-overlay', (event, valeur) => {
     if (!emetteurAutorise(event) || event.sender !== barreView?.webContents) throw new Error('Émetteur IPC non autorisé')
@@ -1692,7 +1836,7 @@ app.whenReady().then(() => {
     const borne = borner(bounds, width, height)
     if (!borne) return
     contentBounds = borne
-    activeRecord()?.view.setBounds(contentBounds)
+    placerPage()
     placerApercuVue()
     placerRechercheVue()
   })

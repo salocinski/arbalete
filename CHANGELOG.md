@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.42.0] - 2026-11-12
+
+### Ajouté
+- Les permissions se décident site par site. Le plein écran demandé par une page (une vidéo YouTube, par exemple) est accordé : la fenêtre et la page passent en plein écran, Échap ou F11 en sortent. La caméra, le micro, les notifications et la position ouvrent une invite « Autoriser / Refuser » dont le choix est mémorisé pour le site ; fermer l’invite refuse cette fois sans mémoriser. Tout le reste (USB, HID, presse-papiers…) reste refusé.
+
+### Sécurité
+- Un sous-cadre d’un autre site (publicité, widget) n’hérite jamais du choix de la page, et seule la page de l’onglet actif peut obtenir une permission. Les invites d’un même site sont regroupées et plafonnées à 5.
+
+### Limites connues
+- Aucun écran pour revenir sur un choix mémorisé ; une demande d’un onglet en arrière-plan est refusée.
+- La position peut échouer sans clé Google ; caméra et micro ne sont testés que par des tests unitaires (aucun périphérique de test), et le plein écran d’une vraie vidéo reste à vérifier à la main.
+- Couverture des tests : environ 73 % des chemins (redimensionnement en plein écran, invite pendant un menu et onglet inactif non testés).
+
 ## [0.12.41.0] - 2026-11-12
 
 ### Ajouté

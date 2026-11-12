@@ -924,27 +924,45 @@ test('C12 : la vue de l’onglet actif couvre la zone de contenu et suit le redi
   await expect.poll(async () => (await boundsBarre())?.height).toBe(hauteurFenetre)
 })
 
-// Value: protects=politique de permissions restrictive (session.setPermissionRequestHandler -> callback(false))
-//   appliquée aux onglets sous Electron 45 : une page web ne reçoit ni notifications ni géolocalisation;
-//   fails_when=le gestionnaire n'est plus installé ou plus consulté (API de session modifiée, onglet sur une autre
-//   session), et Chromium accorde ou laisse en attente la demande ('granted'/'default', ou pas d'erreur code 1);
-//   why_new=C1-C12 ne déclenchent aucune demande de permission, la vérification C7 était manuelle; seam=none;
-//   no_claim=ne couvre ni les autres permissions (caméra, micro, presse-papiers), ni setPermissionCheckHandler.
-test('C7 : les demandes de permission d’une page web sont refusées', async () => {
+// Value: protects=permissions de site (ARB-15) : notifications et géolocalisation s'affichent en invite modale; Refuser est
+//   mémorisé pour le site (la demande suivante est refusée sans invite), fermer l'overlay refuse cette fois sans mémoriser;
+//   fails_when=pas d'invite, page accordée sans réponse, choix non mémorisé, demande restée en attente après fermeture;
+//   why_new=C7 supposait tout refusé sans invite; seam=none; no_claim=ni caméra ni micro (aucun périphérique de test), ni la
+//   géolocalisation accordée (Chromium sans clé Google), ni la page de réglages du site (inexistante).
+test('C7 : notifications et géolocalisation demandent, Refuser est mémorisé, fermer refuse cette fois', async () => {
   await saisirAdresse(`${origine}/page-a.html`)
   await attendreUrlActive(`${origine}/page-a.html`)
   await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const invite = barreUi.getByTestId('permission-modal')
 
+  await resultatDansOngletActif('window.__notif = Notification.requestPermission(); 0')
+  await expect(invite).toContainText('vous envoyer des notifications')
+  await invite.getByRole('button', { name: 'Refuser' }).click()
+  await expect.poll(overlay).toBe(false)
+  expect(await resultatDansOngletActif<string>('window.__notif')).toBe('denied')
+  // Mémorisé : la demande suivante est refusée sans invite.
   expect(await resultatDansOngletActif<string>('Notification.requestPermission()')).toBe('denied')
+  expect(await overlay()).toBe(false)
 
-  const geolocalisation = await resultatDansOngletActif<string>(`new Promise((resolve) => {
+  await resultatDansOngletActif(`window.__geo = new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       () => resolve('accordée'),
       (erreur) => resolve(erreur.code === erreur.PERMISSION_DENIED ? 'refusée' : 'erreur ' + erreur.code),
       { timeout: 5000 }
     )
-  })`)
-  expect(geolocalisation).toBe('refusée')
+  }); 0`)
+  await expect(invite).toContainText('connaître votre position')
+  // Seule la vue de la barre répond à l'invite.
+  await expect(ui.evaluate(() => window.arbalete.answerPermission('autoriser'))).rejects.toThrow()
+  await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+  await expect.poll(overlay).toBe(false)
+  expect(await resultatDansOngletActif<string>('window.__geo')).toBe('refusée')
+  // Non mémorisé : la page peut redemander.
+  await resultatDansOngletActif('navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 1000 }); 0')
+  await expect(invite).toContainText('connaître votre position')
+  await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+  await expect.poll(overlay).toBe(false)
 })
 
 // Value: protects=refus par défaut étendu aux vérifications (setPermissionCheckHandler) et aux périphériques
@@ -3529,4 +3547,98 @@ test('C82 : une action de la palette s’exécute (nouvel onglet, thème)', asyn
   const themeAvant = await theme()
   await lancer('thème clair', 'Basculer')
   await expect.poll(theme).not.toBe(themeAvant)
+})
+
+// Value: protects=Autoriser est mémorisé et relu par les vérifications (navigator.permissions); fails_when=la page reste refusée
+//   après Autoriser, le choix n'est pas relu; géolocalisation plutôt que notifications, refusées par C7 sur le même hôte; why_new=C7 ne couvre que le refus; seam=none; no_claim=placé en dernier : le choix
+//   accordé reste dans le profil de test et ferait échouer C45 (geolocation=denied) s'il passait avant.
+test('C83 : Autoriser est mémorisé pour le site et relu par les vérifications', async () => {
+  await saisirAdresse(`${origine}/page-b.html`)
+  await attendreUrlActive(`${origine}/page-b.html`)
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+  await resultatDansOngletActif('navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 1000 }); 0')
+  await barreUi.getByTestId('permission-modal').getByRole('button', { name: 'Autoriser' }).click()
+  await expect.poll(() => resultatDansOngletActif<string>("navigator.permissions.query({ name: 'geolocation' }).then((s) => s.state)")).toBe('granted')
+})
+
+// Value: protects=le plein écran demandé par la page (YouTube) est accordé sans invite : la fenêtre passe en plein écran, la vue
+//   couvre toute la fenêtre, puis tout se rétablit à la sortie; fails_when=demande refusée, vue restée dans son cadre, fenêtre
+//   restée en plein écran après la sortie; why_new=C65 ne couvre que F11; seam=none;
+//   no_claim=ni Échap au clavier, ni le plein écran d'une vidéo réelle (manuel).
+test('C84 : requestFullscreen met la page et la fenêtre en plein écran, la sortie les rétablit', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+  const mesure = () => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    return { pleinEcran: fenetre.isFullScreen(), vue: vue.getBounds(), zone: fenetre.getContentBounds() }
+  })
+
+  await resultatDansOngletActif('document.documentElement.requestFullscreen().then(() => 0)')
+  await expect.poll(async () => (await mesure()).pleinEcran).toBe(true)
+  await expect.poll(async () => { const m = await mesure(); return [m.vue.x, m.vue.y, m.vue.width, m.vue.height] }).toEqual(await mesure().then((m) => [0, 0, m.zone.width, m.zone.height]))
+
+  await resultatDansOngletActif('document.exitFullscreen().then(() => 0)')
+  await expect.poll(async () => (await mesure()).pleinEcran).toBe(false)
+  await attendreVueAlignee()
+})
+
+// Value: protects=deux demandes de permission d'une même page s'affichent l'une après l'autre (file), la seconde seulement
+//   après la réponse à la première; answerPermission refuse une valeur hors liste et ne fait rien sans invite;
+//   fails_when=les deux invites se superposent ou s'écrasent, la seconde demande reste sans réponse, une valeur aberrante passe;
+//   why_new=C7 et C83 ne posent qu'une invite à la fois; seam=hôte localhost (autre clé de mémoire que 127.0.0.1, dont les choix
+//   sont déjà écrits par C7 et C83); no_claim=ni demande d'un onglet inactif, ni invite pendant qu'un menu est ouvert.
+test('C85 : deux demandes de permission se suivent dans une file, answerPermission valide son argument', async () => {
+  const hoteLocal = origine.replace('127.0.0.1', 'localhost')
+  await saisirAdresse(`${hoteLocal}/page-a.html`)
+  await attendreUrlActive(`${hoteLocal}/page-a.html`)
+  await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const invite = barreUi.getByTestId('permission-modal')
+
+  await resultatDansOngletActif(`window.__notif = Notification.requestPermission();
+    navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 5000 }); 0`)
+  await expect(invite).toContainText('vous envoyer des notifications')
+  await expect(barreUi.evaluate(() => window.arbalete.answerPermission('peut-etre' as never))).rejects.toThrow()
+  await expect(invite).toContainText('vous envoyer des notifications')
+  await invite.getByRole('button', { name: 'Refuser' }).click()
+  await expect(invite).toContainText('connaître votre position')
+  expect(await overlay()).toBe(true)
+  expect(await resultatDansOngletActif<string>('window.__notif')).toBe('denied')
+  await invite.getByRole('button', { name: 'Refuser' }).click()
+  await expect.poll(overlay).toBe(false)
+  // Sans invite pendante, répondre ne fait rien.
+  await barreUi.evaluate(() => window.arbalete.answerPermission('autoriser'))
+  expect(await overlay()).toBe(false)
+})
+
+// Value: protects=quitter le plein écran de la page par F11 ou en changeant d'onglet rétablit le cadre de la page et la fenêtre;
+//   fails_when=la vue reste plein cadre après F11 (leave-full-screen ignoré) ou après Ctrl+Tab (setActiveView ne sort pas),
+//   la fenêtre reste en plein écran; why_new=C84 ne sort que par exitFullscreen de la page; seam=none;
+//   no_claim=ni le redimensionnement pendant le plein écran, ni la fenêtre déjà en plein écran avant la demande.
+test('C86 : F11 et un changement d’onglet sortent du plein écran de la page', async () => {
+  const mesure = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())
+  const entrer = async () => {
+    await saisirAdresse(`${origine}/page-a.html`)
+    await attendreUrlActive(`${origine}/page-a.html`)
+    await expect.poll(async () => ongletActif(await etat())?.isLoading).toBe(false)
+    await resultatDansOngletActif('document.documentElement.requestFullscreen().then(() => 0)')
+    await expect.poll(mesure).toBe(true)
+  }
+
+  await entrer()
+  await presserSur('fenetre', 'F11', [])
+  await expect.poll(mesure).toBe(false)
+  await attendreVueAlignee()
+
+  // Un second onglet garantit qu'un Ctrl+Tab change d'onglet.
+  await presserSur('onglet', 'T', ['control'])
+  await expect.poll(async () => (await etat()).tabs.length).toBeGreaterThan(1)
+  await entrer()
+  const avant = ongletActif(await etat())!.id
+  await presserSur('onglet', 'Tab', ['control'])
+  await expect.poll(mesure).toBe(false)
+  await expect.poll(async () => ongletActif(await etat())?.id).not.toBe(avant)
+  await attendreVueAlignee()
 })
