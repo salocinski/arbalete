@@ -15,6 +15,7 @@ import type { BrowserAPI, BrowserState, BrowserTab, SidebarState, ThemeChoice } 
  * cadre de remplacement. Ce module n'est jamais actif dans l'application Electron.
  */
 
+import { ongletsAFermer } from '../../shared/menuOnglet'
 type PreviewTab = BrowserTab & { history: string[]; index: number }
 
 let previewMode = false
@@ -208,6 +209,21 @@ export function installPreviewApi(): boolean {
       }
       if (!visible().length) createTab()
       else emit()
+    },
+    tabAction: async (id, action) => {
+      const tab = tabs.find((item) => item.id === id)
+      if (!tab) return
+      if (action === 'dupliquer') createTab(tab.url)
+      else if (action === 'copier-adresse') await navigator.clipboard?.writeText(tab.url).catch(() => {})
+      else if (action === 'epingler') { tab.pinned = !tab.pinned; emit() }
+      else {
+        for (const autre of ongletsAFermer(visible(), id)) {
+          tabs.splice(tabs.findIndex((item) => item.id === autre), 1)
+          spaceOf.delete(autre)
+        }
+        activeTabId = id
+        emit()
+      }
     },
     activateTab: async (id) => {
       if (!visible().some((tab) => tab.id === id)) return

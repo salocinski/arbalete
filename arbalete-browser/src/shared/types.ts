@@ -1,6 +1,7 @@
 import type { Espace } from './espaces'
 import type { Telechargement } from './telechargements'
 import type { EntreeMenuPage, MenuPage } from './menuPage'
+import type { ActionOnglet } from './menuOnglet'
 
 export type BrowserTab = {
   id: string
@@ -10,8 +11,8 @@ export type BrowserTab = {
   canGoBack: boolean
   canGoForward: boolean
   favicon?: string
-  // États visuels de l'onglet (ARB-124). pinned : pas encore de commande pour épingler un onglet.
-  pinned?: boolean
+  // États visuels de l'onglet (ARB-124). 
+  pinned?: boolean // épinglé par le menu de l'onglet (ARB-41)
   audible?: boolean
   muted?: boolean
   error?: boolean
@@ -63,6 +64,7 @@ export type BrowserAPI = {
   getState: () => Promise<BrowserState>
   createTab: (url?: string) => Promise<string>
   closeTab: (id: string) => Promise<void>
+  tabAction: (id: string, action: ActionOnglet) => Promise<void>
   activateTab: (id: string) => Promise<void>
   navigate: (url: string) => Promise<void>
   goBack: () => Promise<void>

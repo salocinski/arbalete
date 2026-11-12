@@ -3373,3 +3373,66 @@ test('C79 : le menu d’un lien de page ouvre le lien dans un nouvel onglet ou c
   await expect.poll(async () => resultatDansOngletActif('window.marque === undefined').catch(() => false)).toBe(true)
   expect(await overlay()).toBe(false)
 })
+
+// Value: protects=les quatre actions du menu d'un onglet (IPC tabAction + entrées du menu); fails_when=une action ne fait rien, touche un autre onglet ou accepte un argument invalide; why_new=aucun test existant n'ouvre le menu d'un onglet pour agir; seam=none; no_claim=l'épinglage n'est pas conservé au redémarrage
+test('C80 : le menu d’un onglet duplique, épingle, copie l’adresse et ferme les autres onglets', async () => {
+  const overlay = () => barreUi.evaluate(() => window.arbalete.getOverlay())
+  const menu = barreUi.getByRole('menu')
+  // Onglets au même titre (d'autres tests en laissent) : on vise depuis la fin, ceux de ce test étant les derniers créés.
+  const onglet = async (titre: string, depuisFin = 0) => {
+    const liste = barreUi.locator('.tab-item').filter({ hasText: titre })
+    return liste.nth((await liste.count()) - 1 - depuisFin)
+  }
+  const entree = async (titre: string, nom: string, depuisFin = 0) => {
+    await (await onglet(titre, depuisFin)).click({ button: 'right' })
+    await expect(menu).toBeVisible()
+    await menu.getByRole('menuitem', { name: nom, exact: true }).click()
+    await expect.poll(overlay).toBe(false)
+  }
+  const pageA = `${origine}/page-a.html`
+
+  await ui.evaluate((url) => window.arbalete.createTab(url), pageA)
+  await attendreUrlActive(pageA)
+  await expect.poll(async () => ongletActif(await etat())?.title).toBe('Page A')
+  await epinglerBarre(true)
+  try {
+    // Copier l'adresse : le presse-papiers reçoit l'adresse de l'onglet visé.
+    await entree('Page A', 'Copier l’adresse')
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(pageA)
+
+    // Dupliquer : un onglet de plus sur la même adresse.
+    const avant = (await etat()).tabs.filter((tab) => tab.url === pageA).length
+    const titres = barreUi.locator('.tab-item').filter({ hasText: 'Page A' })
+    const titresAvant = await titres.count()
+    await entree('Page A', 'Dupliquer')
+    await expect.poll(async () => (await etat()).tabs.filter((tab) => tab.url === pageA).length).toBe(avant + 1)
+    // Le doublon porte l'adresse pour titre jusqu'à son chargement : on attend son titre avant de viser « le dernier Page A ».
+    await expect(titres).toHaveCount(titresAvant + 1)
+
+    // Épingler : l'onglet visé porte l'état, l'entrée devient Désépingler ; une seconde fois le retire.
+    await entree('Page A', 'Épingler')
+    await expect.poll(async () => (await etat()).tabs.filter((tab) => tab.pinned).length).toBe(1)
+    await (await onglet('Page A')).click({ button: 'right' })
+    await expect(menu.getByRole('menuitem', { name: 'Désépingler', exact: true })).toBeVisible()
+    await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+    await expect.poll(overlay).toBe(false)
+
+    // Fermer les autres depuis l'avant-dernier (le premier de ce test) : ne restent que lui et l'onglet épinglé.
+    const epingle = (await etat()).tabs.find((tab) => tab.pinned)!
+    const restant = (await etat()).tabs.filter((tab) => !tab.pinned && tab.url === pageA).pop()!
+    await entree('Page A', 'Fermer les autres onglets', 1)
+    await expect.poll(async () => (await etat()).tabs.length).toBe(2)
+    expect((await etat()).tabs.map((tab) => tab.id).sort()).toEqual([epingle.id, restant.id].sort())
+
+    // Action inconnue ou argument invalide : refusés par le processus principal.
+    const tabAction = (id: unknown, action: unknown) => ui.evaluate(([i, a]) => (window.arbalete as unknown as { tabAction: (i: unknown, a: unknown) => Promise<void> }).tabAction(i, a), [id, action])
+    await expect(tabAction(restant.id, 'supprimer')).rejects.toThrow()
+    await expect(tabAction(42, 'dupliquer')).rejects.toThrow()
+    // Onglet inconnu : sans effet.
+    await expect(tabAction('tab-inconnu', 'dupliquer')).resolves.toBeUndefined()
+    expect((await etat()).tabs.length).toBe(2)
+  } finally {
+    await barreUi.evaluate(() => window.arbalete.setOverlay(false))
+    await epinglerBarre(false)
+  }
+})

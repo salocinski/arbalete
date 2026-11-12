@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.33.0] - 2026-11-11
+
+### Ajouté
+- Un clic droit sur un onglet ouvre un menu : « Dupliquer » (nouvel onglet sur la même adresse), « Épingler » / « Désépingler » (l’onglet épinglé perd son bouton de fermeture), « Copier l’adresse » et « Fermer les autres onglets » (ceux de l’espace, sauf l’onglet visé et les onglets épinglés).
+- Les onglets fermés par « Fermer les autres onglets » se rouvrent avec Ctrl+Maj+T.
+
+### Limites connues
+- L’épinglage n’est pas conservé au redémarrage ni à la réouverture d’un onglet fermé.
+- « Dupliquer » et « Copier l’adresse » ne font rien sur un onglet qui n’est pas sur une page web (erreur de chargement, about:blank).
+- Le rendu du menu n’a pas été essayé à la main dans la fenêtre d’Arbalète (couvert par le test de bout en bout C80).
+
 ## [0.12.32.0] - 2026-11-11
 
 ### Ajouté

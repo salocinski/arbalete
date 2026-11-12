@@ -12,6 +12,7 @@ const api: BrowserAPI = {
   getState: () => ipcRenderer.invoke('browser:get-state'),
   createTab: (url) => ipcRenderer.invoke('browser:create-tab', url),
   closeTab: (id) => ipcRenderer.invoke('browser:close-tab', id),
+  tabAction: (id, action) => ipcRenderer.invoke('browser:tab-action', id, action),
   activateTab: (id) => ipcRenderer.invoke('browser:activate-tab', id),
   navigate: (url) => ipcRenderer.invoke('browser:navigate', url),
   goBack: () => ipcRenderer.invoke('browser:back'),

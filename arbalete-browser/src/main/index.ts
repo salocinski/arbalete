@@ -14,7 +14,8 @@ import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { RAYON_APERCU, pageApercu, placerApercu, scriptApercu, texteApercu, type CoteApercu } from './apercuUrl.ts'
 import { placerRecherche, texteRecherche } from './recherche.ts'
 import { entreeMenuPageValide, type EntreeMenuPage, type MenuPage } from '../shared/menuPage.ts'
-import { entreesMenuPage } from './menuPage.ts'
+import { adresseWeb, entreesMenuPage } from './menuPage.ts'
+import { estActionOnglet, ongletsAFermer, type ActionOnglet } from '../shared/menuOnglet.ts'
 import { SUGGESTIONS_MAX, construireSuggestions, deplacerSelection, indexValide, texteSuggestion } from './suggestions.ts'
 import { faviconAcceptable } from './favicon.ts'
 import { lireUrlDev } from './urlDev.ts'
@@ -1013,6 +1014,25 @@ function closeTab(id: string, memoriser = true) {
   }
 }
 
+// Menu d'un onglet (ARB-41). shortcut: l'épinglage vit en mémoire, il n'est pas écrit dans la session ; à persister avec
+// une colonne de la table onglet quand l'épinglage sera un vrai rangement (EP-12).
+function actionOnglet(id: string, action: ActionOnglet) {
+  const record = tabs.get(id)
+  if (!record) return
+  if (action === 'dupliquer') {
+    // Un onglet en erreur ou sur about:blank n'a pas d'adresse web : createTab en ferait une recherche.
+    if (adresseWeb(record.data.url)) createTab(record.data.url)
+  } else if (action === 'copier-adresse') {
+    if (adresseWeb(record.data.url)) clipboard.writeText(record.data.url)
+  } else if (action === 'epingler') {
+    record.data.pinned = !record.data.pinned
+    broadcastState()
+  } else {
+    for (const autre of ongletsAFermer([...tabs.values()].filter((t) => t.espace === record.espace).map((t) => t.data), id)) closeTab(autre)
+    activerOnglet(id)
+  }
+}
+
 // Passe à un autre espace (ARB-61) : les onglets de l'espace choisi remplacent ceux affichés et son dernier onglet actif
 // reprend la page ; faute d'onglet, un nouvel onglet s'y ouvre. Le choix est conservé au redémarrage.
 function changerEspace(id: number) {
@@ -1379,6 +1399,10 @@ app.whenReady().then(() => {
   })
   traiter('browser:create-tab', (url) => createTab(url === undefined ? undefined : exigerTexte(url)))
   traiter('browser:close-tab', (id) => closeTab(exigerTexte(id)))
+  traiter('browser:tab-action', (id, action) => {
+    if (!estActionOnglet(action)) throw new Error('Argument IPC invalide : action inconnue')
+    actionOnglet(exigerTexte(id), action)
+  })
   traiter('browser:activate-tab', (valeur) => {
     const id = exigerTexte(valeur)
     activerOnglet(id)
