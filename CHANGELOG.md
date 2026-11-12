@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.34.0] - 2026-11-12
+
+### Ajouté
+- Les onglets de la barre latérale se réordonnent par glisser-déposer : l’onglet tenu prend la place de celui sur lequel il est déposé. L’ordre est conservé au redémarrage ; les onglets des autres espaces ne bougent pas.
+
+### Limites connues
+- Un onglet épinglé se déplace comme les autres (pas de zone des épinglés), et aucun repère n’indique l’endroit du dépôt : seul l’onglet tenu s’estompe.
+- Le glisser-déposer réel n’a pas été essayé à la main dans la fenêtre d’Arbalète ; la barre non épinglée (survol) reste à vérifier.
+
 ## [0.12.33.0] - 2026-11-11
 
 ### Ajouté
