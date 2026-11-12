@@ -46,7 +46,7 @@ npm run dev:web   # http://localhost:5180
 - Thème manuel sombre / clair / système (le mode système est le défaut initial ; le thème choisi est conservé au redémarrage)
 - Session des onglets restaurée au redémarrage, avec un bandeau pour reprendre une session interrompue
 - Historique enregistré à chaque navigation vers une autre page
-- Panneau Historique (bouton « Historique » de la barre latérale) : visites les plus récentes d'abord, regroupées par jour, une page une fois par jour ; la saisie filtre par titre ou adresse, un clic ou Entrée (première ligne) ouvre la page dans un nouvel onglet, `Échap` ferme (200 lignes au plus, ni suppression d'entrées ni `Ctrl+H` ; absent de l'aperçu navigateur)
+- Panneau Historique (bouton « Historique » de la barre latérale) : visites les plus récentes d'abord, regroupées par jour, une page une fois par jour ; la saisie filtre par titre ou adresse, un clic ou Entrée (première ligne) ouvre la page dans un nouvel onglet, `Échap` ferme ; le pied du panneau efface par période (dernière heure, 24 h, 7 jours, tout) l'historique, les cookies et le cache, après un second clic de confirmation (cookies et cache toujours en entier) (200 lignes au plus, ni suppression d'une entrée isolée ni `Ctrl+H` ; absent de l'aperçu navigateur)
 - Favicon du site dans chaque onglet de la barre latérale (adresses `https:` et images `data:` seulement ; icône générique sinon)
 - Étoile de la barre d'adresse : ajoute la page de l'onglet actif aux favoris, ou l'en retire (pages web seulement)
 - Grille de favoris en haut de la barre latérale : les 8 premiers favoris ajoutés, en tuiles (initiale du site, titre en infobulle) ; un clic active l'onglet déjà ouvert sur cette adresse, sinon l'ouvre dans un nouvel onglet
@@ -59,7 +59,7 @@ npm run dev:web   # http://localhost:5180
 
 Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les téléchargements s'enregistrent sans invite dans le dossier Téléchargements (sans choix du dossier ni confirmation, quel que soit le type de fichier) ; l'historique et les favoris sont enregistrés ; le panneau Historique n'a ni suppression d'entrées ni pagination, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
+- Les téléchargements s'enregistrent sans invite dans le dossier Téléchargements (sans choix du dossier ni confirmation, quel que soit le type de fichier) ; l'historique et les favoris sont enregistrés ; le panneau Historique n'a ni suppression d'une entrée isolée ni pagination, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
 - Le sélecteur d'espaces change les onglets affichés et la session les rattache à leur espace ; le rendu du sélecteur n'a été essayé que dans l'aperçu navigateur.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
@@ -79,7 +79,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 - `src/main/menuPage.ts` : choix des entrées du menu contextuel d'une page selon le clic (lien, image, sélection) et filtre des adresses web ; liste fermée d'entrées dans `src/shared/menuPage.ts` ; le menu est affiché par la vue de la barre latérale, qui seule choisit une entrée.
 - `src/shared/menuOnglet.ts` : actions du menu d'un onglet (liste fermée validée par le processus principal, canal `browser:tab-action`) et onglets à fermer par « Fermer les autres » (épinglés gardés).
 - `src/shared/ordreOnglets.ts` : nouvel ordre des onglets après un glisser-déposer (canal `browser:move-tab`) ; les onglets des autres espaces gardent leur place.
-- `src/shared/historique.ts` : regroupement des visites par jour et libellés (« Aujourd’hui », « Hier ») du panneau Historique (`components/HistoryPanel.tsx`, modale de la couche d'overlays) ; lecture filtrée dans `src/main/donnees/historique.ts`.
+- `src/shared/historique.ts` : regroupement des visites par jour et libellés (« Aujourd’hui », « Hier ») du panneau Historique (`components/HistoryPanel.tsx`, modale de la couche d'overlays), et périodes d'effacement (`debutEffacement`) ; lecture filtrée et `effacerHistorique` dans `src/main/donnees/historique.ts`, canal `browser:clear-browsing-data` dans `src/main/index.ts`.
 - `src/main/suggestions.ts` : construction de la liste des suggestions, flèches et validation des entrées ; la liste est affichée par la vue de la barre latérale (`components/SuggestionsOverlay.tsx`).
 - `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts (session, historique, favoris, espaces, téléchargements) et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.
