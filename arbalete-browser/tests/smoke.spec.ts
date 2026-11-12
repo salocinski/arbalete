@@ -32,6 +32,9 @@ const pages: Record<string, string> = {
     <a id="vide" href="about:blank">vide</a>
     <iframe id="cadre" srcdoc="<p>cadre</p>"></iframe>`,
   '/page-b.html': '<!doctype html><title>Page B</title><p>Page B</p>',
+  // Pop-up de connexion (ARB-16) : dit si elle a gardé window.opener et le prévient.
+  '/page-popup.html': `<!doctype html><title>Popup</title>
+    <script>document.title = window.opener ? 'avec-opener' : 'sans-opener'; if (window.opener) window.opener.postMessage('connecte', '*')</script>`,
   // Page à l'historique sans autre page qui contienne son mot (ARB-53).
   '/page-suggestion.html': '<!doctype html><title>Page suggestion</title><p>suggestion</p>',
   // Trois occurrences du même mot (ARB-70).
@@ -268,7 +271,7 @@ async function attendreUrlActive(url: string) {
 // Exécute du code dans la page de l'onglet actif (geste utilisateur) et renvoie son résultat, promesse résolue.
 async function resultatDansOngletActif<T>(code: string): Promise<T> {
   return app.evaluate(async ({ BrowserWindow, WebContentsView }, source) => {
-    const fenetre = BrowserWindow.getAllWindows()[0]
+    const fenetre = BrowserWindow.getAllWindows().find((f) => !f.getParentWindow())! // les pop-ups (ARB-16) sont des fenêtres filles
     const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
     return vue.webContents.executeJavaScript(source, true)
   }, code) as Promise<T>
@@ -3641,4 +3644,54 @@ test('C86 : F11 et un changement d’onglet sortent du plein écran de la page',
   await expect.poll(mesure).toBe(false)
   await expect.poll(async () => ongletActif(await etat())?.id).not.toBe(avant)
   await attendreVueAlignee()
+})
+
+// Fenêtres filles ouvertes par les pages (pop-ups, ARB-16) : getAllWindows ne garde pas l'ordre de création.
+const popups = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((fenetre) => fenetre.getParentWindow()).map((fenetre) => ({
+  titre: fenetre.webContents.getTitle(), fille: true,
+  largeur: fenetre.getSize()[0], web: fenetre.webContents.getURL().startsWith('http')
+})))
+const fermerPopups = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((fenetre) => fenetre.getParentWindow()).forEach((fenetre) => fenetre.destroy()))
+
+// Value: protects=une pop-up de connexion (window.open avec dimensions) est une fenêtre fille qui garde window.opener
+//   et peut prévenir sa page (postMessage), alors que target=_blank reste un onglet; au plus 3 ouvertes, la suivante tombe en onglet;
+//   fails_when=la pop-up redevient un onglet (opener perdu, « Se connecter avec Google » échoue), perd son parent ou
+//   dépasse le plafond; why_new=C20 à C22 ne couvrent que les onglets; seam=none;
+//   no_claim=ne couvre pas un vrai fournisseur OAuth (Google), ni le focus ou la position de la fenêtre.
+test('C87 : une pop-up de connexion garde window.opener, le target=_blank reste un onglet', async () => {
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+  try {
+    await dansOngletActif(`window.__recu = null; addEventListener('message', (e) => { window.__recu = e.data });
+      void window.open('/page-popup.html', 'connexion', 'width=420,height=520')`)
+    await expect.poll(popups).toEqual([expect.objectContaining({ titre: 'avec-opener', fille: true, web: true })])
+    expect((await popups())[0].largeur).toBeLessThan(500)
+    expect((await etat()).tabs.length).toBe(avant)
+    await expect.poll(() => resultatDansOngletActif('window.__recu')).toBe('connecte')
+
+    // Sans dimensions, ou par un lien target=_blank : un onglet, comme avant.
+    await dansOngletActif("window.open('/page-b.html?onglet')")
+    await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+    expect(await popups()).toHaveLength(1)
+  } finally {
+    await fermerPopups()
+  }
+})
+
+test('C87 : au plus 3 pop-ups ouvertes, la suivante s’ouvre en onglet', async () => {
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+  try {
+    await dansOngletActif("for (let n = 0; n < 4; n++) window.open('/page-popup.html?n=' + n, 'p' + n, 'width=300,height=300')")
+    await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+    await expect.poll(async () => (await popups()).length).toBe(3)
+  } finally {
+    await fermerPopups()
+  }
+  // Fermées, les places se libèrent.
+  await dansOngletActif("void window.open('/page-popup.html?apres', 'apres', 'width=300,height=300')")
+  await expect.poll(async () => (await popups()).length).toBe(1)
+  await fermerPopups()
 })

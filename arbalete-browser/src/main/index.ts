@@ -11,6 +11,7 @@ import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } 
 import { ongletVoisin } from './voisin.ts'
 import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
+import { estPopup, POPUPS_MAX, tailleDePopup } from './popup.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { ecrireZoomSite, hoteZoom, lireZoomSite } from './donnees/zoomSites.ts'
 import { ecrirePermissionSite, lirePermissionSite } from './donnees/permissionsSites.ts'
@@ -846,6 +847,31 @@ function ouvertureAutorisee(onglet: string, url: string): boolean {
   return autorisee
 }
 
+// Pop-up de connexion (ARB-16) : fenêtre fille de la fenêtre principale, même session (cookies de la page d'origine), sans
+// accès Node ni preload, qui garde window.opener. Elle n'ouvre ni onglet ni fenêtre et ne navigue que vers le web.
+// Le compteur monte à l'autorisation et redescend à la fermeture de la fenêtre.
+// shortcut: si la création échoue après l'autorisation, la place reste prise ; l'utilisateur garde les onglets, relancer règle.
+let popupsOuvertes = 0
+
+function optionsPopup(features: string): Electron.BrowserWindowConstructorOptions {
+  return {
+    ...tailleDePopup(features),
+    parent: mainWindow ?? undefined,
+    icon: CHEMIN_ICONE,
+    autoHideMenuBar: true,
+    backgroundColor: FOND_FENETRE[themeEffectif()],
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, session: session.defaultSession }
+  }
+}
+
+function suivrePopup(fenetre: BrowserWindow) {
+  fenetre.removeMenu()
+  fenetre.once('closed', () => { popupsOuvertes = Math.max(0, popupsOuvertes - 1) })
+  const contenu = fenetre.webContents
+  contenu.setWindowOpenHandler(() => ({ action: 'deny' }))
+  contenu.on('will-navigate', (event, url) => { if (!/^https?:\/\//i.test(url)) event.preventDefault() })
+}
+
 // Sans menu d'application, F12 n'ouvre plus rien : on le garde en développement seulement. La touche arrive au
 // webContents qui a le focus (l'interface ou la page d'un onglet) : on écoute les deux, et F12 ouvre toujours les
 // DevTools de l'interface (règle 5). Tout F12 est consommé (relâchement et répétitions d'un appui long compris) ;
@@ -1119,11 +1145,17 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    // Une page d'un espace masqué n'ouvre pas d'onglet : il surgirait dans l'espace affiché (ARB-61).
-    if (record.espace === espaceActif && ouvertureAutorisee(id, url)) void createTab(url)
+  view.webContents.setWindowOpenHandler(({ url, features, disposition }) => {
+    // Une page d'un espace masqué n'ouvre rien : l'onglet surgirait dans l'espace affiché (ARB-61).
+    if (record.espace !== espaceActif || !ouvertureAutorisee(id, url)) return { action: 'deny' }
+    if (estPopup(disposition) && popupsOuvertes < POPUPS_MAX) {
+      popupsOuvertes++
+      return { action: 'allow', overrideBrowserWindowOptions: optionsPopup(features) }
+    }
+    void createTab(url)
     return { action: 'deny' }
   })
+  view.webContents.on('did-create-window', suivrePopup)
   view.webContents.on('will-navigate', (event, url) => {
     if (!/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) event.preventDefault()
   })
