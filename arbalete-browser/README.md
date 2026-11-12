@@ -49,13 +49,14 @@ npm run dev:web   # http://localhost:5180
 - Favicon du site dans chaque onglet de la barre latérale (adresses `https:` et images `data:` seulement ; icône générique sinon)
 - Étoile de la barre d'adresse : ajoute la page de l'onglet actif aux favoris, ou l'en retire (pages web seulement)
 - Grille de favoris en haut de la barre latérale : les 8 premiers favoris ajoutés, en tuiles (initiale du site, titre en infobulle) ; un clic active l'onglet déjà ouvert sur cette adresse, sinon l'ouvre dans un nouvel onglet
+- Téléchargements : un fichier proposé par une page (adresses web et `blob:`) s'enregistre sans invite dans le dossier Téléchargements, sans écraser un fichier existant ; progression, pause, reprise, annulation et retrait depuis le panneau de la barre latérale ; l'historique (200 derniers) est conservé en base, et un téléchargement resté actif à l'arrêt apparaît interrompu au redémarrage ; 20 actifs au plus
 - Adresse d'un lien survolé dans une petite bulle au bas de la page, comme dans Arc (pas de barre d'état) ; elle passe de l'autre côté sous la souris et n'apparaît pas dans l'aperçu navigateur (`npm run dev:web`)
 
 ## État actuel et limites
 
 Arbalète est en développement, pas encore un navigateur prêt à être utilisé quotidiennement.
 
-- Les téléchargements ne sont pas encore persistés ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
+- Les téléchargements s'enregistrent sans invite dans le dossier Téléchargements (sans choix du dossier ni confirmation, quel que soit le type de fichier) ; l'historique et les favoris sont enregistrés ; l'historique n'a pas encore de panneau, et les favoris n'ont que la grille de 8 tuiles de la barre latérale (ni panneau, ni dossiers, ni ordre au choix).
 - Le sélecteur d'espaces change les onglets affichés et la session les rattache à leur espace ; le rendu du sélecteur n'a été essayé que dans l'aperçu navigateur.
 - Le thème suit `nativeTheme` : en mode système, il s'adapte au thème clair/sombre de Windows.
 - La gestion des permissions distantes est volontairement restrictive.
@@ -67,12 +68,13 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/main/favicon.ts` : choix du favicon transmis à l'interface, dont la CSP n'autorise que `'self'`, `data:` et `https:` pour les images.
+- `src/main/telechargements.ts` et `src/main/gestionnaireTelechargements.ts` : nom de fichier sûr et chemin libre, liste des téléchargements (`will-download`), progression, pause, reprise, annulation ; persistés par `donnees/telechargements.ts` (migration 6) et affichés par `components/DownloadsOverlay.tsx`.
 - `src/main/navigationClavier.ts` : reconnaissance des raccourcis de changement d'onglet (Ctrl+Tab, Ctrl+1…9) et de rechargement (F5, Ctrl+R), et onglet visé.
 - `src/main/ongletsFermes.ts` : pile des 10 derniers onglets fermés (adresses web et `file:`), pour `Ctrl+Maj+T`.
 - `src/main/apercuUrl.ts` : texte, placement et document de la bulle d'adresse du lien survolé, vue native dédiée (décision 0003).
 - `src/main/recherche.ts` : placement de la petite vue native de recherche (coin haut-droit de la page) et texte accepté ; sa vue est `?vue=recherche` (`views/FindView.tsx`).
 - `src/main/suggestions.ts` : construction de la liste des suggestions, flèches et validation des entrées ; la liste est affichée par la vue de la barre latérale (`components/SuggestionsOverlay.tsx`).
-- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts (session, historique, favoris, espaces) et préférences (thème choisi, mode et largeur de la barre latérale).
+- `src/main/donnees/` : base SQLite `arbalete.db` (dossier de données de l'utilisateur), migrations, dépôts (session, historique, favoris, espaces, téléchargements) et préférences (thème choisi, mode et largeur de la barre latérale).
 - `src/shared/barre.ts` : largeurs et transitions de la barre latérale (étendue, compacte, masquée), partagées par le processus principal et l'aperçu web.
 - `src/preload/index.ts` : API IPC minimale exposée à l'interface.
 - `src/renderer/src/App.tsx` : aiguillage entre la fenêtre et la vue de la barre latérale (`?vue=barre`).
