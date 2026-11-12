@@ -3,8 +3,8 @@
 - **Statut** : acceptée (proposée par ARB-38, mise en œuvre par ARB-39, EP-06)
 - **Date** : 2026-11-03
 - **Concerne** : couche d'overlays (ARB-39), menus contextuels (ARB-40, ARB-41), suggestions de la barre d'adresse
-  (ARB-53), modale centrée de choix de la couleur d'un espace (ARB-134), palette de commandes (ARB-67), dialogues et
-  bandeaux à venir
+  (ARB-53), modale centrée de choix de la couleur d'un espace (ARB-134), palette de commandes (ARB-67), invite de
+  permission d'un site (ARB-15), dialogues et bandeaux à venir
 
 ## Contexte
 
