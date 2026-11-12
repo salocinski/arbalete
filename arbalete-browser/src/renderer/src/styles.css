@@ -126,6 +126,7 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .tab-title { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .tab-item--active .tab-title { color: var(--color-text-primary); font-weight: 600; }
 .tab-item--error .tab-favicon, .tab-item--error .tab-title { color: var(--color-error); }
+.tab-item--dragging { opacity: 0.5; }
 .tab-secure { display: inline-flex; color: var(--color-success); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tab-audio, .tab-pin { display: inline-flex; color: var(--color-text-secondary); flex-shrink: 0; }
