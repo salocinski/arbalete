@@ -49,7 +49,7 @@ npm run dev:web   # http://localhost:5180
 - Favicon du site dans chaque onglet de la barre latérale (adresses `https:` et images `data:` seulement ; icône générique sinon)
 - Étoile de la barre d'adresse : ajoute la page de l'onglet actif aux favoris, ou l'en retire (pages web seulement)
 - Grille de favoris en haut de la barre latérale : les 8 premiers favoris ajoutés, en tuiles (initiale du site, titre en infobulle) ; un clic active l'onglet déjà ouvert sur cette adresse, sinon l'ouvre dans un nouvel onglet
-- Téléchargements : un fichier proposé par une page (adresses web et `blob:`) s'enregistre sans invite dans le dossier Téléchargements, sans écraser un fichier existant ; progression, pause, reprise, annulation et retrait depuis le panneau de la barre latérale ; l'historique (200 derniers) est conservé en base, et un téléchargement resté actif à l'arrêt apparaît interrompu au redémarrage ; 20 actifs au plus
+- Téléchargements : un fichier proposé par une page (adresses web et `blob:`) s'enregistre sans invite dans le dossier Téléchargements, sans écraser un fichier existant ; progression, pause, reprise, annulation et retrait depuis le panneau de la barre latérale, puis, une fois terminé, « Ouvrir le fichier » (application par défaut de Windows, refusé pour un fichier exécutable) et « Afficher dans le dossier » (Explorateur) ; l'historique (200 derniers) est conservé en base, et un téléchargement resté actif à l'arrêt apparaît interrompu au redémarrage ; 20 actifs au plus
 - Adresse d'un lien survolé dans une petite bulle au bas de la page, comme dans Arc (pas de barre d'état) ; elle passe de l'autre côté sous la souris et n'apparaît pas dans l'aperçu navigateur (`npm run dev:web`)
 
 ## État actuel et limites
@@ -68,7 +68,7 @@ Arbalète est en développement, pas encore un navigateur prêt à être utilis�
 
 - `src/main/index.ts` : fenêtre, gestion des vues web, navigation, IPC et raccourcis clavier.
 - `src/main/favicon.ts` : choix du favicon transmis à l'interface, dont la CSP n'autorise que `'self'`, `data:` et `https:` pour les images.
-- `src/main/telechargements.ts` et `src/main/gestionnaireTelechargements.ts` : nom de fichier sûr et chemin libre, liste des téléchargements (`will-download`), progression, pause, reprise, annulation ; persistés par `donnees/telechargements.ts` (migration 6) et affichés par `components/DownloadsOverlay.tsx`.
+- `src/main/telechargements.ts` et `src/main/gestionnaireTelechargements.ts` : nom de fichier sûr et chemin libre, liste des téléchargements (`will-download`), progression, pause, reprise, annulation, ouverture du fichier terminé (hors exécutables) et affichage dans l'Explorateur ; persistés par `donnees/telechargements.ts` (migration 6) et affichés par `components/DownloadsOverlay.tsx`.
 - `src/main/navigationClavier.ts` : reconnaissance des raccourcis de changement d'onglet (Ctrl+Tab, Ctrl+1…9) et de rechargement (F5, Ctrl+R), et onglet visé.
 - `src/main/ongletsFermes.ts` : pile des 10 derniers onglets fermés (adresses web et `file:`), pour `Ctrl+Maj+T`.
 - `src/main/apercuUrl.ts` : texte, placement et document de la bulle d'adresse du lien survolé, vue native dédiée (décision 0003).

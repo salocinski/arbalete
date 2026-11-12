@@ -38,11 +38,13 @@ function monter(options: { existe?: (chemin: string) => boolean } = {}) {
   const db = ouvrirBase(':memory:')
   let horloge = 1_000_000
   const diffusions: Telechargement[][] = []
+  const ouverts: string[] = []
+  const reveles: string[] = []
   const gestionnaire = creerGestionnaire({
     dossier: () => 'D', base: () => db, diffuser: (liste) => diffusions.push(liste), maintenant: () => horloge,
-    existe: options.existe ?? (() => false)
+    existe: options.existe ?? (() => false), ouvrir: (chemin) => ouverts.push(chemin), reveler: (chemin) => reveles.push(chemin)
   })
-  return { db, gestionnaire, diffusions, avancer: (ms: number) => { horloge += ms } }
+  return { db, gestionnaire, diffusions, ouverts, reveles, avancer: (ms: number) => { horloge += ms } }
 }
 
 const demarrer = (g: ReturnType<typeof monter>['gestionnaire'], article: FauxArticle) => g.nouveau(article as unknown as Article)
@@ -150,7 +152,7 @@ test('au chargement, l’historique revient, les téléchargements actifs interr
   const premiere = monter()
   const article = new FauxArticle()
   demarrer(premiere.gestionnaire, article)
-  const second = creerGestionnaire({ dossier: () => 'D', base: () => premiere.db, diffuser: () => undefined, existe: () => false })
+  const second = creerGestionnaire({ dossier: () => 'D', base: () => premiere.db, diffuser: () => undefined, existe: () => false, ouvrir: () => undefined, reveler: () => undefined })
   second.charger()
   deepStrictEqual(second.liste().map((t) => [t.id, t.etat]), [[1, 'interrompu']])
   demarrer(second, new FauxArticle())
@@ -158,7 +160,7 @@ test('au chargement, l’historique revient, les téléchargements actifs interr
 })
 
 test('sans base, les téléchargements marchent en mémoire', () => {
-  const gestionnaire = creerGestionnaire({ dossier: () => 'D', base: () => null, diffuser: () => undefined, existe: () => false })
+  const gestionnaire = creerGestionnaire({ dossier: () => 'D', base: () => null, diffuser: () => undefined, existe: () => false, ouvrir: () => undefined, reveler: () => undefined })
   gestionnaire.charger()
   const article = new FauxArticle()
   demarrer(gestionnaire, article)
@@ -255,7 +257,7 @@ test('après un échec de lecture de l’historique, les ids continuent après l
   const consoleErreur = console.error
   console.error = () => undefined
   try {
-    const second = creerGestionnaire({ dossier: () => 'D', base: () => lectureCassee, diffuser: () => undefined, existe: () => false })
+    const second = creerGestionnaire({ dossier: () => 'D', base: () => lectureCassee, diffuser: () => undefined, existe: () => false, ouvrir: () => undefined, reveler: () => undefined })
     second.charger()
     strictEqual(second.liste().length, 0)
     demarrer(second, new FauxArticle())
@@ -279,4 +281,49 @@ test('la limite de diffusion est propre à chaque téléchargement', () => {
   b.recu = 20
   b.emit('updated', {}, 'progressing')
   strictEqual(diffusions.length, avant + 2)
+})
+
+test('ouvrir et afficher dans le dossier : terminé et présent seulement, jamais un exécutable à l’ouverture (ARB-56)', () => {
+  let present = true
+  // Un fichier n'existe qu'une fois son téléchargement terminé (sinon `cheminLibre` renommerait les suivants).
+  const fichiers = new Set<string>()
+  const { gestionnaire, ouverts, reveles } = monter({ existe: (chemin) => present && fichiers.has(chemin) })
+  const lancer = (nom: string) => {
+    const article = new FauxArticle(`https://example.com/${nom}`, nom)
+    demarrer(gestionnaire, article)
+    return { article, id: gestionnaire.liste()[0].id }
+  }
+  const pdf = lancer('a.pdf')
+  gestionnaire.ouvrir(pdf.id)
+  gestionnaire.reveler(pdf.id)
+  deepStrictEqual([ouverts, reveles], [[], []])
+
+  fichiers.add('D\\a.pdf')
+  pdf.article.emit('done', {}, 'completed')
+  gestionnaire.ouvrir(pdf.id)
+  gestionnaire.reveler(pdf.id)
+  deepStrictEqual([ouverts, reveles], [['D\\a.pdf'], ['D\\a.pdf']])
+
+  const exe = lancer('setup.EXE')
+  fichiers.add('D\\setup.EXE')
+  exe.article.emit('done', {}, 'completed')
+  gestionnaire.ouvrir(exe.id)
+  gestionnaire.reveler(exe.id)
+  deepStrictEqual([ouverts.length, reveles], [1, ['D\\a.pdf', 'D\\setup.EXE']])
+
+  // Annulé ou interrompu avec un fichier partiel présent : ni ouvert ni montré.
+  const annule = lancer('b.pdf')
+  fichiers.add('D\\b.pdf')
+  annule.article.emit('done', {}, 'cancelled')
+  const interrompu = lancer('c.pdf')
+  fichiers.add('D\\c.pdf')
+  interrompu.article.emit('done', {}, 'interrupted')
+  for (const { id } of [annule, interrompu]) { gestionnaire.ouvrir(id); gestionnaire.reveler(id) }
+  deepStrictEqual([ouverts.length, reveles.length], [1, 2])
+
+  present = false
+  gestionnaire.ouvrir(pdf.id)
+  gestionnaire.reveler(pdf.id)
+  gestionnaire.ouvrir(9999)
+  strictEqual(ouverts.length + reveles.length, 3)
 })

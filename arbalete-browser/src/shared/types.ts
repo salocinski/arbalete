@@ -126,6 +126,10 @@ export type BrowserAPI = {
   resumeDownload: (id: number) => Promise<void>
   cancelDownload: (id: number) => Promise<void>
   removeDownload: (id: number) => Promise<void>
+  // ARB-56 : ouvre le fichier d'un téléchargement terminé avec son application par défaut (refusé pour un exécutable) ou
+  // le montre dans l'Explorateur ; sans effet si le téléchargement n'est pas terminé ou si le fichier a disparu.
+  openDownload: (id: number) => Promise<void>
+  revealDownload: (id: number) => Promise<void>
   getTheme: () => Promise<ThemeChoice>
   setTheme: (choice: ThemeChoice) => Promise<void>
   onTheme: (callback: (choice: ThemeChoice) => void) => () => void

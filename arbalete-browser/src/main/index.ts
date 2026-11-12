@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, WebContentsView, ipcMain, screen, session, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import { app, BrowserWindow, Menu, WebContentsView, ipcMain, screen, session, shell, nativeTheme, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
@@ -223,7 +223,9 @@ const telechargements = creerGestionnaire({
     return dossier
   },
   base: () => base,
-  diffuser: (liste) => envoyerAuxInterfaces('browser:downloads', liste)
+  diffuser: (liste) => envoyerAuxInterfaces('browser:downloads', liste),
+  ouvrir: (chemin) => { void shell.openPath(chemin).then((erreur) => { if (erreur) console.error('Ouverture du téléchargement impossible :', erreur) }) },
+  reveler: (chemin) => shell.showItemInFolder(chemin)
 })
 
 // Session des onglets (ARB-44) : écrite une seconde après le dernier changement, au plus tard 5 secondes après le
@@ -1386,6 +1388,8 @@ app.whenReady().then(() => {
   traiter('browser:pause-download', (id) => telechargements.pause(exigerEntier(id)))
   traiter('browser:resume-download', (id) => telechargements.reprendre(exigerEntier(id)))
   traiter('browser:cancel-download', (id) => telechargements.annuler(exigerEntier(id)))
+  traiter('browser:open-download', (id) => telechargements.ouvrir(exigerEntier(id)))
+  traiter('browser:reveal-download', (id) => telechargements.reveler(exigerEntier(id)))
   traiter('browser:remove-download', (id) => telechargements.retirer(exigerEntier(id)))
   traiter('browser:get-restore-offer', () => sessionProposee !== null)
   traiter('browser:get-data-incident', () => incidentBase)

@@ -1,4 +1,4 @@
-import { extname, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import { adresseHistorique } from './donnees/historique.ts'
 
 // Téléchargements (ARB-55) : calculs purs du nom de fichier et de l'adresse enregistrée ; le reste est dans index.ts.
@@ -43,4 +43,15 @@ export function adresseTelechargement(url: string): string {
 // Seuls le web et les blob: des pages sont téléchargés ; file:, data:, etc. sont refusés.
 export function schemaAutorise(url: string): boolean {
   return /^(https?|blob):/i.test(url)
+}
+
+// Fichiers que Windows exécute ou interprète à l'ouverture : « Ouvrir » les refuse (« Afficher dans le dossier » reste permis).
+// shortcut: liste fixe d'extensions courantes, sans analyse du contenu ni avertissement Windows (SmartScreen) ; l'analyse de
+// sécurité des fichiers (EP-10) la remplacera.
+const EXTENSIONS_EXECUTABLES = new Set(['.exe', '.msi', '.bat', '.cmd', '.com', '.scr', '.pif', '.lnk', '.url', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.ps1', '.psm1', '.hta', '.jar', '.reg', '.cpl', '.msc', '.appx', '.msix', '.application', '.gadget', '.chm',
+  '.jnlp', '.inf', '.scf', '.sct', '.ws', '.wsc', '.vb', '.msp', '.mst', '.dll', '.xll', '.diagcab', '.theme', '.settingcontent-ms', '.library-ms', '.appref-ms', '.xbap', '.ps1xml', '.psc1', '.docm', '.xlsm', '.pptm'])
+
+export function extensionExecutable(nom: string): boolean {
+  // Le préfixe « _ » : un fichier nommé exactement « .bat » a pour extension .bat sous Windows, pas pour `extname`.
+  return EXTENSIONS_EXECUTABLES.has(extname('_' + basename(nom)).toLowerCase())
 }

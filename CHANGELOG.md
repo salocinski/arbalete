@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.31.0] - 2026-11-11
+
+### Ajouté
+- Dans la liste des téléchargements, une ligne terminée propose « Ouvrir le fichier », qui le lance avec l'application associée, et « Afficher dans le dossier », qui le montre dans l'Explorateur. Rien ne se passe si le fichier a été déplacé ou supprimé.
+- « Ouvrir le fichier » refuse les fichiers que Windows exécute (.exe, .bat, .ps1, .js, .lnk, un fichier nommé seulement « .bat »…) : pour ceux-là, « Afficher dans le dossier » reste possible.
+
+### Limites connues
+- Le bouton « Ouvrir le fichier » reste actif pour un fichier exécutable et le clic ne fait rien, sans message.
+- La liste des types refusés est fixe et incomplète (.iso, .rdp, .html, certains fichiers de macros Office l'échappent) ; l'analyse de sécurité des fichiers téléchargés est prévue plus tard.
+- L'échec d'ouverture d'un fichier (antivirus, droits) n'est pas signalé à l'écran.
+- Le rendu des boutons n'a été essayé que dans l'aperçu navigateur et par les tests automatiques, pas à la main dans la fenêtre d'Arbalète.
+
 ## [0.12.30.0] - 2026-11-11
 
 ### Ajouté
