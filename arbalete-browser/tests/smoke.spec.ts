@@ -2357,6 +2357,29 @@ test('C64 : Ctrl+=, Ctrl+- et Ctrl+0 zooment la page de l’onglet actif, d’o�
   }
 })
 
+// Value: protects=le zoom choisi sur un site est conservé pour ce site seulement : un autre site s'affiche à 100 % et le
+//   retour sur le premier retrouve son facteur (ARB-71); fails_when=zoomerPage n'écrit plus le facteur, appliquerZoomSite
+//   n'est plus branché sur did-navigate, ou un site sans zoom garde le facteur du précédent; why_new=C64 ne navigue jamais
+//   après un zoom et les tests unitaires ne touchent pas index.ts; seam=none (127.0.0.1 et localhost sont deux hôtes pour
+//   le zoom); no_claim=ni le retour du zoom après redémarrage, ni l'éventuel instant à 100 % avant le premier did-navigate.
+test('C64b : le zoom est conservé par site, un autre site reste à 100 %', async () => {
+  const autreOrigine = origine.replace('127.0.0.1', 'localhost')
+  await saisirAdresse(`${origine}/page-survol.html`)
+  await attendreUrlActive(`${origine}/page-survol.html`)
+  try {
+    await presserSur('onglet', 'Plus', ['control'])
+    await expect.poll(() => zoomDe('onglet')).toBe(1.1)
+    await saisirAdresse(`${autreOrigine}/page-survol.html`)
+    await attendreUrlActive(`${autreOrigine}/page-survol.html`)
+    await expect.poll(() => zoomDe('onglet')).toBe(1)
+    await saisirAdresse(`${origine}/page-survol.html`)
+    await attendreUrlActive(`${origine}/page-survol.html`)
+    await expect.poll(() => zoomDe('onglet')).toBe(1.1)
+  } finally {
+    await presserSur('onglet', '0', ['control'])
+  }
+})
+
 // Value: protects=Ctrl+Tab, Ctrl+Maj+Tab, Ctrl+1…9 (touche physique) changent l'onglet actif dans l'ordre affiché, en boucle,
 //   et F5, Ctrl+R, Ctrl+F5 rechargent la page de l'onglet actif, d'où que vienne la touche;
 //   fails_when=actionDuRaccourci ne reconnaît plus pasDOnglet, numeroDOnglet ou rechargement, l'ordre n'est plus celui de la
