@@ -68,12 +68,15 @@ function motsDeRecherche(texte: string): string[] {
 // ! protège %, _ et lui-même (ESCAPE '!') : sans lui, « 100% » ou « a_b » chercheraient autre chose que ce qui est tapé.
 const echapperLike = (mot: string) => mot.replace(/[!%_]/g, '!$&')
 
+// Une condition par mot : dans l'adresse (sans son schéma) ou le titre. Deux paramètres par mot, le même motif.
+const filtreMots = (n: number) => Array(n).fill(`(substr(url, instr(url, '://') + 3) LIKE ? ESCAPE '!' OR titre LIKE ? ESCAPE '!')`).join(' AND ')
+
 export function rechercherPages(db: DatabaseSync, texte: string, limite = 5): PageVisitee[] {
   const mots = motsDeRecherche(texte)
   if (!mots.length) return []
   const motifs = mots.map((mot) => `%${echapperLike(mot)}%`)
   const debut = echapperLike(mots[0])
-  const filtre = motifs.map(() => `(substr(url, instr(url, '://') + 3) LIKE ? ESCAPE '!' OR titre LIKE ? ESCAPE '!')`).join(' AND ')
+  const filtre = filtreMots(motifs.length)
   const lignes = db.prepare(`SELECT url, titre, visites, derniere_visite FROM page WHERE ${filtre}
     ORDER BY (url LIKE ? ESCAPE '!' OR url LIKE ? ESCAPE '!' OR url LIKE ? ESCAPE '!') DESC, visites DESC, derniere_visite DESC
     LIMIT ?`).all(
@@ -82,4 +85,21 @@ export function rechercherPages(db: DatabaseSync, texte: string, limite = 5): Pa
     Math.max(0, Math.min(limite, 20))
   ) as Array<{ url: string, titre: string, visites: number, derniere_visite: number }>
   return lignes.map((ligne) => ({ url: ligne.url, titre: ligne.titre, visites: ligne.visites, derniereVisite: ligne.derniere_visite }))
+}
+
+// Panneau Historique (ARB-52) : les visites les plus récentes d'abord, filtrées par les mêmes mots que les suggestions (sans
+// texte, toutes). Une page visitée plusieurs fois le même jour (heure locale) n'y figure qu'une fois, à sa dernière visite
+// de ce jour ; le regroupement par jour lui-même est dans src/shared/historique.ts.
+// shortcut: 200 lignes au plus, sans pagination ni suppression d'entrées ; à revoir avec l'effacement par période (ARB-54).
+export const HISTORIQUE_MAX = 200
+
+export type VisiteJour = { url: string, titre: string, date: number }
+
+export function listerHistorique(db: DatabaseSync, texte: string, limite = HISTORIQUE_MAX): VisiteJour[] {
+  const motifs = motsDeRecherche(texte).map((mot) => `%${echapperLike(mot)}%`)
+  return db.prepare(`SELECT url, titre, MAX(visite.date) AS date FROM visite JOIN page ON page.id = visite.page
+    ${motifs.length ? `WHERE ${filtreMots(motifs.length)}` : ''}
+    GROUP BY page.id, date(visite.date / 1000, 'unixepoch', 'localtime') ORDER BY date DESC LIMIT ?`).all(
+    ...motifs.flatMap((motif) => [motif, motif]), Math.max(0, Math.min(limite, HISTORIQUE_MAX))
+  ) as VisiteJour[]
 }

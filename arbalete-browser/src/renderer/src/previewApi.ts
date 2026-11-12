@@ -298,6 +298,9 @@ export function installPreviewApi(): boolean {
     openPalette: async () => undefined,
     searchPalette: async () => undefined,
     choosePalette: async () => undefined,
+    // Pas d'historique dans l'aperçu : il vit dans la base du processus principal (ARB-52).
+    searchHistory: async () => [],
+    openHistoryPage: async () => undefined,
     // Pas de menu contextuel dans l'aperçu : les pages y sont un cadre, sans clic droit de Chromium (ARB-40).
     getPageMenu: async () => null,
     onPageMenu: () => () => undefined,

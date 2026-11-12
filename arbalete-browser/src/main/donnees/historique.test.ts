@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { after, test } from 'node:test'
 import { ouvrirBase } from './base.ts'
-import { LONGUEUR_MAX_TITRE, LONGUEUR_MAX_URL, adresseHistorique, ajouterVisite, lirePage, nommerPage, rechercherPages, LONGUEUR_MOT_MAX, MOTS_MAX } from './historique.ts'
+import { LONGUEUR_MAX_TITRE, LONGUEUR_MAX_URL, adresseHistorique, ajouterVisite, lirePage, listerHistorique, nommerPage, rechercherPages, LONGUEUR_MOT_MAX, MOTS_MAX } from './historique.ts'
 import { MIGRATIONS, appliquerMigrations, versionDuSchema } from './migrations.ts'
 import { lireSession, sauverSession } from './session.ts'
 
@@ -128,4 +128,35 @@ test('la recherche borne les mots, la longueur d’un mot et le nombre de lignes
   deepStrictEqual(rechercherPages(db, 'tps'), [])
   deepStrictEqual(rechercherPages(db, 'http'), [])
   deepStrictEqual(rechercherPages(db, 'https://gitlab').map((page) => page.url), ['https://www.gitlab.com/'])
+})
+
+test('le panneau liste les visites récentes d’abord, une par page et par jour, filtrées par les mots tapés (ARB-52)', () => {
+  const db = ouvrirBase(':memory:')
+  const heure = (jour: number, h: number) => new Date(2026, 10, jour, h).getTime()
+  ajouterVisite(db, 'https://a.test/', 'Alpha', heure(10, 8))
+  ajouterVisite(db, 'https://a.test/', 'Alpha', heure(10, 9))
+  ajouterVisite(db, 'https://a.test/', 'Alpha', heure(11, 8))
+  ajouterVisite(db, 'https://b.test/page', 'Bravo 100%', heure(11, 10))
+  deepStrictEqual(listerHistorique(db, '').map((v) => [v.url, v.date]), [
+    ['https://b.test/page', heure(11, 10)], ['https://a.test/', heure(11, 8)], ['https://a.test/', heure(10, 9)]
+  ])
+  deepStrictEqual(listerHistorique(db, 'alpha').map((v) => v.url), ['https://a.test/', 'https://a.test/'])
+  deepStrictEqual(listerHistorique(db, 'b.test bravo').map((v) => v.url), ['https://b.test/page'])
+  deepStrictEqual(listerHistorique(db, '100%').map((v) => v.url), ['https://b.test/page'])
+  deepStrictEqual(listerHistorique(db, 'a_est'), [])
+  strictEqual(listerHistorique(db, '', 1).length, 1)
+  db.close()
+})
+
+test('le panneau plafonne ses lignes à 200, refuse une limite négative et coupe les jours à minuit local (ARB-52)', () => {
+  const db = ouvrirBase(':memory:')
+  for (let i = 0; i < 205; i++) ajouterVisite(db, `https://p${i}.test/`, '', new Date(2026, 10, 1, 8).getTime() + i)
+  strictEqual(listerHistorique(db, '').length, 200)
+  strictEqual(listerHistorique(db, '', 1000).length, 200)
+  strictEqual(listerHistorique(db, '', -5).length, 0)
+  // 23:59 et 00:01 locales sont deux jours : deux lignes pour la même page.
+  ajouterVisite(db, 'https://nuit.test/', '', new Date(2026, 10, 2, 23, 59).getTime())
+  ajouterVisite(db, 'https://nuit.test/', '', new Date(2026, 10, 3, 0, 1).getTime())
+  strictEqual(listerHistorique(db, 'nuit.test').length, 2)
+  db.close()
 })

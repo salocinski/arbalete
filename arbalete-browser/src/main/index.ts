@@ -25,7 +25,7 @@ import { creerEcritureDifferee } from './donnees/ecritureDifferee.ts'
 import { noterFermetureNormale, noterOuverture } from './donnees/fermeture.ts'
 import { sauvegarderBase } from './donnees/sauvegarde.ts'
 import { basculerFavori, estFavori, favorisGrille } from './donnees/favoris.ts'
-import { adresseHistorique, ajouterVisite, nommerPage, rechercherPages } from './donnees/historique.ts'
+import { adresseHistorique, ajouterVisite, lirePage, listerHistorique, nommerPage, rechercherPages } from './donnees/historique.ts'
 import { ETAT_BARRE_INITIAL, borneLargeurBarre, largeurBarre, transitionBarre } from '../shared/barre.ts'
 import { THEMES, ecrireBarre, ecrireTheme, lireBarre, lireTheme } from './donnees/preferences.ts'
 import { actifsParEspace, lireSession, ongletsARestaurer, rattacherAuxEspaces, sauverSession, type OngletSauve } from './donnees/session.ts'
@@ -1534,6 +1534,21 @@ app.whenReady().then(() => {
     exigerBarre(event)
     const rang = indexValide(index, palette?.length ?? 0)
     if (rang !== undefined && typeof cle === 'string') choisirPalette(rang, cle)
+  })
+  // Panneau Historique (ARB-52) : lu à la demande de la vue de la barre, qui l'affiche ; ouvrir une page ne vaut que pour une
+  // page déjà visitée (son adresse web d'historique), jamais pour une adresse que l'interface inventerait.
+  ipcMain.handle('browser:search-history', (event, texte) => {
+    exigerBarre(event)
+    const recherche = texteSuggestion(texte)
+    if (!recherche && texte.trim()) return [] // texte trop long : rien, pas tout l'historique
+    try { return base ? listerHistorique(base, recherche) : [] } catch (erreur) { console.error('Historique non lu :', erreur); return [] }
+  })
+  ipcMain.handle('browser:open-history-page', (event, url) => {
+    exigerBarre(event)
+    if (typeof url !== 'string' || !adresseWeb(url) || !base || !lirePage(base, url)) return
+    fermerOverlay()
+    createTab(url)
+    activeRecord()?.view.webContents.focus()
   })
   // Menu contextuel d'une page (ARB-40) : seule la vue de la barre, qui l'affiche, choisit une entrée.
   traiter('browser:get-page-menu', () => menuPage && { x: menuPage.x, y: menuPage.y, entrees: menuPage.entrees })

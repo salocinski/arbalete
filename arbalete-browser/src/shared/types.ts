@@ -3,6 +3,7 @@ import type { Telechargement } from './telechargements'
 import type { EntreeMenuPage, MenuPage } from './menuPage'
 import type { ActionOnglet } from './menuOnglet'
 import type { EntreePalette } from './palette'
+import type { VisiteHistorique } from './historique'
 
 export type BrowserTab = {
   id: string
@@ -109,6 +110,11 @@ export type BrowserAPI = {
   openPalette: () => Promise<void>
   searchPalette: (text: string) => Promise<void>
   choosePalette: (index: number, cle: string) => Promise<void>
+  // Panneau Historique (ARB-52) : visites les plus récentes d'abord, filtrées par le texte (mots dans l'adresse ou le titre).
+  // `openHistoryPage` ouvre une page déjà visitée dans un nouvel onglet et ferme l'overlay ; une adresse inconnue est refusée.
+  // Seule la vue de la barre, qui affiche le panneau, les appelle.
+  searchHistory: (text: string) => Promise<VisiteHistorique[]>
+  openHistoryPage: (url: string) => Promise<void>
   // Recherche dans la page (ARB-70), pilotée par la seule vue de la recherche. `next` : continuer la recherche en cours
   // (Entrée) plutôt que la recommencer (frappe) ; `forward` faux remonte. Un texte vide efface les résultats.
   findInPage: (text: string, forward: boolean, next: boolean) => Promise<void>
