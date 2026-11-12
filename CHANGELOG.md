@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.29.2] - 2026-11-11
+
+### Corrigé
+- Pour le développement (rien ne change dans l'application) : la préparation des tests de bout en bout expirait de temps en temps, environ une fois sur trente en local, et marquait alors tous les tests du fichier comme non exécutés. Quand une autre application gardait le premier plan de Windows, la fenêtre lancée par les tests n'obtenait pas le focus, et la page, qui attend celui de la fenêtre, ne le recevait jamais. La préparation demande maintenant le focus à la fenêtre au lieu de l'attendre passivement.
+
+### Limites connues
+- Pendant les tests, en local, la fenêtre d'Arbalète peut prendre le premier plan si une autre application le garde.
+- L'échec ne se provoque pas à volonté : le correctif est validé par 200 exécutions sans échec, contre environ 3 % d'échecs avant.
+
 ## [0.12.29.1] - 2026-11-11
 
 ### Corrigé

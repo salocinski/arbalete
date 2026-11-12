@@ -78,8 +78,15 @@ test.beforeAll(async () => {
     const etatInitial = await etat()
     return ongletActif(etatInitial)?.url === `${origine}/demarrage.html` && !ongletActif(etatInitial)?.isLoading
   }, { timeout: 15_000 }).toBe(true)
-  await expect.poll(() => app.evaluate(({ BrowserWindow, WebContentsView }) => BrowserWindow.getAllWindows()[0].contentView.children
-    .some((enfant) => enfant instanceof WebContentsView && /^https?:/.test(enfant.webContents.getURL()) && enfant.webContents.isFocused())), { timeout: 15_000 }).toBe(true)
+  // Windows ne donne pas toujours le premier plan à la fenêtre lancée (une autre application le garde) : sans focus de la
+  // fenêtre, la page ne reçoit jamais le sien (l'application le diffère, ARB-112) et l'attente expirait. Le test demande le
+  // focus à la fenêtre à chaque itération, comme le ferait un utilisateur qui clique dessus (ARB-136).
+  await expect.poll(() => app.evaluate(({ BrowserWindow, WebContentsView }) => {
+    const fenetre = BrowserWindow.getAllWindows()[0]
+    if (!fenetre.isFocused()) fenetre.focus()
+    return fenetre.contentView.children
+      .some((enfant) => enfant instanceof WebContentsView && /^https?:/.test(enfant.webContents.getURL()) && enfant.webContents.isFocused())
+  }), { timeout: 15_000 }).toBe(true)
   // Le vrai curseur de l'utilisateur ne doit pas interférer : la barre s'ouvre au survol réel du bord gauche (onMouseEnter).
   // Les événements de Playwright (CDP) et de sendInputEvent ne passent pas par la souris du système, donc restent actifs.
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setIgnoreMouseEvents(true))
