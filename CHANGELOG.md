@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.36.0] - 2026-11-12
+
+### Ajouté
+- Le bouton « Historique » de la barre latérale ouvre un panneau : vos visites les plus récentes d’abord, regroupées par jour (Aujourd’hui, Hier, puis la date), une page une seule fois par jour. Taper filtre par titre ou adresse (chaque mot doit s’y trouver) ; un clic, ou Entrée pour la première ligne, ouvre la page dans un nouvel onglet, Échap ferme.
+
+### Limites connues
+- 200 lignes au plus, sans pagination ni suppression d’entrées (ARB-54) ; les accents ne sont pas repliés ; pas de Ctrl+H ni de navigation aux flèches.
+- La recherche se relance à chaque frappe, sans délai : à surveiller sur un très gros historique.
+- Le panneau n’est couvert que par des tests unitaires (données et regroupement par jour) ; l’ouverture, le clic et Échap n’ont pas de test automatique, et l’aperçu navigateur n’a pas d’historique.
+
 ## [0.12.35.0] - 2026-11-12
 
 ### Ajouté
