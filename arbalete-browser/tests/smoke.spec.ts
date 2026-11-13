@@ -3648,9 +3648,16 @@ test('C86 : F11 et un changement d’onglet sortent du plein écran de la page',
 
 // Fenêtres filles ouvertes par les pages (pop-ups, ARB-16) : getAllWindows ne garde pas l'ordre de création.
 const popups = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((fenetre) => fenetre.getParentWindow()).map((fenetre) => ({
-  titre: fenetre.webContents.getTitle(), fille: true,
+  titre: fenetre.getTitle(), fille: true,
   largeur: fenetre.getSize()[0], web: fenetre.webContents.getURL().startsWith('http')
 })))
+// C27 laisse plus de 50 onglets, et ses ouvertures datées dans le futur (Date.now avancé puis restauré) comptent encore
+// dans la fenêtre de 10 s : les pages n'ouvrent alors plus rien (ARB-102). On repart d'un onglet et on avance l'horloge.
+async function viderOnglets() {
+  await avancerHorloge(600_000)
+  for (const tab of (await etat()).tabs.slice(1)) await ui.evaluate((id) => window.arbalete.closeTab(id), tab.id)
+  await expect.poll(async () => (await etat()).tabs.length).toBe(1)
+}
 const fermerPopups = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((fenetre) => fenetre.getParentWindow()).forEach((fenetre) => fenetre.destroy()))
 
 // Value: protects=une pop-up de connexion (window.open avec dimensions) est une fenêtre fille qui garde window.opener
@@ -3659,13 +3666,14 @@ const fermerPopups = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.get
 //   dépasse le plafond; why_new=C20 à C22 ne couvrent que les onglets; seam=none;
 //   no_claim=ne couvre pas un vrai fournisseur OAuth (Google), ni le focus ou la position de la fenêtre.
 test('C87 : une pop-up de connexion garde window.opener, le target=_blank reste un onglet', async () => {
+  await viderOnglets()
   await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
   await attendreUrlActive(`${origine}/page-a.html`)
   const avant = (await etat()).tabs.length
   try {
     await dansOngletActif(`window.__recu = null; addEventListener('message', (e) => { window.__recu = e.data });
       void window.open('/page-popup.html', 'connexion', 'width=420,height=520')`)
-    await expect.poll(popups).toEqual([expect.objectContaining({ titre: 'avec-opener', fille: true, web: true })])
+    await expect.poll(popups).toEqual([expect.objectContaining({ titre: expect.stringMatching(/^127\.0\.0\.1:\d+ — avec-opener$/), fille: true, web: true })])
     expect((await popups())[0].largeur).toBeLessThan(500)
     expect((await etat()).tabs.length).toBe(avant)
     await expect.poll(() => resultatDansOngletActif('window.__recu')).toBe('connecte')
@@ -3676,10 +3684,50 @@ test('C87 : une pop-up de connexion garde window.opener, le target=_blank reste 
     expect(await popups()).toHaveLength(1)
   } finally {
     await fermerPopups()
+    await restaurerHorloge()
+  }
+})
+
+// Value: protects=une page ne choisit ni le cadre, ni la position, ni le premier plan, ni le caractère modal de sa pop-up,
+//   et seul l'onglet actif en ouvre une; fails_when=frame=no, alwaysOnTop, modal ou x=-5000 de la page passent, ou un onglet
+//   d'arrière-plan prend une place; why_new=Electron fusionne les features de window.open; seam=none;
+//   no_claim=ne couvre ni la taille d'écran réelle ni le rendu du titre.
+test('C87 : les options hostiles d’une pop-up sont ignorées, un onglet d’arrière-plan n’en ouvre pas', async () => {
+  await viderOnglets()
+  await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const fond = ongletActif(await etat())!.id
+  try {
+    await dansOngletActif("void window.open('/page-popup.html', 'h', 'width=300,height=300,frame=no,alwaysOnTop=yes,modal=yes,x=-5000,y=-5000,fullscreen=yes')")
+    await expect.poll(async () => (await popups()).length).toBe(1)
+    const etatPopup = await app.evaluate(({ BrowserWindow }) => {
+      const fille = BrowserWindow.getAllWindows().find((f) => f.getParentWindow())!
+      const parent = fille.getParentWindow()!
+      const [x, y] = fille.getPosition()
+      const p = parent.getBounds()
+      return { dansParent: x >= p.x && y >= p.y && x <= p.x + p.width && y <= p.y + p.height, haut: fille.isAlwaysOnTop(), modal: fille.isModal(), plein: fille.isFullScreen() }
+    })
+    expect(etatPopup).toEqual({ dansParent: true, haut: false, modal: false, plein: false })
+    await fermerPopups()
+
+    // Un autre onglet devient actif : l'ancien, en arrière-plan, n'ouvre plus de pop-up.
+    await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-b.html`)
+    await expect.poll(async () => ongletActif(await etat())?.id).not.toBe(fond)
+    const avant = (await etat()).tabs.length
+    await app.evaluate(({ webContents }) => {
+      const page = webContents.getAllWebContents().find((w) => w.getURL().endsWith('/page-a.html'))!
+      void page.executeJavaScript("void window.open('/page-popup.html', 'bg', 'width=300,height=300')")
+    })
+    await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+    expect(await popups()).toHaveLength(0)
+  } finally {
+    await fermerPopups()
+    await restaurerHorloge()
   }
 })
 
 test('C87 : au plus 3 pop-ups ouvertes, la suivante s’ouvre en onglet', async () => {
+  await viderOnglets()
   await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-a.html`)
   await attendreUrlActive(`${origine}/page-a.html`)
   const avant = (await etat()).tabs.length
@@ -3687,11 +3735,12 @@ test('C87 : au plus 3 pop-ups ouvertes, la suivante s’ouvre en onglet', async 
     await dansOngletActif("for (let n = 0; n < 4; n++) window.open('/page-popup.html?n=' + n, 'p' + n, 'width=300,height=300')")
     await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
     await expect.poll(async () => (await popups()).length).toBe(3)
+    await fermerPopups()
+    // Fermées, les places se libèrent.
+    await dansOngletActif("void window.open('/page-popup.html?apres', 'apres', 'width=300,height=300')")
+    await expect.poll(async () => (await popups()).length).toBe(1)
   } finally {
     await fermerPopups()
+    await restaurerHorloge()
   }
-  // Fermées, les places se libèrent.
-  await dansOngletActif("void window.open('/page-popup.html?apres', 'apres', 'width=300,height=300')")
-  await expect.poll(async () => (await popups()).length).toBe(1)
-  await fermerPopups()
 })
