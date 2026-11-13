@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.43.0] - 2026-11-12
+
+### Ajouté
+- Les pop-ups de connexion fonctionnent (« Se connecter avec Google », GitHub…). Un `window.open` avec des dimensions ouvre une vraie fenêtre fille, de 200 à 1 200 px, qui garde `window.opener` : la page reçoit le jeton de connexion. Elle partage les cookies de l’onglet d’origine. Un `target=_blank` ou un `window.open` sans dimensions reste un onglet.
+
+### Sécurité
+- Une pop-up n’a ni accès Node, ni preload, ni droit d’ouvrir d’autres fenêtres, et ne navigue que vers le web. La page ne choisit ni sa position, ni son cadre, ni son premier plan, ni son caractère modal. Seul l’onglet actif en ouvre, 3 au plus à la fois (la suivante s’ouvre en onglet). L’hôte réel précède le titre de la fenêtre, faute de barre d’adresse.
+
+### Limites connues
+- Une page peut encore agir sur d’autres options de sa pop-up (cadre masqué, fenêtre non fermable, transparence) et la redimensionner après coup ; le préfixe d’hôte peut être tronqué par un hôte très long. La pop-up n’est pas fermée avec l’onglet qui l’a ouverte, et les redirections vers un schéma non web ne sont pas filtrées.
+- Une pop-up s’ouvre sans clic de l’utilisateur (ARB-108). Si la création de la fenêtre échoue, la place reste prise jusqu’au redémarrage.
+- Testé avec une page locale, pas avec un vrai fournisseur OAuth. Couverture des tests : environ 80 % des chemins (cascade et navigation interdites depuis la pop-up non testées).
+
 ## [0.12.42.0] - 2026-11-12
 
 ### Ajouté
