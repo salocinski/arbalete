@@ -11,6 +11,7 @@ import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } 
 import { ongletVoisin } from './voisin.ts'
 import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
+import { estPopup, POPUPS_MAX, tailleDePopup } from './popup.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { ecrireZoomSite, hoteZoom, lireZoomSite } from './donnees/zoomSites.ts'
 import { ecrirePermissionSite, lirePermissionSite } from './donnees/permissionsSites.ts'
@@ -846,6 +847,43 @@ function ouvertureAutorisee(onglet: string, url: string): boolean {
   return autorisee
 }
 
+// Pop-up de connexion (ARB-16) : fenêtre fille de la fenêtre principale, même session (cookies de la page d'origine), sans
+// accès Node ni preload, qui garde window.opener. Elle n'ouvre ni onglet ni fenêtre et ne navigue que vers le web.
+// Le compteur monte à l'autorisation et redescend à la fermeture de la fenêtre.
+// shortcut: si la création échoue après l'autorisation, la place reste prise ; l'utilisateur garde les onglets, relancer règle.
+let popupsOuvertes = 0
+
+function optionsPopup(features: string): Electron.BrowserWindowConstructorOptions {
+  const taille = tailleDePopup(features)
+  const b = mainWindow?.getBounds()
+  return {
+    ...taille,
+    // Electron fusionne les features de la page (x, y, frame, alwaysOnTop, modal…) : on impose les nôtres.
+    ...(b ? { x: Math.round(b.x + (b.width - taille.width) / 2), y: Math.round(b.y + (b.height - taille.height) / 2) } : { center: true }),
+    frame: true, alwaysOnTop: false, modal: false, fullscreen: false, fullscreenable: false, kiosk: false, transparent: false,
+    parent: mainWindow ?? undefined,
+    icon: CHEMIN_ICONE,
+    autoHideMenuBar: true,
+    backgroundColor: FOND_FENETRE[themeEffectif()],
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, session: session.defaultSession }
+  }
+}
+
+function suivrePopup(fenetre: BrowserWindow) {
+  fenetre.removeMenu()
+  fenetre.once('closed', () => { popupsOuvertes = Math.max(0, popupsOuvertes - 1) })
+  const contenu = fenetre.webContents
+  contenu.setWindowOpenHandler(() => ({ action: 'deny' }))
+  contenu.on('will-navigate', (event, url) => { if (!/^https?:\/\//i.test(url)) event.preventDefault() })
+  // Pas de barre d'adresse : l'hôte réel précède le titre, que la page contrôle, contre l'usurpation d'une fenêtre de connexion.
+  contenu.on('page-title-updated', (event, titre) => {
+    event.preventDefault()
+    let hote = ''
+    try { hote = new URL(contenu.getURL()).host } catch { /* adresse pas encore connue */ }
+    fenetre.setTitle(hote ? `${hote} — ${titre}` : titre)
+  })
+}
+
 // Sans menu d'application, F12 n'ouvre plus rien : on le garde en développement seulement. La touche arrive au
 // webContents qui a le focus (l'interface ou la page d'un onglet) : on écoute les deux, et F12 ouvre toujours les
 // DevTools de l'interface (règle 5). Tout F12 est consommé (relâchement et répétitions d'un appui long compris) ;
@@ -1119,11 +1157,18 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    // Une page d'un espace masqué n'ouvre pas d'onglet : il surgirait dans l'espace affiché (ARB-61).
-    if (record.espace === espaceActif && ouvertureAutorisee(id, url)) void createTab(url)
+  view.webContents.setWindowOpenHandler(({ url, features, disposition }) => {
+    // Une page d'un espace masqué n'ouvre rien : l'onglet surgirait dans l'espace affiché (ARB-61).
+    if (record.espace !== espaceActif || !ouvertureAutorisee(id, url)) return { action: 'deny' }
+    // Seul l'onglet actif ouvre une pop-up : un onglet d'arrière-plan n'accapare pas les places d'une vraie connexion.
+    if (estPopup(disposition) && id === activeTabId && popupsOuvertes < POPUPS_MAX) {
+      popupsOuvertes++
+      return { action: 'allow', overrideBrowserWindowOptions: optionsPopup(features) }
+    }
+    void createTab(url)
     return { action: 'deny' }
   })
+  view.webContents.on('did-create-window', suivrePopup)
   view.webContents.on('will-navigate', (event, url) => {
     if (!/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) event.preventDefault()
   })
