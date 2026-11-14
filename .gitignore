@@ -34,3 +34,6 @@ playwright-report/
 
 # Réglages Claude Code personnels (hooks locaux)
 .claude/settings.local.json
+
+# POC extensions (ARB-24) : archives téléchargées et décompressées, jamais commitées
+.poc/
