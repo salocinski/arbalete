@@ -2,6 +2,12 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.2] - 2026-11-14
+
+### Modifié
+- `kanban.html` devient la référence unique de la liste des tâches ; les instructions du projet (`CLAUDE.md`) ne renvoient plus à l’ancien tableau en ligne.
+- La carte de la revue de sécurité d’Electron est passée à « Terminé ».
+
 ## [0.12.44.1] - 2026-11-13
 
 ### Ajouté
