@@ -15,7 +15,7 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Design | `DESIGN.md` (racine) : référentiel Atmospheric Minimalism, voir « Référentiel graphique obligatoire » |
 | Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
 | Revues de sécurité | `docs/securite/` : revues datées de la posture de sécurité (ex. `arb-11-checklist-electron.md`, checklist officielle d'Electron, écarts suivis par ARB-137 à ARB-140) ; une faille confirmée n'y est jamais détaillée, voir « Audits de sécurité » |
-| Extensions Chrome (EP-04) | `docs/extensions/` : relevés du POC extensions (ex. `arb-23-extensions-cibles.md`, extensions visées et API `chrome.*` qu'elles utilisent, source de ARB-24, ARB-25 et ARB-27 ; `arb-24-poc-loadextension.md`, résultat du chargement par `session.extensions` : seul Dark Reader fonctionne, Bitwarden et uBOL Lite perdent leur service worker faute d'API `chrome.*`) |
+| Extensions Chrome (EP-04) | `docs/extensions/` : relevés du POC extensions (ex. `arb-23-extensions-cibles.md`, extensions visées et API `chrome.*` qu'elles utilisent, source de ARB-24, ARB-25 et ARB-27 ; `arb-24-poc-loadextension.md`, résultat du chargement par `session.extensions` : seul Dark Reader fonctionne, Bitwarden et uBOL Lite perdent leur service worker faute d'API `chrome.*` ; `arb-25-poc-electron-chrome-extensions.md`, essai de la bibliothèque `electron-chrome-extensions` : barre d'actions, popups et `chrome.tabs` fonctionnent, Bitwarden démarre, uBOL Lite reste bloqué par `chrome.commands`) |
 | Maquettes | `docs/maquettes/` : pages HTML statiques de design validé, sans effet sur l'application (ex. `arb-28-mise-en-page.html`, mise en page cible, composition A) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
 | Identité visuelle | `branding/` : sources du logo et des icônes (ARB-127), voir son README |
@@ -68,9 +68,10 @@ arbalete-browser/
   resources/icone.ico      icône de l'application, 4 tailles (16, 32, 48, 256), passée en `icon` à BrowserWindow
   scripts/test-unitaire.mjs  lance les tests unitaires sous le Node d'Electron
   scripts/poc-extensions.mjs  POC extensions (ARB-24), lancé à la main (`npx electron scripts/poc-extensions.mjs`), hors de l'application : charge dans un profil jetable sous `%TEMP%` les extensions décompressées de `.poc/ext/` (dossier ignoré par Git) ; résultat dans `docs/extensions/arb-24-poc-loadextension.md`
+  scripts/poc-electron-chrome-extensions.mjs  POC ARB-25, lancé à la main (`npx electron scripts/poc-electron-chrome-extensions.mjs`), hors de l'application : mêmes extensions que ARB-24, avec la bibliothèque `electron-chrome-extensions` installée dans `.poc/lib/` (pas une dépendance d'Arbalète), barre d'actions, popup et `chrome.tabs.query` ; résultat dans `docs/extensions/arb-25-poc-electron-chrome-extensions.md`
   tests/                   tests Playwright (smoke.spec.ts, developpement.spec.ts)
   src/ci.test.ts           garde-fous de la CI (ARB-8) : lecture seule, actions épinglées, étapes attendues de `../.github/workflows/ci.yml`, clé du cache du binaire d'Electron alignée sur la version de `package.json`
-  src/pocExtensions.test.ts  garde-fous du POC d'extensions (ARB-24) : profil jetable, pas d'`await` de plus haut niveau, `.poc/` ignoré par Git (lecture du texte, le POC reste manuel)
+  src/pocExtensions.test.ts  garde-fous des POC d'extensions (ARB-24, ARB-25) : profil jetable, pas d'`await` de plus haut niveau, `.poc/` ignoré par Git (lecture du texte, le POC reste manuel)
 ```
 
 ## Commandes
