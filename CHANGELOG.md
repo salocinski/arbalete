@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.3] - 2026-11-14
+
+### Ajouté
+- `docs/extensions/arb-23-extensions-cibles.md` : les extensions Chrome visées (uBlock Origin Lite, Bitwarden, 1Password, Dark Reader, Immersive Translate) et les API `chrome.*` qu'elles utilisent, avec les écarts de prise en charge par Electron (ARB-23).
+
+### Modifié
+- La carte ARB-23 passe à « Terminé » dans `kanban.html`.
+
 ## [0.12.44.2] - 2026-11-14
 
 ### Modifié
