@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.5] - 2026-11-14
+
+### Ajouté
+- `docs/extensions/arb-24-poc-loadextension.md` : résultat du chargement d'extensions Chrome non empaquetées par Electron. Dark Reader fonctionne ; Bitwarden et uBlock Origin Lite se chargent mais leur service worker plante faute d'API `chrome.*` ; 1Password et Immersive Translate restent à tester (ARB-24).
+- `arbalete-browser/scripts/poc-extensions.mjs` : script du POC, lancé à la main sous Electron, dans un profil jetable et hors de l'application. Un test garde ses règles de sécurité.
+
+### Modifié
+- La carte ARB-24 passe à « Terminé » dans `kanban.html`.
+
 ## [0.12.44.4] - 2026-11-14
 
 ### Modifié
