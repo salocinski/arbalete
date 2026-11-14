@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.7] - 2026-11-14
+
+### Modifié
+- La carte ARB-25 de `kanban.html` note sa fusion (PR 103) et le résultat du POC : ce qui fonctionne, ce qui reste bloqué (`chrome.commands`) et ce qui reste à tester (ARB-26, ARB-27).
+
 ## [0.12.44.6] - 2026-11-14
 
 ### Ajouté
