@@ -8,6 +8,9 @@ Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MIN
 - Une page ne peut plus ouvrir d’onglet ou de pop-up sans clic de votre part : un `window.open` lancé sans geste récent (5 secondes) est bloqué. Un lien `target=_blank` cliqué s’ouvre toujours, et un Ctrl+clic ouvre l’onglet en arrière-plan.
 - Le blocage se voit : une icône apparaît à droite de l’étoile des favoris (avec le nombre de pop-ups bloquées), et un petit avis s’affiche 6 secondes en bas à gauche de la page, avec un bouton « Autoriser ». Autoriser mémorise le site (clé `pref.popup.<hôte>`) ; le compteur repart à zéro à chaque navigation.
 
+### Corrigé
+- Fermer une pop-up de connexion pouvait faire apparaître « A JavaScript error occurred in the main process » : le titre de la pop-up changeait encore après sa fermeture (ARB-16).
+
 ### Limites connues
 - Aucun écran pour retirer une autorisation. Elle s’applique à l’hôte de la page et à ses cadres, et ignore le port.
 - Une pop-up de connexion ouverte plus de 5 secondes après le clic (aller-retour réseau long) est bloquée.
