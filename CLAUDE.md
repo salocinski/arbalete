@@ -15,6 +15,7 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Design | `DESIGN.md` (racine) : référentiel Atmospheric Minimalism, voir « Référentiel graphique obligatoire » |
 | Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
 | Revues de sécurité | `docs/securite/` : revues datées de la posture de sécurité (ex. `arb-11-checklist-electron.md`, checklist officielle d'Electron, écarts suivis par ARB-137 à ARB-140) ; une faille confirmée n'y est jamais détaillée, voir « Audits de sécurité » |
+| Extensions Chrome (EP-04) | `docs/extensions/` : relevés du POC extensions (ex. `arb-23-extensions-cibles.md`, extensions visées et API `chrome.*` qu'elles utilisent, source de ARB-24, ARB-25 et ARB-27) |
 | Maquettes | `docs/maquettes/` : pages HTML statiques de design validé, sans effet sur l'application (ex. `arb-28-mise-en-page.html`, mise en page cible, composition A) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
 | Identité visuelle | `branding/` : sources du logo et des icônes (ARB-127), voir son README |
