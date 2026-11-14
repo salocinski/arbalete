@@ -341,6 +341,11 @@ CommandBar, FloatingPanel, ContextMenu, Tooltip, Modal, Toast, SplitView, Settin
   d'état dédié (survol et appui par mélange avec le texte principal).
 - **Champs** : surface neutre, bordure discrète, focus identifiable, erreur explicite.
 - **Panneaux flottants** : commande, menus, sélecteurs, dialogues, actions contextuelles.
+- **Avis éphémère** (ARB-108, première forme du Toast) : petite carte flottante (surface, bordure, rayon 14 px, ombre
+  flottante) posée en bas à gauche de la page, qui s'efface après 6 s et porte une action Primary et une croix ; icône
+  d'avertissement en `--color-warning`. Il est doublé d'une icône persistante dans le champ d'adresse, à droite de l'étoile,
+  qui le rouvre : l'avis informe au bon moment, l'icône garde la trace tant que la page est affichée. Comme la page
+  masque le HTML, il vit dans une vue native (`?vue=popup`), pas dans la couche d'overlays.
 
 Une seule implémentation par composant ; réutiliser l'existant avant d'en créer.
 

@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent, type RefObject } from 'react'
-import { ShieldCheck, Star } from 'lucide-react'
+import { AppWindow, ShieldCheck, Star } from 'lucide-react'
 import { useSuggestions } from '../state'
 import { IconButton } from './ui/IconButton'
 import { Input } from './ui/Input'
@@ -13,12 +13,14 @@ type AddressBarProps = {
   // Étoile (ARB-47) : la page est un favori ; elle peut en devenir un (adresse web seulement).
   favorite: boolean
   favoritable: boolean
+  // Pop-ups bloquées sur la page (ARB-108) : l'icône, à droite de l'étoile, n'existe que s'il y en a.
+  popupsBloquees: number
 }
 
 // Champ contrôlé par MainView : Ctrl+L y place le focus et la page d'accueil partage sa saisie.
 // Suggestions (ARB-53) : le champ garde le clavier. Il envoie le texte et les flèches au processus principal, qui tient la
 // liste et la fait afficher par la vue de la barre (SuggestionsOverlay), au-dessus de la page.
-export function AddressBar({ address, addressRef, onAddressChange, onAddressFocusChange, onSubmit, favorite, favoritable }: AddressBarProps) {
+export function AddressBar({ address, addressRef, onAddressChange, onAddressFocusChange, onSubmit, favorite, favoritable, popupsBloquees }: AddressBarProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const suggestions = useSuggestions()
 
@@ -60,11 +62,20 @@ export function AddressBar({ address, addressRef, onAddressChange, onAddressFocu
         spellCheck={false}
         leading={<ShieldCheck size={16} className="secure-icon"/>}
         trailing={
-          <IconButton size="sm" title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={favorite}
-            disabled={!favoritable} className={favorite ? 'favorite-on' : undefined}
-            onClick={() => void window.arbalete.toggleFavorite()}>
-            <Star size={14} fill={favorite ? 'currentColor' : 'none'}/>
-          </IconButton>
+          <>
+            <IconButton size="sm" title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={favorite}
+              disabled={!favoritable} className={favorite ? 'favorite-on' : undefined}
+              onClick={() => void window.arbalete.toggleFavorite()}>
+              <Star size={14} fill={favorite ? 'currentColor' : 'none'}/>
+            </IconButton>
+            {popupsBloquees > 0 && (
+              <IconButton size="sm" title="Pop-up bloquée : afficher l’avis" className="popup-blocked" data-testid="popup-blocked"
+                onClick={() => void window.arbalete.showBlockedPopups()}>
+                <AppWindow size={14}/>
+                {popupsBloquees > 1 && <span className="popup-blocked-count">{popupsBloquees}</span>}
+              </IconButton>
+            )}
+          </>
         }
       />
     </form>

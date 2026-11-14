@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARB-108 · Où signaler une pop-up bloquée ?</title>
+<!-- Étude de design (ARB-108), non validée. Aucune couleur en dur : tout vient de tokens.css. À ouvrir depuis le dépôt. -->
+<link rel="stylesheet" href="../../arbalete-browser/src/renderer/src/design-system/tokens.css">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--font-size-body)/1.4 var(--font-ui); background: var(--color-background); color: var(--color-text-primary); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+header { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); align-items: center; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
+header b { font: 600 var(--font-size-h3)/1.3 var(--font-display); margin-right: auto; }
+.seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--color-surface); border-radius: var(--radius-button); }
+.seg button { padding: 5px 10px; border-radius: var(--radius-sm); color: var(--color-text-secondary); }
+.seg button[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+main { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: var(--space-6); padding: var(--space-4); }
+h2 { margin: 0 0 var(--space-1); font: 600 var(--font-size-h3)/1.3 var(--font-display); }
+.sub { margin: 0 0 var(--space-3); color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+.pc { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-3); margin: var(--space-3) 0 0; padding: 0; list-style: none; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
+.pc li { background: var(--color-surface); border-radius: var(--radius-card); padding: var(--space-2) var(--space-3); }
+.pc li.p::before { content: "+ "; color: var(--color-success); font-weight: 700; }
+.pc li.c::before { content: "– "; color: var(--color-error); font-weight: 700; }
+
+/* Mini-fenêtre : barre de contrôle + page */
+.win { position: relative; height: 330px; display: flex; flex-direction: column; background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.bar { height: var(--size-control-bar); flex: none; display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); }
+.ib { width: var(--size-button); height: var(--size-button); border-radius: var(--radius-button); display: grid; place-items: center; color: var(--color-text-secondary); position: relative; }
+.ib:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.address { flex: 1; height: var(--size-search-field); display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) 0 var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-button); }
+.address .url { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.address svg.ok { color: var(--color-success); }
+.address .ib { width: 28px; height: 28px; }
+.blocked { color: var(--color-warning); }
+.blocked i { position: absolute; top: 1px; right: 0; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--color-warning); color: var(--color-background); font: 700 9px/14px var(--font-ui); text-align: center; font-style: normal; }
+.page { position: relative; flex: 1; margin: 0 var(--space-2) var(--space-2); border-radius: var(--radius-md); background: var(--color-sidebar); display: grid; place-items: center; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+.banner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--space-5); background: var(--color-sidebar); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); font-size: 11px; }
+.banner span { display: flex; gap: var(--space-2); align-items: center; }
+.banner svg { color: var(--color-warning); }
+.btn { padding: 4px 10px; border-radius: var(--radius-button); border: 1px solid var(--color-border); background: var(--color-surface); }
+.btn.primary { background: var(--color-accent); border-color: transparent; color: var(--color-on-accent); }
+.row { display: flex; gap: var(--space-2); }
+/* Panneau flottant (couche d'overlays) */
+.float { position: absolute; z-index: var(--z-menu); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-floating); box-shadow: var(--shadow-floating); padding: var(--space-3); font-size: var(--font-size-body-small); }
+.float h4 { margin: 0 0 var(--space-2); font: 600 var(--font-size-label)/1.3 var(--font-ui); }
+.float .link { display: block; color: var(--color-text-secondary); font-family: var(--font-mono); font-size: var(--font-size-mono); padding: 2px 0; }
+.float .row { margin-top: var(--space-3); }
+.toast { position: absolute; left: var(--space-3); bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-floating); box-shadow: var(--shadow-floating); font-size: var(--font-size-body-small); }
+.toast svg { color: var(--color-warning); }
+</style>
+</head>
+<body>
+<header>
+  <b>ARB-108 · Où signaler une pop-up bloquée ?</b>
+  <span class="seg" role="group" aria-label="Thème">
+    <button aria-pressed="true" data-t="dark">Sombre</button><button aria-pressed="false" data-t="light">Clair</button>
+  </span>
+</header>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+  <symbol id="i-block" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M8 13l5 4M13 13l-5 4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+</defs></svg>
+<main>
+
+<section>
+  <h2>A · Icône dans le champ d'adresse</h2>
+  <p class="sub">Persistante tant que la page est affichée. Un clic ouvre un panneau flottant (couche d'overlays) : liens bloqués, « Autoriser ce site ».</p>
+  <div class="win">
+    <div class="bar"><div class="address">
+      <svg class="ok"><use href="#i-shield"/></svg><span class="url">https://pub-agressive.example/<span style="color:var(--color-text-secondary)">article</span></span>
+      <button class="ib blocked" title="Pop-up bloquée" aria-label="1 pop-up bloquée"><svg><use href="#i-block"/></svg><i>1</i></button>
+      <button class="ib" title="Ajouter aux favoris"><svg><use href="#i-star"/></svg></button>
+    </div></div>
+    <div class="page">Contenu de la page</div>
+    <div class="float" style="top:calc(var(--size-control-bar) - 2px); right:var(--space-3); width:290px">
+      <h4>Pop-up bloquée sur pub-agressive.example</h4>
+      <span class="link">https://annonce.example/offre?id=482…</span>
+      <div class="row"><button class="btn primary">Toujours autoriser</button><button class="btn">Ouvrir cette fois</button></div>
+    </div>
+  </div>
+  <ul class="pc">
+    <li class="p">Zéro interruption, rien ne bouge dans la page</li>
+    <li class="p">Même place que les futures icônes de site (permissions, sécurité)</li>
+    <li class="p">Réutilise IconButton et le champ existant</li>
+    <li class="c">Peu visible : un utilisateur pressé ne voit pas pourquoi « rien ne s'est ouvert »</li>
+    <li class="c">Indique la page affichée seulement, pas un onglet d'arrière-plan</li>
+    <li class="c">Panneau = nouvel overlay à construire</li>
+  </ul>
+</section>
+
+<section>
+  <h2>B · Bandeau sous la barre de contrôle</h2>
+  <p class="sub">Même mécanisme que le bandeau de restauration de session (<code>app-banner</code>). Reste jusqu'à action ou changement de page.</p>
+  <div class="win">
+    <div class="bar"><div class="address"><svg class="ok"><use href="#i-shield"/></svg><span class="url">https://pub-agressive.example/article</span><button class="ib" title="Ajouter aux favoris"><svg><use href="#i-star"/></svg></button></div></div>
+    <div class="banner" role="status">
+      <span><svg><use href="#i-block"/></svg>Une pop-up de pub-agressive.example a été bloquée.</span>
+      <span class="row"><button class="btn primary">Toujours autoriser</button><button class="btn">Ouvrir cette fois</button><button class="ib" title="Fermer" style="width:24px;height:24px"><svg><use href="#i-x"/></svg></button></span>
+    </div>
+    <div class="page">Contenu de la page</div>
+  </div>
+  <ul class="pc">
+    <li class="p">Impossible à manquer, texte explicite, actions directes</li>
+    <li class="p">Composant et styles déjà là, aucun overlay</li>
+    <li class="p">Fonctionne pour tout onglet affiché</li>
+    <li class="c">Décale la page vers le bas (la vue native est redimensionnée)</li>
+    <li class="c">Insistant : pages à rafales de pop-ups = bandeau permanent</li>
+    <li class="c">Contraire à « Discrétion » et « Continuité » du référentiel</li>
+  </ul>
+</section>
+
+<section>
+  <h2>C · Toast éphémère au bas de la page</h2>
+  <p class="sub">Petite vue native comme l'aperçu d'adresse (ARB-36), disparaît après 6 s. Un clic sur « Autoriser » mémorise le site.</p>
+  <div class="win">
+    <div class="bar"><div class="address"><svg class="ok"><use href="#i-shield"/></svg><span class="url">https://pub-agressive.example/article</span><button class="ib" title="Ajouter aux favoris"><svg><use href="#i-star"/></svg></button></div></div>
+    <div class="page">Contenu de la page
+      <div class="toast" role="status"><svg><use href="#i-block"/></svg>Pop-up bloquée<button class="btn primary">Autoriser</button><button class="ib" title="Fermer" style="width:24px;height:24px"><svg><use href="#i-x"/></svg></button></div>
+    </div>
+  </div>
+  <ul class="pc">
+    <li class="p">Visible au bon moment, sans décaler la page</li>
+    <li class="p">S'efface seul : aucune trace durable à gérer</li>
+    <li class="p">Base du composant Toast prévu au référentiel</li>
+    <li class="c">Éphémère : manqué si l'utilisateur regarde ailleurs, pas de rappel</li>
+    <li class="c">Couvre un coin de la page ; rafales à regrouper</li>
+    <li class="c">Nouvelle vue native à piloter (taille, thème, focus)</li>
+  </ul>
+</section>
+
+</main>
+<script>
+document.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => {
+  document.documentElement.dataset.theme = b.dataset.t
+  document.querySelectorAll('[data-t]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+}))
+</script>
+</body>
+</html>

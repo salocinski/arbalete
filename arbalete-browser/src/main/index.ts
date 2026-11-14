@@ -11,7 +11,8 @@ import { numeroDOnglet, ongletNumero, ongletRelatif, pasDOnglet, rechargement } 
 import { ongletVoisin } from './voisin.ts'
 import { depiler, empiler } from './ongletsFermes.ts'
 import { borner } from './bornes.ts'
-import { estPopup, POPUPS_MAX, tailleDePopup } from './popup.ts'
+import { AVIS_DUREE_MS, estGeste, estPopup, gesteRecent, placerAvisPopup, POPUPS_MAX, tailleDePopup } from './popup.ts'
+import { autoriserPopups, popupsAutorises } from './donnees/popupsSites.ts'
 import { palierZoom, sensDuZoom, type SensZoom } from './zoom.ts'
 import { ecrireZoomSite, hoteZoom, lireZoomSite } from './donnees/zoomSites.ts'
 import { ecrirePermissionSite, lirePermissionSite } from './donnees/permissionsSites.ts'
@@ -53,6 +54,8 @@ type TabRecord = {
   adresseVisitee: string | null
   // Espace de l'onglet (ARB-61) ; null si la base est indisponible, donc sans espaces.
   espace: number | null
+  // Pop-ups refusées faute de geste de l'utilisateur sur la page affichée (ARB-108), remises à zéro à la navigation.
+  popupsBloquees: number
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -195,7 +198,8 @@ function stateSnapshot(): BrowserState {
     workspaces: espaces,
     activeWorkspaceId: espaceActif,
     favorite: pageActiveEstFavorite(),
-    favorites: grilleFavoris()
+    favorites: grilleFavoris(),
+    popupsBloquees: activeRecord()?.popupsBloquees ?? 0
   }
 }
 
@@ -255,7 +259,7 @@ function basculerFavoriActif() {
 // Les vues de l'interface : la fenêtre (barre d'outils, zone de page), la barre latérale et la recherche dans la page.
 function contenusInterface(): WebContents[] {
   const fenetre = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : undefined
-  return [fenetre, barreView?.webContents, rechercheView?.webContents]
+  return [fenetre, barreView?.webContents, rechercheView?.webContents, avisView?.webContents]
     .filter((contenu): contenu is WebContents => !!contenu && !contenu.isDestroyed())
 }
 
@@ -354,6 +358,8 @@ function setActiveView() {
   if (!mainWindow || mainWindow.isDestroyed()) return
   if (pleinEcranPage && pleinEcranPage !== activeRecord()?.view) sortirPleinEcranPage(pleinEcranPage)
   retirerApercu()
+  // L'avis de pop-up bloquée est celui de l'onglet affiché : un autre onglet le retire (réactiver l'actif ne le touche pas).
+  if (avisOnglet !== activeTabId) retirerAvis()
   // La recherche suit l'onglet qu'elle cherche : un autre onglet affiché la ferme (réactiver l'actif ne la touche pas).
   if (rechercheContenu !== activeRecord()?.view.webContents) fermerRecherche()
   for (const [id, record] of tabs) {
@@ -371,6 +377,7 @@ function setActiveView() {
   // Réajouter une vue déjà présente la remet au premier plan : la recherche ouverte, puis la barre, restent au-dessus de
   // l'onglet affiché (réactiver l'onglet actif le remet lui aussi au premier plan).
   if (rechercheView && rechercheVisible) mainWindow.contentView.addChildView(rechercheView)
+  if (avisView && avisVisible) mainWindow.contentView.addChildView(avisView)
   if (barreView) mainWindow.contentView.addChildView(barreView)
 }
 
@@ -773,6 +780,66 @@ function fermerRecherche(rendreLeFocus = false) {
   if (rendreLeFocus) activeRecord()?.view.webContents.focus()
 }
 
+// Avis « pop-up bloquée » (ARB-108) : petite vue d'interface (?vue=popup) en bas à gauche de la page, comme la recherche et pour
+// la même raison (elle ne couvre pas la page). Elle s'efface seule après AVIS_DUREE_MS ; l'icône de la barre d'adresse la rouvre.
+let avisView: WebContentsView | null = null
+let avisVisible = false
+let avisOnglet: string | null = null
+let avisMinuteur: NodeJS.Timeout | null = null
+
+function creerAvis(): WebContentsView {
+  const vue = new WebContentsView({ webPreferences: PREFERENCES_INTERFACE })
+  vue.setBackgroundColor('#00000000')
+  vue.setBorderRadius(RAYON_PAGE)
+  verrouillerInterface(vue.webContents)
+  // Un rendu planté ne se recharge pas : la vue est jetée, le prochain blocage en recrée une.
+  vue.webContents.on('render-process-gone', () => {
+    retirerAvis()
+    avisView = null
+    if (!vue.webContents.isDestroyed()) vue.webContents.close()
+  })
+  chargerInterface(vue.webContents, 'popup')
+  return vue
+}
+
+function placerAvisVue() {
+  if (avisView && avisVisible) avisView.setBounds(placerAvisPopup(contentBounds))
+}
+
+function retirerAvis() {
+  if (avisMinuteur) clearTimeout(avisMinuteur)
+  avisMinuteur = null
+  avisOnglet = null
+  if (!avisVisible) return
+  avisVisible = false
+  try {
+    if (avisView) mainWindow?.contentView.removeChildView(avisView)
+  } catch {
+    // La vue peut déjà être détachée.
+  }
+}
+
+function afficherAvis() {
+  if (!mainWindow || mainWindow.isDestroyed() || !activeTabId || !(activeRecord()?.popupsBloquees)) return
+  avisView ??= creerAvis()
+  avisOnglet = activeTabId
+  avisVisible = true
+  placerAvisVue()
+  mainWindow.contentView.addChildView(avisView)
+  if (barreView) mainWindow.contentView.addChildView(barreView)
+  if (avisMinuteur) clearTimeout(avisMinuteur)
+  avisMinuteur = setTimeout(retirerAvis, AVIS_DUREE_MS)
+}
+
+// Une pop-up de la page de l'onglet `id` vient d'être refusée : l'icône s'allume (état) et l'avis s'affiche si l'onglet est affiché.
+function signalerPopupBloquee(id: string) {
+  const record = tabs.get(id)
+  if (!record) return
+  record.popupsBloquees++
+  broadcastState()
+  if (id === activeTabId) afficherAvis()
+}
+
 function updateTabFromView(id: string) {
   const record = tabs.get(id)
   if (!record) return
@@ -905,6 +972,17 @@ function reculer() {
 function avancer() {
   const wc = activeRecord()?.view.webContents
   if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
+}
+
+function siteAutorisePopups(url: string): boolean {
+  const hote = hoteZoom(url)
+  if (!base || !hote) return false
+  try {
+    return popupsAutorises(base, hote)
+  } catch (erreur) {
+    console.error('Autorisation des pop-ups illisible, elles restent bloquées :', erreur)
+    return false
+  }
 }
 
 function activerOnglet(id: string) {
@@ -1082,7 +1160,8 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
     chargee: false,
     // Rouvrir un onglet restauré n'est pas une visite.
     adresseVisitee: restaure ? adresseHistorique(normalizeUrl(initialUrl)) : null,
-    espace: restaure ? restaure.espace ?? null : espaceActif
+    espace: restaure ? restaure.espace ?? null : espaceActif,
+    popupsBloquees: 0
   }
   tabs.set(id, record)
 
@@ -1130,6 +1209,12 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   view.webContents.on('did-start-navigation', (details) => {
     if (!details.isMainFrame || details.isSameDocument) return
     blancDePage = !!details.initiator && estAboutBlank(details.url)
+    // Une autre page : les pop-ups bloquées sur la précédente ne la concernent plus (ARB-108).
+    if (record.popupsBloquees) {
+      record.popupsBloquees = 0
+      if (id === activeTabId) retirerAvis()
+      broadcastState()
+    }
   })
   view.webContents.on('did-navigate', (_event, url) => {
     const aDefaire = blancDePage && estAboutBlank(url)
@@ -1157,15 +1242,30 @@ function createTab(initialUrl = 'https://www.google.com', restaure?: { titre: st
   })
   view.webContents.on('did-start-loading', () => updateTabFromView(id))
   view.webContents.on('did-stop-loading', () => updateTabFromView(id))
+  let dernierGeste: number | undefined
+  view.webContents.on('input-event', (_event, entree) => {
+    if (estGeste(entree.type)) dernierGeste = performance.now()
+  })
   view.webContents.setWindowOpenHandler(({ url, features, disposition }) => {
     // Une page d'un espace masqué n'ouvre rien : l'onglet surgirait dans l'espace affiché (ARB-61).
-    if (record.espace !== espaceActif || !ouvertureAutorisee(id, url)) return { action: 'deny' }
+    if (record.espace !== espaceActif) return { action: 'deny' }
+    // ARB-108 : sans geste récent de l'utilisateur, la page n'ouvre rien (refus tracé en console).
+    // Un site que l'utilisateur a autorisé (avis de pop-up bloquée) ouvre sans geste.
+    if (!gesteRecent(dernierGeste, performance.now()) && !siteAutorisePopups(view.webContents.getURL())) {
+      console.warn(`Ouverture bloquée (aucun geste de l'utilisateur) : ${url}`)
+      signalerPopupBloquee(id)
+      return { action: 'deny' }
+    }
+    if (!ouvertureAutorisee(id, url)) return { action: 'deny' }
     // Seul l'onglet actif ouvre une pop-up : un onglet d'arrière-plan n'accapare pas les places d'une vraie connexion.
     if (estPopup(disposition) && id === activeTabId && popupsOuvertes < POPUPS_MAX) {
       popupsOuvertes++
       return { action: 'allow', overrideBrowserWindowOptions: optionsPopup(features) }
     }
-    void createTab(url)
+    // Ctrl+clic : l'onglet s'ouvre en arrière-plan, l'onglet affiché garde le focus.
+    const avant = activeTabId
+    createTab(url)
+    if (disposition === 'background-tab' && avant) activerOnglet(avant)
     return { action: 'deny' }
   })
   view.webContents.on('did-create-window', suivrePopup)
@@ -1496,6 +1596,7 @@ function createWindow(adresses: readonly string[] = []) {
     placerPage()
     placerBarre()
     placerRechercheVue()
+    placerAvisVue()
   })
   // Comme un menu, un overlay se ferme quand la fenêtre perd le focus (Alt+Tab, clic dans une autre application).
   // F11 (ou tout autre retour de la fenêtre à la normale) pendant un plein écran de la page : la page en sort aussi.
@@ -1512,6 +1613,11 @@ function createWindow(adresses: readonly string[] = []) {
     rechercheView = null
     rechercheVisible = false
     rechercheContenu = null
+    if (avisMinuteur) clearTimeout(avisMinuteur)
+    avisMinuteur = null
+    avisView = null
+    avisVisible = false
+    avisOnglet = null
     overlayOuvert = false
     // Les pages en attente d'une réponse sont refusées, sans quoi leur callback reste ouvert et la file bloquée.
     const attente = [invitePermission, ...invitesEnAttente.splice(0)]
@@ -1884,6 +1990,26 @@ app.whenReady().then(() => {
     placerPage()
     placerApercuVue()
     placerRechercheVue()
+    placerAvisVue()
+  })
+  // Pop-ups bloquées (ARB-108) : l'icône (vue de la fenêtre ou de la barre) rouvre l'avis, sa vue seule autorise ou le ferme.
+  const exigerAvis = (event: IpcMainInvokeEvent) => {
+    if (!emetteurAutorise(event) || event.sender !== avisView?.webContents) throw new Error('Émetteur IPC non autorisé')
+  }
+  traiter('browser:popup-show', afficherAvis)
+  ipcMain.handle('browser:popup-allow', (event) => {
+    exigerAvis(event)
+    const record = activeRecord()
+    const hote = record ? hoteZoom(record.view.webContents.getURL()) : undefined
+    if (!base || !record || !hote) return
+    autoriserPopups(base, hote)
+    record.popupsBloquees = 0
+    retirerAvis()
+    broadcastState()
+  })
+  ipcMain.handle('browser:popup-close', (event) => {
+    exigerAvis(event)
+    retirerAvis()
   })
   // Recherche dans la page (ARB-70) : seule sa vue la pilote, comme seule la vue de la barre pilote les overlays.
   const exigerRecherche = (event: IpcMainInvokeEvent) => {
