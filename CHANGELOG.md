@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.1] - 2026-11-13
+
+### Ajouté
+- Revue de la checklist de sécurité officielle d’Electron (ARB-11) : `docs/securite/arb-11-checklist-electron.md`. 17 recommandations sur 20 sont respectées ou sans objet ; 4 écarts de durcissement, aucun exploitable aujourd’hui, sont suivis par les tickets ARB-137 à ARB-140.
+- `kanban.html`, le tableau de suivi, est désormais versionné dans le dépôt.
+
+### Limites connues
+- Audit statique seulement : pas de scanners (Docker absent) ni de test à l’exécution.
+
 ## [0.12.44.0] - 2026-11-12
 
 ### Ajouté

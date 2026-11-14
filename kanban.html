@@ -1,0 +1,2471 @@
+cards block                              matches=1 plan block                               matches=1 cardcode const                           matches=1 draft key                                matches=1 h1                                       matches=1 eyebrow                                  matches=1 title                                    matches=1 font mono                                matches=1 font body                                matches=1 font display                             matches=1 stylesheet fonts                         matches=1 preconnect gstatic                       matches=1 preconnect googleapis                    matches=1 <!doctype html>
+<html lang="fr">
+<head>
+<meta charset=utf8>
+<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Arbalète - Kanban (dep)</title>
+<!--
+  BASTION PROTOCOL — Kanban versionné dans le dépôt (suivi multi-providers d'IA).
+  Données : les deux blocs <script type="application/json"> ci-dessous sont la source de vérité.
+    #bp-plan  → { "milestones": [...], "epics": [...] }   (constantes du projet, §11 du doc de référence)
+    #bp-cards → { "cards": [...] }                        (cartes prefixe-xxx ; statuts, notes, criteres)
+  Usage :
+    1. Ouvrir ce fichier dans un navigateur, déplacer/éditer les cartes.
+    2. Cliquer « Exporter le fichier » : le kanban.html mis à jour est téléchargé.
+    3. Remplacer le fichier du dépôt par celui-ci, puis committer. L'historique Git suit tout.
+  Un provider d'IA peut lire les blocs JSON directement, ou modifier les statuts puis regénérer le fichier.
+  Statuts de carte : backlog | todo | doing | review | done. Une carte n'est « done » que si sa DoD est vérifiée.
+-->
+
+<style>
+/* Layout: control-room board. Milestone track on top, filters, five status lanes; Roadmap and Epics as alternate views. Dark-first. */
+:root {
+  --bg: #14171b;
+  --panel: #1c2026;
+  --panel-2: #232830;
+  --line: #2e353e;
+  --fg: #e4e8ec;
+  --muted: #8d97a2;
+  --orange: #ec7a2f;
+  --orange-ink: #1a0f06;
+  --cyan: #3cc7da;
+  --ok: #5cbf6b;
+  --warn: #e3b43c;
+  --crit: #e5574a;
+  --shadow: 0 6px 20px rgba(0,0,0,.35);
+  --f-display: "Bahnschrift", "Segoe UI", sans-serif;
+  --f-body: "Segoe UI", system-ui, sans-serif;
+  --f-mono: ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eceff2; --panel: #ffffff; --panel-2: #f4f6f8; --line: #d2d8de;
+    --fg: #1a1e23; --muted: #5a6470; --orange: #c45d16; --orange-ink: #ffffff;
+    --cyan: #0b8799; --ok: #2e8a3d; --warn: #9a7300; --crit: #c23a2e;
+    --shadow: 0 6px 18px rgba(30,40,50,.12); color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eceff2; --panel: #ffffff; --panel-2: #f4f6f8; --line: #d2d8de;
+  --fg: #1a1e23; --muted: #5a6470; --orange: #c45d16; --orange-ink: #ffffff;
+  --cyan: #0b8799; --ok: #2e8a3d; --warn: #9a7300; --crit: #c23a2e;
+  --shadow: 0 6px 18px rgba(30,40,50,.12); color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1480px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+button, select, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* Header */
+.top { border-bottom: 1px solid var(--line); background: var(--panel); }
+.top .wrap { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding-block: 20px 16px; }
+.eyebrow { font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--orange); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(26px, 4vw, 36px); letter-spacing: .02em; margin: 4px 0 0; text-transform: uppercase; text-wrap: balance; }
+h1 span { color: var(--muted); font-weight: 500; }
+.stats { display: flex; flex-wrap: wrap; gap: 24px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font-family: var(--f-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat small { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+
+main.wrap { padding-block: 20px 48px; display: grid; gap: 18px; }
+
+/* Milestone track */
+.track { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr); gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.ms { text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 10px 10px 9px; cursor: pointer; display: grid; gap: 4px; position: relative; }
+.ms:hover { border-color: var(--muted); }
+.ms[aria-pressed="true"] { border-color: var(--orange); box-shadow: inset 0 0 0 1px var(--orange); }
+.ms .code { font-family: var(--f-mono); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+.ms .name { font-family: var(--f-display); font-weight: 600; font-size: 14px; line-height: 1.15; }
+.ms.post { border-style: dashed; background: transparent; }
+.ms.post .name { color: var(--muted); }
+.bar { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--cyan); }
+.ms .count { font-family: var(--f-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.phase-tag { font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; }
+.phase-tag.mvp { color: var(--orange); }
+
+/* Toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.tabs button { background: var(--panel); border: 0; padding: 7px 14px; cursor: pointer; font-family: var(--f-display); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 12px; color: var(--muted); }
+.tabs button + button { border-left: 1px solid var(--line); }
+.tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--orange); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters select, .filters input[type="search"] { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; min-width: 0; max-width: 100%; }
+.filters input[type="search"] { width: 180px; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.btn { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 7px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--orange); color: var(--orange-ink); border-color: var(--orange); font-weight: 600; }
+.btn.danger { color: var(--crit); }
+.btn.danger.armed { background: var(--crit); color: #fff; border-color: var(--crit); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.notice { border: 1px solid var(--line); border-left: 3px solid var(--warn); background: var(--panel); padding: 10px 12px; border-radius: 4px; font-size: 13px; }
+.notice.err { border-left-color: var(--crit); }
+.notice.ok { border-left-color: var(--ok); }
+.notice button { margin-left: 10px; }
+
+/* Board */
+.board-scroll { overflow-x: auto; scrollbar-width: thin; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(250px, 1fr)); gap: 10px; min-height: 300px; }
+.lane { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; display: flex; flex-direction: column; min-width: 0; }
+.lane.drop { border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan); }
+.lane-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.lane-head h2 { font-family: var(--f-display); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.lane-head .n { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.lane[data-status="doing"] .lane-head h2 { color: var(--cyan); }
+.lane[data-status="done"] .lane-head h2 { color: var(--ok); }
+.cards { padding: 8px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.empty-lane { color: var(--muted); font-size: 12px; padding: 10px 4px; text-align: center; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 9px 10px 8px; cursor: pointer; display: grid; gap: 6px; position: relative; }
+.card:hover { border-color: var(--muted); }
+.card.dragging { opacity: .4; }
+.card .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cid { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.card h3 { font-size: 13.5px; font-weight: 500; margin: 0; line-height: 1.35; overflow-wrap: anywhere; }
+.card.is-done h3 { color: var(--muted); }
+.pill { font-family: var(--f-mono); font-size: 10.5px; padding: 1px 5px; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
+.pill.P1 { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 50%, transparent); }
+.pill.P2 { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+.kind { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 1px 5px; border-radius: 2px; }
+.kind.decision { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.kind.spike { color: var(--cyan); background: color-mix(in srgb, var(--cyan) 12%, transparent); }
+.kind.jalon { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.epic { display: inline-flex; align-items: center; gap: 5px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.epic i, .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.msref { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); }
+.deps { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); }
+
+/* Roadmap */
+.roadmap { display: grid; gap: 10px; }
+.rm { border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 14px 16px; display: grid; grid-template-columns: 240px 1fr 200px; gap: 16px; align-items: start; }
+.rm.post { border-style: dashed; opacity: .75; }
+.rm .code { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.rm h3 { font-family: var(--f-display); font-size: 16px; font-weight: 600; margin: 2px 0 6px; }
+.rm p { margin: 0; font-size: 13px; color: var(--muted); }
+.rm .crit { font-size: 12.5px; margin-top: 8px; }
+.rm .crit b { color: var(--fg); font-weight: 600; }
+.rm .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rm .chips button { background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
+.rm .chips button:hover { border-color: var(--muted); }
+.rm .side { display: grid; gap: 6px; justify-items: end; }
+.state { font-family: var(--f-display); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.state.active { color: var(--orange); }
+.state.done { color: var(--ok); }
+.state.next { color: var(--muted); }
+.rm .count { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+
+/* Epics matrix */
+.matrix-scroll { overflow-x: auto; }
+.matrix { width: 100%; border-collapse: collapse; }
+.matrix th, .matrix td { border: 1px solid var(--line); padding: 8px 10px; font-size: 12.5px; text-align: center; }
+.matrix thead th { background: var(--panel-2); font-family: var(--f-display); letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; }
+.matrix th.ep { text-align: left; min-width: 180px; }
+.matrix td.post-col { color: var(--muted); border-left: 1px dashed var(--line); }
+.matrix .tot { font-family: var(--f-mono); font-size: 12px; }
+.matrix tbody tr:last-child th, .matrix tbody tr:last-child td { border-bottom: 0; }
+
+/* Sheet */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; display: flex; justify-content: flex-end; }
+.sheet { width: min(480px, 100%); height: 100%; background: var(--panel); border-left: 1px solid var(--line); box-shadow: var(--shadow); overflow-y: auto; padding: calc(18px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) 20px; display: grid; gap: 14px; align-content: start; }
+.sheet h2 { font-family: var(--f-display); font-size: 18px; margin: 0; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.field input, .field select, .field textarea { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 8px; width: 100%; }
+.field textarea { min-height: 150px; resize: vertical; }
+.field small { color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.actions .right { display: flex; gap: 8px; }
+
+@media (max-width: 860px) {
+  .rm { grid-template-columns: 1fr; gap: 8px; }
+  .rm .side { justify-items: start; }
+  .filters input[type="search"] { width: 100%; }
+  .filters { width: 100%; }
+  .filters select { flex: 1 1 140px; }
+  .board { grid-template-columns: repeat(5, minmax(78vw, 1fr)); scroll-snap-type: x mandatory; }
+  .lane { scroll-snap-align: start; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Projet · suivi versionné dans le dépôt</div>
+      <h1>Arbalète <span>/ Kanban</span></h1>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="notice" id="notice" hidden></div>
+
+  <nav class="track" id="track" aria-label="Milestones"></nav>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-view="board" aria-selected="true">Tableau</button>
+      <button role="tab" data-view="roadmap" aria-selected="false">Roadmap</button>
+      <button role="tab" data-view="epics" aria-selected="false">Epics</button>
+    </div>
+    <div class="filters" id="filters">
+      <select id="f-epic-filter" aria-label="Filtrer par epic"></select>
+      <select id="f-kind-filter" aria-label="Filtrer par type">
+        <option value="all">Tous les types</option>
+        <option value="tache">Tâches</option>
+        <option value="decision">Décisions</option>
+        <option value="spike">Études</option>
+        <option value="jalon">Jalons</option>
+      </select>
+      <input type="search" id="f-search" placeholder="Rechercher…" aria-label="Rechercher une carte">
+      <label class="check"><input type="checkbox" id="f-post"> Afficher l'après-v1.0</label>
+      <button class="btn" id="export-btn" title="Télécharge kanban.html avec les données actuelles, à committer dans le dépôt">Exporter le fichier</button>
+      <button class="btn primary" id="add-card">+ Carte</button>
+    </div>
+  </div>
+
+  <section id="view-board">
+    <div class="board-scroll"><div class="board" id="board"></div></div>
+  </section>
+  <section id="view-roadmap" hidden><div class="roadmap" id="roadmap"></div></section>
+  <section id="view-epics" hidden><div class="matrix-scroll"><table class="matrix" id="matrix"></table></div></section>
+</main>
+
+<div class="scrim" id="scrim" hidden>
+  <form class="sheet" id="sheet" aria-labelledby="sheet-title">
+    <div>
+      <div class="cid" id="sheet-id"></div>
+      <h2 id="sheet-title">Carte</h2>
+    </div>
+    <div class="field"><label for="e-title">Titre (verbe + objet)</label><input id="e-title" required maxlength="200"></div>
+    <div class="grid3">
+      <div class="field"><label for="e-status">Statut</label><select id="e-status"></select></div>
+      <div class="field"><label for="e-prio">Priorité</label><select id="e-prio"><option>P1</option><option>P2</option><option>P3</option></select></div>
+      <div class="field"><label for="e-kind">Type</label><select id="e-kind"><option value="tache">Tâche</option><option value="decision">Décision</option><option value="spike">Étude</option><option value="jalon">Jalon</option></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="e-ms">Milestone</label><select id="e-ms"></select></div>
+      <div class="field"><label for="e-epic">Epic</label><select id="e-epic"></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="e-size">Taille</label><select id="e-size"><option value="S">S</option><option value="M">M</option><option value="L">L (à découper)</option></select></div>
+      <div class="field"><label for="e-deps">Depend de (prefixe-xxx, DEC-xxx, separes par des virgules)</label><input id="e-deps" placeholder="ARB-001, DEC-001"></div>
+    </div>
+    <div class="field">
+      <label for="e-note">Contexte, critères d'acceptation, risque, notes</label>
+      <textarea id="e-note" maxlength="6000"></textarea>
+      <small>Modèle conseillé : Contexte (§ source) / Critères d'acceptation (- [ ] …) / Risque / Notes.</small>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="e-delete">Supprimer</button>
+      <div class="right">
+        <button type="button" class="btn" id="e-cancel">Fermer</button>
+        <button type="submit" class="btn primary" id="e-save">Enregistrer</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script id="bp-plan" type="application/json">
+{
+  "epics": [
+    {
+      "color": "#5f7a99",
+      "id": "phase-1-valider-le-socle",
+      "name": "Phase 1 · Valider le socle"
+    },
+    {
+      "color": "#3f9b45",
+      "id": "transverse-projet-open-source",
+      "name": "Transverse · Projet open source"
+    },
+    {
+      "color": "#2f7fd8",
+      "id": "phase-2-stabiliser-l-interface",
+      "name": "Phase 2 · Stabiliser l'interface"
+    },
+    {
+      "color": "#c48a12",
+      "id": "phase-5-avancee-go-no-go",
+      "name": "Phase 5 avancée · Go / No-Go"
+    },
+    {
+      "color": "#3f9b45",
+      "id": "phase-3-fonctions-essentielles",
+      "name": "Phase 3 · Fonctions essentielles"
+    },
+    {
+      "color": "#2a9d8f",
+      "id": "phase-4-productivite",
+      "name": "Phase 4 · Productivité"
+    },
+    {
+      "color": "#5f7a99",
+      "id": "phase-6-usage-quotidien",
+      "name": "Phase 6 · Usage quotidien"
+    }
+  ],
+  "milestones": [
+    {
+      "criterion": "npm run dev ouvre Arbalète sous Windows 10/11, navigue sur un site réel, et la CI compile à chaque push.",
+      "goal": "Partir d'une base saine : dépôt versionné, dépendances à jour, compilation et lancement vérifiés sous Windows.",
+      "id": "EP-01",
+      "name": "Socle technique et hygiène du dépôt",
+      "phase": "Phase 1 · Valider le socle",
+      "sprint": "Phase 1"
+    },
+    {
+      "criterion": "Le dépôt est public, protégé par une règle sur main, et un contributeur externe peut ouvrir une issue et une PR guidées par les modèles.",
+      "goal": "Rendre le dépôt prêt à être forké et à recevoir des contributions : licence GPL-3.0, règles claires, dépôt protégé, backlog public.",
+      "id": "EP-15",
+      "name": "Ouverture communautaire",
+      "phase": "Transverse · Projet open source",
+      "sprint": "Transverse"
+    },
+    {
+      "criterion": "Checklist de sécurité Electron passée ; l'interface ne peut pas être détournée par une page web.",
+      "goal": "Appliquer les bonnes pratiques de sécurité Electron/Chromium avant d'ajouter des fonctions.",
+      "id": "EP-02",
+      "name": "Sécurité de base du navigateur",
+      "phase": "Phase 1 · Valider le socle",
+      "sprint": "Phase 1"
+    },
+    {
+      "criterion": "Ctrl+T, Ctrl+W, Ctrl+L, Ctrl+Tab, Ctrl+Shift+T et F5 marchent depuis une page web ouverte.",
+      "goal": "Les raccourcis fonctionnent partout, y compris quand le focus est dans une page web.",
+      "id": "EP-03",
+      "name": "Raccourcis clavier fiables",
+      "phase": "Phase 2 · Stabiliser l'interface",
+      "sprint": "Phase 2"
+    },
+    {
+      "criterion": "Rapport de compatibilité sur 4-5 extensions cibles et décision écrite : rester sur Electron ou changer d'architecture.",
+      "goal": "Mesurer tôt la compatibilité réelle des extensions Chrome pour confirmer ou remettre en cause Electron.",
+      "id": "EP-04",
+      "name": "POC extensions Chrome · décision d'architecture",
+      "phase": "Phase 5 avancée · Go / No-Go",
+      "sprint": "Phase 5 avancée"
+    },
+    {
+      "criterion": "Dark, Light et System suivent DESIGN.md ; aucune couleur en dur dans les composants ; barre de contrôle et barre latérale (trois états) conformes ; contrastes validés.",
+      "goal": "Appliquer le référentiel graphique Atmospheric Minimalism (DESIGN.md) : tokens, thèmes Dark/Light/System, polices, composants de base, barre de contrôle, barre latérale et onglets. Arc reste une référence fonctionnelle, jamais graphique (§14 du référentiel).",
+      "id": "EP-05",
+      "name": "Refonte de l'interface · Atmospheric Minimalism",
+      "phase": "Phase 2 · Stabiliser l'interface",
+      "sprint": "Phase 2"
+    },
+    {
+      "criterion": "Un menu déroulant et une palette s'affichent par-dessus une page web ; clic droit sur une page ouvre un menu utile.",
+      "goal": "Pouvoir afficher menus, palettes et dialogues au-dessus de la page web (la WebContentsView masque le HTML de l'interface).",
+      "id": "EP-06",
+      "name": "Couche d'overlays et menus contextuels",
+      "phase": "Phase 2 · Stabiliser l'interface",
+      "sprint": "Phase 2"
+    },
+    {
+      "criterion": "Fermer et rouvrir Arbalète restaure les onglets ; un plantage propose de restaurer la session.",
+      "goal": "Retrouver ses onglets après un redémarrage ou un plantage ; poser la couche de données des épics suivantes.",
+      "id": "EP-07",
+      "name": "Persistance et restauration de session",
+      "phase": "Phase 3 · Fonctions essentielles",
+      "sprint": "Phase 3"
+    },
+    {
+      "criterion": "Ajouter un favori avec l'étoile, le retrouver dans le panneau après redémarrage.",
+      "goal": "Enregistrer et retrouver ses sites, dont les favoris épinglés en grille comme dans Arc.",
+      "id": "EP-08",
+      "name": "Favoris",
+      "phase": "Phase 3 · Fonctions essentielles",
+      "sprint": "Phase 3"
+    },
+    {
+      "criterion": "Taper 3 lettres dans la barre d'adresse propose des sites déjà visités.",
+      "goal": "Garder la trace des visites et s'en servir pour compléter la barre d'adresse.",
+      "id": "EP-09",
+      "name": "Historique et suggestions",
+      "phase": "Phase 3 · Fonctions essentielles",
+      "sprint": "Phase 3"
+    },
+    {
+      "criterion": "Un téléchargement montre sa progression et le fichier s'ouvre depuis le panneau.",
+      "goal": "Télécharger des fichiers de façon fiable et les retrouver.",
+      "id": "EP-10",
+      "name": "Téléchargements",
+      "phase": "Phase 3 · Fonctions essentielles",
+      "sprint": "Phase 3"
+    },
+    {
+      "criterion": "Changer le moteur de recherche ou le thème est conservé après redémarrage.",
+      "goal": "Centraliser les réglages dans une page Paramètres persistante.",
+      "id": "EP-11",
+      "name": "Paramètres et préférences",
+      "phase": "Phase 3 · Fonctions essentielles",
+      "sprint": "Phase 3"
+    },
+    {
+      "criterion": "Changer d'espace change la liste d'onglets et la couleur ; le tout est restauré au redémarrage.",
+      "goal": "Des espaces réellement indépendants : chacun a ses onglets, sa couleur et, au besoin, ses cookies.",
+      "id": "EP-12",
+      "name": "Espaces de travail",
+      "phase": "Phase 4 · Productivité",
+      "sprint": "Phase 4"
+    },
+    {
+      "criterion": "Ctrl+K ouvre une palette qui trouve un onglet, un favori ou une page d'historique.",
+      "goal": "Retrouver et ranger ses onglets vite : palette de commandes, glisser-déposer, dossiers.",
+      "id": "EP-13",
+      "name": "Organisation des onglets et recherche rapide",
+      "phase": "Phase 4 · Productivité",
+      "sprint": "Phase 4"
+    },
+    {
+      "criterion": "Un installeur Windows signé s'installe, se met à jour seul et passe la suite de tests.",
+      "goal": "Installer, mettre à jour et faire confiance à Arbalète au quotidien.",
+      "id": "EP-14",
+      "name": "Prêt pour l'usage quotidien",
+      "phase": "Phase 6 · Usage quotidien",
+      "sprint": "Phase 6"
+    }
+  ]
+}
+</script>
+
+<script id="bp-cards" type="application/json">
+{
+  "cards": [
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "spike",
+      "milestone": "EP-01",
+      "note": "Analyse du code existant, de la synthèse projet et des écarts avec Arc.\nCritère : Rapport d'état des lieux partagé",
+      "num": 1,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Faire l'état des lieux du prototype"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "npm install, tsc --noEmit et electron-vite build exécutés sur une copie : aucune erreur.\nCritère : Typecheck sans erreur\nBuild main/preload/renderer OK",
+      "num": 2,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Vérifier l'installation, le typecheck et le build"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Fait : .gitignore, .gitattributes (LF), package-lock.json, branche main, commit f8a6e29.\nCritère : node_modules et out non suivis\nPremier commit sur une branche main",
+      "num": 3,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Ajouter un .gitignore et faire le premier commit"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Fusionné dans main par la PR #3 (v0.1.1.0, 31 oct. 2026) : Electron 45.1.0 épinglé en devDependencies, electron-vite 6, Vite 8, @vitejs/plugin-react 6, @types/node 24. Ajouts : smoke test Playwright (npm run test:smoke, C1-C7, C9, C11, C12), .github/dependabot.yml hebdomadaire, étape npx install-electron dans les guides.\nCritère : Version d'Electron dans la fenêtre de support officielle\nTypecheck et build OK après mise à jour",
+      "num": 4,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Mettre à jour Electron (35 → version supportée) et electron-vite"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Premier lancement réel du prototype. Documenter tout problème de démarrage, d'affichage ou de navigation.\nCritère : La fenêtre s'ouvre\nUne page web se charge dans l'onglet\nÉcarts notés en tickets",
+      "num": 5,
+      "prio": "P1",
+      "size": "S",
+      "status": "todo",
+      "title": "Lancer npm run dev sous Windows et noter les écarts"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Un seul tsconfig mélange types Node et DOM. Créer tsconfig.node.json et tsconfig.web.json.\nCritère : Le renderer n'a plus accès aux types Node\ntypecheck couvre les deux cibles",
+      "num": 6,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Séparer les tsconfig main/preload et renderer"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Règles TypeScript + React hooks, formatage automatique.\nCritère : npm run lint passe sans erreur",
+      "num": 7,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Ajouter ESLint et Prettier"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Typecheck, tests unitaires, build et smoke test Electron sur windows-latest à chaque push sur main et chaque PR.\nTerminé (2026-11-08) : phase 1 (PR 48, v0.12.9.0 : typecheck, tests unitaires, build) ; phase 2 (PR 54, v0.12.10.0 : smoke test Electron, sans nouvel essai, artefact des rapports d'échec sur 7 jours) ; phase 3 (PR 55, v0.12.10.1 : badge CI dans le README, règle de protection de main PR-Rule qui exige les deux jobs). Approbation des exécutions des contributeurs externes : réglée sur all_external_contributors (vérifié par l'API GitHub le 2026-11-08). Le mot « lint » est retiré de l'intitulé : le projet n'a pas d'outil de lint, le typecheck strict et les tests font le contrôle. Le fichier .gstack/pregate.json (reprise de la CI par /ship) est détaché dans ARB-133. Attention : renommer un job de ci.yml exige de mettre à jour le ruleset PR-Rule, sinon plus aucune PR ne fusionne.\nCritère : Badge CI vert sur main",
+      "num": 8,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Mettre en place une CI GitHub Actions (Windows)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "[Bug]\nstarterState affichait 3 onglets fictifs avant que le processus principal réponde ; l'écran d'accueil n'apparaît jamais réellement. Doublon d'ARB-115, résolu dans la même PR (v0.12.15.0, PR 60).\nCritère : Au démarrage, seuls les vrais onglets sont listés",
+      "num": 9,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Supprimer les faux onglets « demo » du renderer"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "[Bug]\ncontentBounds initial ne correspond pas à la hauteur de la barre d'outils.\nCritère : Aucun décalage visible au premier affichage",
+      "num": 10,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Corriger la zone de contenu initiale (y: 106 au lieu de 64)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "spike",
+      "milestone": "EP-02",
+      "note": "Lancer /cso (gstack) puis passer en revue la checklist officielle Electron ; créer un ticket par écart. Nécessite les outils C++ de Visual Studio 2022 pour l'analyse complète de /cso.\nCritère : Liste des écarts documentée\nAvancement 2026-11-13 : /cso statique lancé deux fois (second run plus complet, 119 fichiers lus par le helper), aucun constat étayé, statut partiel (Docker absent : pas de scanner, ni /cso --comprehensive ; historique Git retenu à 44 commits sur 99). Checklist officielle Electron passée en revue : 17 recommandations sur 20 respectées ou sans objet, 4 écarts de durcissement (fuses non posés, file://, will-frame-navigate et will-redirect absents, pas de garde-fou global web-contents-created), aucun exploitable. Liste dans docs/securite/arb-11-checklist-electron.md. Reste : un ticket par écart (E1 et E2 relèvent d'EP-14) et la PR.",
+      "num": 11,
+      "prio": "P1",
+      "size": "S",
+      "status": "review",
+      "title": "Auditer le projet avec la checklist de sécurité Electron"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "Ajouter will-navigate et setWindowOpenHandler sur mainWindow pour empêcher toute navigation de l'interface elle-même (glisser-déposer d'un lien, etc.).\nCritère : Glisser un lien sur la barre latérale n'ouvre rien dans l'interface",
+      "num": 12,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Verrouiller la navigation de la fenêtre d'interface"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "CSP stricte dans index.html du renderer (script-src 'self').\nCritère : Aucune violation CSP en dev et en build",
+      "num": 13,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Ajouter une Content-Security-Policy à l'interface"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "Chaque ipcMain.handle vérifie que event.senderFrame provient de l'interface Arbalète.\nCritère : Un appel IPC depuis une page web est refusé",
+      "num": 14,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Valider l'émetteur des messages IPC"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "Aujourd'hui tout est refusé (plein écran YouTube, notifications, micro…). Autoriser le plein écran, demander pour caméra/micro/notifications/géolocalisation, mémoriser le choix.\nCritère : Le plein écran YouTube fonctionne\nUne demande de micro affiche une invite\nLe choix est mémorisé par site",
+      "num": 15,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Gérer les permissions site par site"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Bug]\nToutes les pop-ups deviennent des onglets : « Se connecter avec Google » en pop-up peut échouer (window.opener perdu).\nCritère : Connexion Google en pop-up réussie sur un site tiers",
+      "num": 16,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Permettre les pop-ups de connexion (OAuth)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "spike",
+      "milestone": "EP-02",
+      "note": "Autoriser, restreindre ou demander confirmation pour les URL locales.\nCritère : Décision notée et appliquée",
+      "num": 17,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Décider de la politique pour file:// depuis la barre d'adresse"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-03",
+      "note": "Les raccourcis sont écoutés dans React : ils ne marchent pas quand le focus est dans la WebContentsView. Utiliser before-input-event et/ou un menu avec accélérateurs.\nCritère : Ctrl+T ouvre un onglet depuis une page web\nCtrl+L met le focus dans la barre d'adresse",
+      "num": 18,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Intercepter les raccourcis côté processus principal"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-03",
+      "note": "Critère : Ctrl+Tab passe à l'onglet suivant\nCtrl+9 va au dernier onglet",
+      "num": 19,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Changer d'onglet avec Ctrl+Tab et Ctrl+1…9"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-03",
+      "note": "Pile des onglets fermés (URL + historique si possible).\nCritère : Ctrl+Shift+T restaure l'onglet fermé",
+      "num": 20,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Rouvrir le dernier onglet fermé (Ctrl+Shift+T)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-03",
+      "note": "Critère : F5 recharge, Ctrl+F5 recharge sans cache",
+      "num": 21,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Recharger (F5, Ctrl+R) et forcer (Ctrl+F5)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-03",
+      "note": "[Bug]\nLibellé macOS sur une application Windows.\nCritère : Aucun symbole ⌘ dans l'interface",
+      "num": 22,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Remplacer « ⌘ K » par « Ctrl K » dans l'interface"
+    },
+    {
+      "deps": [],
+      "epic": "phase-5-avancee-go-no-go",
+      "kind": "spike",
+      "milestone": "EP-04",
+      "note": "Ex. uBlock Origin, Bitwarden ou 1Password, Dark Reader, un traducteur. Relever manifest V3 et API (tabs, storage, webRequest…).\nCritère : Tableau extension → API requises",
+      "num": 23,
+      "prio": "P1",
+      "size": "S",
+      "status": "todo",
+      "title": "Lister les extensions cibles et les API Chrome qu'elles utilisent"
+    },
+    {
+      "deps": [],
+      "epic": "phase-5-avancee-go-no-go",
+      "kind": "spike",
+      "milestone": "EP-04",
+      "note": "Tester loadExtension d'Electron sur les extensions cibles.\nCritère : Résultat noté pour chaque extension",
+      "num": 24,
+      "prio": "P1",
+      "size": "M",
+      "status": "todo",
+      "title": "POC : charger une extension non empaquetée (session.extensions)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-5-avancee-go-no-go",
+      "kind": "spike",
+      "milestone": "EP-04",
+      "note": "Tester barre d'actions, popups et API chrome.tabs avec cette bibliothèque.\nCritère : Popup d'une extension affichée\nRésultat noté pour chaque extension",
+      "num": 25,
+      "prio": "P1",
+      "size": "M",
+      "status": "todo",
+      "title": "POC : bibliothèque electron-chrome-extensions"
+    },
+    {
+      "deps": [],
+      "epic": "phase-5-avancee-go-no-go",
+      "kind": "spike",
+      "milestone": "EP-04",
+      "note": "Téléchargement et installation d'un .crx depuis le store.\nCritère : Une extension s'installe depuis son lien store",
+      "num": 26,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "POC : installer depuis le Chrome Web Store (CRX)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-5-avancee-go-no-go",
+      "kind": "tache",
+      "milestone": "EP-04",
+      "note": "Comparer Electron avec les alternatives (CEF, fork Chromium) si nécessaire.\nCritère : Décision Go/No-Go écrite dans le projet",
+      "num": 27,
+      "prio": "P1",
+      "size": "S",
+      "status": "todo",
+      "title": "Rédiger le rapport de compatibilité et la décision"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "spike",
+      "milestone": "EP-05",
+      "note": "Valider la composition avant de coder, selon DESIGN.md : zone A barre latérale (trois états), zone B barre de contrôle en haut (48 px), zone C surface de contenu prioritaire. Couvrir Dark et Light. Arc sert de référence fonctionnelle seulement : ni reproduction de composition, d'espacements ou de comportements visuels distinctifs (§14). Avec gstack : /design-shotgun pour les variantes, puis /plan-design-review.\nCritère : Maquette validée",
+      "num": 28,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Maquetter la mise en page cible (barre de contrôle, barre latérale, cadre)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Sidebar, TabList, TabItem, AddressBar, WorkspaceSwitcher, StatusBar… + un store d'état.\nCritère : App.tsx < 100 lignes\nComportement inchangé",
+      "num": 29,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Découper App.tsx en composants"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "frame: false + titleBarOverlay pour garder réduire/agrandir/fermer, zone de déplacement. Hauteur et couleurs de l'overlay alignées sur la barre de contrôle (48 px, tokens du thème actif, mises à jour au changement de thème).\nAvancement (2026-11-08) : PR 56 (v0.12.11.0) ouverte, en attente de la CI. Réalisé avec titleBarStyle 'hidden' + titleBarOverlay (garde le bord redimensionnable et l'accrochage Windows que frame: false perdrait). Tests : 53 unitaires, 51 smoke (C53 nouveau, C35 étendu). Reste à vérifier à la main sous Windows : glisser la fenêtre, survol des boutons, accès aux boutons pendant un menu d'onglet (overlay plein fenêtre), mise à l'échelle 125 %.\nCritère : La fenêtre se déplace et se redimensionne\nBoutons Windows fonctionnels",
+      "num": 30,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Fenêtre sans cadre avec boutons Windows natifs"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Décision du 2026-11-03 : la barre de contrôle reste en haut, comme le prévoit le référentiel (l'ancien objectif « adresse dans la barre latérale » est abandonné). Barre de 48 px : NavigationControls (précédent, suivant, recharger), AddressBar (champ de 40 px, sécurité, favori), actions contextuelles et accès aux commandes. Tokens et boutons du design system, états Hover/Focus/Active/Disabled.\nCritère : Barre de 48 px conforme à DESIGN.md en Dark et Light\nNavigation et adresse utilisables au clavier, focus visible\nAucune valeur en dur",
+      "num": 31,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Harmoniser la barre de contrôle (zone B)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Marge autour de la WebContentsView et coins arrondis (setBorderRadius si disponible).\nCritère : Coins arrondis visibles, sans débordement",
+      "num": 32,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Afficher la page dans un cadre arrondi avec marge"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Comme Arc : barre cachée, réapparition en approchant le bord gauche. Choix retenus : la barre recouvre la page (vue native WebContentsView dédiée au-dessus de l'onglet, chargée avec ?vue=barre, même preload et même verrouillage que la fenêtre) ; masquée, une bande transparente de 6 px détecte le survol ; le bouton de repli devient un bouton d'épingle, et Ctrl+Maj+B est intercepté par le processus principal. Le thème choisi est tenu par le processus principal pour les deux vues. Remplace la barre repliée d'ARB-109. Branche arb-33-barre-auto-masquee.\nCritère : À l'ouverture, la barre latérale est invisible et la page occupe toute la largeur\nSurvol du bord gauche → la barre apparaît par-dessus la page, sans la déplacer\nElle se retire quand la souris sort (sauf focus dans la barre) ou au clic dans la page\nLe bouton d'épingle et Ctrl+Maj+B (même depuis une page) l'épinglent : la page lui laisse sa place\nLe smoke test le vérifie",
+      "num": 33,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Barre latérale masquable qui réapparaît au survol"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Selon DESIGN.md (§2, §4, §8, §9, §10 du référentiel) : tokens centralisés (couleurs, typographie, espacements, dimensions, motion) exposés en variables sémantiques (--color-background, --color-surface, --color-sidebar, --color-text-primary/secondary, --color-border, --color-accent/-hover/-active, --color-focus, succès/avertissement/erreur). Palettes Obsidian/Slate/Graphite + Amber (sombre) et Cloud/Porcelain/Mist + Amber foncé (clair), sélection par data-theme, System suit nativeTheme sans rechargement. backgroundColor de la fenêtre et des vues aligné sur --color-background de chaque thème. Durées et courbes en tokens, prefers-reduced-motion respecté. Adapter l'arborescence §11 au dépôt sans réorganisation inutile.\nCritère : Aucune valeur hexadécimale dans les composants ni dans styles.css hors fichiers de tokens\nAucun élément sombre en thème clair, ni clair en thème sombre\nLe changement de thème s'applique sans rechargement, fenêtre et barre comprises\nprefers-reduced-motion coupe les transitions",
+      "num": 34,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Design tokens et palettes Dark / Light / System"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Écouter page-favicon-updated et remplir tab.favicon.\nCritère : Chaque onglet affiche l'icône du site",
+      "num": 35,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Afficher les vrais favicons des sites"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Arc n'a pas de barre d'état : afficher l'URL d'un lien survolé en bas de page.\nCritère : Survol d'un lien → URL affichée",
+      "num": 36,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Remplacer la barre d'état par un aperçu d'URL au survol"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "[Bug]\nAujourd'hui c'est le dernier onglet de la liste qui devient actif.\nCritère : Fermer l'onglet 2 sur 4 active l'onglet 3",
+      "num": 37,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Activer l'onglet voisin à la fermeture"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "spike",
+      "milestone": "EP-06",
+      "note": "Options : WebContentsView transparente dédiée au-dessus, rétrécir/masquer la vue web, fenêtres enfants. Mesurer les performances.\nCritère : Stratégie choisie et justifiée",
+      "num": 38,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Choisir la stratégie d'overlay"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-06",
+      "note": "API côté renderer pour ouvrir/fermer un overlay (menu, palette, dialogue).\nCritère : Un menu s'affiche au-dessus d'une page web",
+      "num": 39,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Implémenter la couche d'overlay réutilisable"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-06",
+      "note": "Retour, recharger, copier, ouvrir le lien dans un nouvel onglet, copier l'adresse du lien, enregistrer l'image, inspecter.\nCritère : Clic droit sur un lien → « Ouvrir dans un nouvel onglet » fonctionne",
+      "num": 40,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Menu contextuel sur les pages web"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-06",
+      "note": "Dupliquer, épingler, fermer les autres, copier l'URL.\nCritère : Clic droit sur un onglet → actions fonctionnelles",
+      "num": 41,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Menu contextuel sur les onglets"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "spike",
+      "milestone": "EP-07",
+      "note": "Comparer better-sqlite3 / node:sqlite / JSON. Contraintes : packaging Windows, migrations, performances.\nCritère : Choix écrit avec justification",
+      "num": 42,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Choisir le stockage (SQLite vs fichiers JSON)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Module repository + schéma versionné + migrations.\nCritère : Tests unitaires sur lecture/écriture",
+      "num": 43,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Créer la couche de données dans le processus principal"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "À chaque changement (avec anti-rebond) et à la fermeture.\nCritère : L'état est écrit sur disque",
+      "num": 44,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Sauvegarder l'état des onglets"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Recréer les onglets, l'ordre et l'onglet actif ; charger paresseusement les onglets inactifs.\nCritère : Redémarrage → mêmes onglets",
+      "num": 45,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Restaurer les onglets au démarrage"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Critère : Après un arrêt forcé, une invite propose de restaurer",
+      "num": 46,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Proposer la restauration après un plantage"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-08",
+      "note": "Critère : L'étoile se remplit pour un site favori\nLe favori survit au redémarrage",
+      "num": 47,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Ajouter et retirer un favori (étoile de la barre d'adresse)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-08",
+      "note": "Critère : Créer, renommer, déplacer dans un dossier",
+      "num": 48,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Panneau des favoris avec dossiers"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-08",
+      "note": "Style Arc « Favorites » : icônes en grille, un clic ouvre ou active l'onglet.\nCritère : Jusqu'à 8 favoris en grille",
+      "num": 49,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Grille de favoris épinglés en haut de la barre latérale"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-08",
+      "note": "Depuis le fichier HTML exporté ou le profil local.\nCritère : Import d'un fichier HTML de favoris",
+      "num": 50,
+      "prio": "P3",
+      "size": "M",
+      "status": "done",
+      "title": "Importer les favoris de Chrome ou Edge"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-09",
+      "note": "URL, titre, date, nombre de visites.\nCritère : Chaque navigation est enregistrée",
+      "num": 51,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Enregistrer les visites"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-09",
+      "note": "Critère : Recherche par titre ou URL, groupé par jour",
+      "num": 52,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Panneau Historique avec recherche"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-09",
+      "note": "Historique + favoris + recherche Google.\nCritère : Suggestions au clavier (flèches + Entrée)",
+      "num": 53,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Suggestions dans la barre d'adresse"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-09",
+      "note": "Historique, cookies, cache, par période.\nCritère : Effacement de la dernière heure fonctionnel",
+      "num": 54,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Effacer l'historique et les données de navigation"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-10",
+      "note": "Dossier par défaut, progression, pause/reprise/annulation.\nCritère : Téléchargement d'un fichier de 100 Mo avec progression",
+      "num": 55,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Gérer les téléchargements (will-download)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-10",
+      "note": "Liste, ouvrir le fichier, afficher dans l'Explorateur.\nCritère : « Afficher dans le dossier » ouvre l'Explorateur",
+      "num": 56,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Panneau des téléchargements"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-11",
+      "note": "Thème (Dark, Light, System), page de démarrage, dossier de téléchargement, confidentialité. Interface (DESIGN.md §9.3) : mode de la barre latérale (étendue, compacte, masquée au survol) et sa largeur, réduction des animations.\nCritère : Page accessible depuis la barre latérale",
+      "num": 57,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Page Paramètres"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-11",
+      "note": "Google, Bing, DuckDuckGo, Qwant, personnalisé.\nCritère : La barre d'adresse utilise le moteur choisi",
+      "num": 58,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Moteur de recherche configurable"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-11",
+      "note": "Le thème choisi (système/sombre/clair) est oublié au redémarrage aujourd'hui.\nTerminé (2026-11-09) : PR 59 (v0.12.14.0) fusionnée. Thème écrit en base (table etat, clé pref.theme) et relu avant la création de la fenêtre ; l'interface le lit avant son premier rendu. Module d'API réutilisable : src/main/donnees/preferences.ts (lirePreference, ecrirePreference). Tests : 4 unitaires et C56. Reste : seul le thème est persisté (ARB-57 Paramètres, ARB-58 moteur) ; chemins d'erreur d'écriture et de lecture sans test ; non essayé à la main dans npm run dev.\nCritère : Préférences conservées après redémarrage",
+      "num": 59,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Persister les préférences et le thème"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Nom, couleur, icône, ordre, liste d'onglets.\nCritère : Espaces persistés",
+      "num": 60,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Modèle de données des espaces"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Changer d'espace affiche ses propres onglets et son dernier onglet actif.\n\nÀ trancher et reprendre de l'ARB-60 (PR 75) : (1) aucun espace n'est semé : créer les trois espaces d'origine (Développement, Personnel, Recherche) au moment de brancher l'interface ; (2) un seul onglet actif par espace : choisir entre une contrainte en base (index unique partiel, mais l'écriture entière de la session échoue sur une violation) et une règle dans le code qui répare ; (3) le processus principal (ecrireSession, index.ts) n'écrit pas encore l'espace des onglets : une session sauvée le perd ; (4) lireEspaces devrait renvoyer une couleur de la liste si la base en contient une inconnue (repli, patch prêt).\nCritère : Deux espaces ont des onglets différents",
+      "num": 61,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Rattacher les onglets à un espace"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Critère : CRUD complet depuis la barre latérale",
+      "num": 62,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Créer, renommer, réordonner et supprimer un espace"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "La couleur contextuelle de l'espace actif teinte la barre latérale. Palette du référentiel : Personal Glacier #56B8C8, Development Iris #8C91E8, Work Amber #D99A69, Research Sage #83A78D, Custom configurable. Elle distingue les espaces sans remplacer les couleurs fonctionnelles (accent, succès, erreur) et garde un contraste suffisant dans les deux thèmes.\nCritère : La couleur change avec l'espace\nLes couleurs fonctionnelles restent inchangées\nContraste vérifié en Dark et Light",
+      "num": 63,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Couleur d'interface propre à chaque espace"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Les onglets non épinglés s'archivent après un délai configurable (Arc : 12 h).\nCritère : Un onglet non épinglé est archivé après le délai",
+      "num": 64,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Onglets épinglés et onglets du jour avec archivage"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Partition de session par espace (comptes différents par espace).\nCritère : Connecté à 2 comptes Google différents dans 2 espaces",
+      "num": 65,
+      "prio": "P3",
+      "size": "M",
+      "status": "todo",
+      "title": "Option de session isolée par espace"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Ctrl+Alt+1…9 ou Ctrl+Alt+flèches.\nCritère : Raccourcis fonctionnels depuis une page web",
+      "num": 66,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Raccourcis pour changer d'espace"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-13",
+      "note": "Recherche dans onglets ouverts, favoris, historique et actions. Dépend de la couche d'overlays (EP-06).\nCritère : Ctrl+K → taper « git » → activer l'onglet GitHub",
+      "num": 67,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Palette de commandes Ctrl+K"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-13",
+      "note": "Critère : L'ordre est conservé après redémarrage",
+      "num": 68,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Réordonner les onglets par glisser-déposer"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-13",
+      "note": "Critère : Créer un dossier et y glisser des onglets",
+      "num": 69,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Dossiers d'onglets dans la barre latérale"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-13",
+      "note": "findInPage avec compteur de résultats.\nCritère : Ctrl+F surligne les résultats",
+      "num": 70,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Recherche dans la page (Ctrl+F)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-13",
+      "note": "Mémorisé par site.\nCritère : Le zoom est conservé par site",
+      "num": 71,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Zoom de la page (Ctrl + / Ctrl -)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-13",
+      "note": "Split view à la Arc.\nCritère : Deux pages affichées et utilisables côte à côte",
+      "num": 72,
+      "prio": "P3",
+      "size": "L",
+      "status": "todo",
+      "title": "Vue partagée : deux onglets côte à côte"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Commencer par normalizeUrl, la gestion des onglets et la couche de données.\nCritère : Tests lancés en CI",
+      "num": 73,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Tests unitaires (Vitest)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Scénarios : ouvrir/fermer un onglet, naviguer, restaurer la session.\nCritère : 3 scénarios automatisés en CI",
+      "num": 74,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Tests de bout en bout (Playwright pour Electron)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Dette reprise de la PR #32 (icône de fenêtre, commentaire shortcut: dans src/main/index.ts) : l'icône est lue sur disque depuis resources/, l'empaquetage doit la fournir (extraResources ou win.icon d'electron-builder) et le chemin du code doit suivre.\nCritère : Installation et désinstallation propres\nL'icône resources/icone.ico est embarquée par l'installeur et le raccourci Windows\nDans l'app empaquetée, CHEMIN_ICONE (src/main/index.ts) pointe vers l'icône à son emplacement final, hors app.asar ; la fenêtre et la barre des tâches l'affichent\nLes textes de licence OFL des polices (design-system/licences-polices/) accompagnent l'application installée (fichier du paquet ou écran « À propos »)",
+      "num": 75,
+      "prio": "P1",
+      "size": "M",
+      "status": "todo",
+      "title": "Installeur Windows (electron-builder, NSIS)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Éviter les alertes SmartScreen.\nCritère : Installeur signé",
+      "num": 76,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Signature du code"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "electron-updater + GitHub Releases.\nCritère : Une nouvelle version s'installe seule",
+      "num": 77,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Mises à jour automatiques"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Suspendre les onglets inactifs depuis longtemps.\nCritère : Mémoire mesurée avant/après",
+      "num": 78,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Mesurer et réduire la mémoire (mise en veille des onglets)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Favoris, espaces, préférences.\nCritère : Export puis import sur un autre PC",
+      "num": 79,
+      "prio": "P3",
+      "size": "M",
+      "status": "todo",
+      "title": "Exporter et sauvegarder les données utilisateur"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Enregistrement http/https auprès de Windows.\nCritère : Un lien cliqué dans une autre app s'ouvre dans Arbalète",
+      "num": 80,
+      "prio": "P3",
+      "size": "M",
+      "status": "todo",
+      "title": "Pouvoir définir Arbalète comme navigateur par défaut"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Installé via Git Bash (git clone dans ~/.claude/skills/gstack puis ./setup --team). Les skills apparaissent dans Claude Code. Note : Git n'était pas dans le PATH de PowerShell, il a été ajouté depuis Git Bash.\nCritère : Dans Claude Code, ouvert sur le dossier Arbalete, /review et /qa sont proposés",
+      "num": 81,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Installer gstack sur le poste Windows"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "CLAUDE.md : contexte, commandes, sections Testing / Deploy Configuration, règles d'architecture, cycle gstack relié au tableau. DESIGN.md au format spec validé par gstack. Commit 43afa7d.\nCritère : gstack-design-md check → spec\nCLAUDE.md contient ## Testing et ## Deploy Configuration",
+      "num": 82,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Outillage gstack dans le dépôt (CLAUDE.md, DESIGN.md, VERSION, CHANGELOG)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "API Electron simulée (previewApi.ts) quand window.arbalete est absent ; Vite sert l'interface sur http://localhost:5180. Permet /qa, /design-review et /browse sans Electron. Inactif dans l'application.\nCritère : Onglets, navigation, Ctrl+T et thèmes fonctionnent dans Chromium headless\nAucune erreur console",
+      "num": 83,
+      "prio": "P1",
+      "size": "M",
+      "status": "done",
+      "title": "Aperçu navigateur de l'interface (npm run dev:web)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Dépôt distant : https://github.com/salocinski/arbalete (origin). main poussée et suivie (origin/main), à jour au commit 43afa7d. Reste conseillé : protéger la branche main sur GitHub.\nCritère : git push origin main réussi\ngh auth status OK",
+      "num": 84,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Créer le dépôt GitHub distant et pousser main"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Source : docs/Arbalete_Design_System_Direction_Artistique_v1.0.docx (v1.0, nov. 2026). Convertir son contenu en Markdown dans DESIGN.md (front matter des tokens + sections), qui reste l'unique référence (lue par gstack /design-review). Le .docx n'est pas commité. Remplace l'ancien brouillon (accent violet, polices système).\nDécisions du 2026-11-03 à inscrire : barre de contrôle conservée en haut (zone B, 48 px) ; barre latérale en trois états (étendue 250 px, compacte 68 px, masquée et rappelée au survol comme ARB-33).\nAjouter dans CLAUDE.md l'instruction permanente du §15.5, en pointant vers DESIGN.md au lieu de docs/design/ARBALETE-DESIGN-SYSTEM.md.\nCritère : DESIGN.md reprend palettes, typographie, espacements, dimensions, motion, composants et principes du référentiel\nLes deux décisions du 2026-11-03 y figurent\nCLAUDE.md contient la section « Référentiel graphique obligatoire »",
+      "num": 85,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Intégrer le référentiel Atmospheric Minimalism dans DESIGN.md"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Fusionné dans main par la PR #2 (b6954ed) : LICENSE GPL-3.0-or-later, README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, package.json, CLAUDE.md.\nCritère : PR fusionnée dans main\nGitHub détecte la licence GPL-3.0",
+      "num": 86,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Licence GPL-3.0 et fichiers communautaires"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Les modèles .github n'ont pas été inclus dans la PR #2 (commit e67a731 non poussé avant la fusion). Les récupérer avec git cherry-pick e67a731 sur la branche arb-93-audit-securite, puis PR.\nCritère : « New issue » propose les formulaires Bug et Fonctionnalité",
+      "num": 87,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Ajouter les modèles d'issues et de PR (.github)"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Ruleset main : suppression et force push bloqués, historique linéaire, PR obligatoire (0 approbation pour l'instant), conversations résolues. Squash merge seul, suppression auto des branches. Actions : approbation des contributeurs externes, jeton en lecture. Sécurité : Dependabot, secret scanning + push protection, signalement privé des failles. Activer Discussions.\nCritère : Un push direct sur main est refusé\nLe signalement privé de faille est actif",
+      "num": 88,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Configurer GitHub : règle sur main, PR, Actions, sécurité"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Le code de conduite renvoie à l'adresse de contact du profil GitHub du mainteneur. Créer une adresse dédiée (ex. contact du projet) et l'afficher sur le profil ou dans CODE_OF_CONDUCT.md.\nCritère : Une adresse de signalement est visible",
+      "num": 89,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Définir une adresse de contact pour le code de conduite"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Le tableau Arbalète Suivi est privé. Créer les labels (epic, type, priorité, good first issue), un GitHub Project, et migrer epics et tickets ouverts.\nCritère : Les tickets ouverts sont visibles publiquement\nAu moins 5 good first issue",
+      "num": 90,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Publier le backlog dans GitHub Issues et Projects"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Après ARB-86, 87, 88 et 90. Vérifier qu'aucun secret ni donnée personnelle n'est dans l'historique avant de basculer.\nCritère : Dépôt public\nAucun secret détecté",
+      "num": 91,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Passer le dépôt en public"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "À faire quand un co-mainteneur rejoint le projet : CODEOWNERS (src/main et src/preload en priorité) et approbation obligatoire dans le ruleset.\nCritère : Les PR touchant src/main demandent la revue d'un owner",
+      "num": 92,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Ajouter CODEOWNERS et exiger 1 approbation"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "CLAUDE.md : /cso pour la routine, security-audit pour les audits complets aux jalons ; rapports hors du dépôt ; failles confirmées en avis de sécurité privés. Branche arb-93-audit-securite rejouée sur main et poussée : PR salocinski/arbalete#18.\nCritère : PR fusionnée",
+      "num": 93,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Intégrer le skill security-audit de Cloudflare au cycle de travail"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit --global (installation globale, comme gstack ; ne pas l'installer dans le dépôt). Redémarrer Claude Code.\nCritère : Le skill security-audit apparaît dans Claude Code",
+      "num": 94,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Installer le skill security-audit sur le poste"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "spike",
+      "milestone": "EP-02",
+      "note": "À lancer après les correctifs d'EP-02 et avant le passage en public (ARB-91). Sortie dans ~/security-audit-skill/arbalete/ (jamais dans le dépôt). Une faille confirmée = un avis de sécurité privé GitHub + un ticket.\nCritère : Rapport produit\nChaque faille confirmée a un ticket et un avis privé",
+      "num": 95,
+      "prio": "P1",
+      "size": "M",
+      "status": "todo",
+      "title": "Premier audit de sécurité complet (security-audit)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Depuis Electron 42, npm install ne télécharge plus le binaire ; electron-vite et Playwright échouent après chaque npm ci ou montée d'Electron tant qu'on n'a pas lancé npx install-electron (documenté dans ARB-4). Décider d'un hook (postinstall, predev, pretest:smoke) idempotent, en tenant compte de la politique allowScripts de npm 11. Issu de la revue d'ARB-4.\nCritère : Après npm ci sur un clone propre, npm run dev démarre sans étape manuelle",
+      "num": 96,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Télécharger le binaire Electron automatiquement après npm install / npm ci"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Bug]\nwill-navigate n'est pas émis pour about:blank : un lien de page vers about:blank passe, sous Electron 42 comme 45 (constaté pendant ARB-4). Évaluer will-frame-navigate ou un contrôle sur did-start-navigation, et ajouter le cas au smoke test (C6 ne vérifie aujourd'hui que le résultat sur un schéma inconnu).\nCritère : Un lien vers about:blank dans une page reste sans effet\nLe smoke test le vérifie",
+      "num": 97,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Bloquer la navigation vers about:blank initiée par une page"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Doublon d'ARB-118, qui le couvre : les tests Playwright (smoke et développement) lancent l'app avec un dossier userData temporaire (ARBALETE_PROFIL_TEST). Description d'origine : tests/smoke.spec.ts lance l'app avec le userData par défaut, le même que npm run dev : cookies et cache partagés. Issu de la revue d'ARB-4.\nCritère : Le smoke test n'écrit rien dans le profil de npm run dev",
+      "num": 98,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Isoler le profil utilisateur du smoke test"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Vite 8, electron-vite 6 et Electron exigent Node ^20.19 ou >= 22.12 ; rien ne l'indique dans le dépôt. Ajouter engines dans package.json et/ou .nvmrc. Issu de la revue d'ARB-4.\nCritère : npm install avertit sur une version de Node trop ancienne",
+      "num": 99,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Fixer la version de Node (engines ou .nvmrc)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "[Bug]\nLa PR Dependabot #4 (lucide-react 0.468 → 1.63) a cassé main : lucide 1.x a retiré ses icônes de marques, App.tsx importe Github → typecheck (TS2305) et build (MISSING_EXPORT) échouent. Corrigé par la PR #6 (icône GitBranch) : typecheck, build, build:web et test:smoke 10/10 passent.\nCritère : npm run typecheck et npm run build passent sur main\nnpm run test:smoke passe",
+      "num": 100,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Réparer le build : icône Github retirée de lucide-react 1.x"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Bug]\nLe menu par défaut d'Electron reste actif (autoHideMenuBar le masque seulement) : dans l'app construite, Ctrl+Maj+I ouvre les DevTools de la fenêtre d'interface, avec window.arbalete dans la console ; Ctrl+R recharge l'interface. Menu.setApplicationMenu(null) ou menu explicite, raccourcis gérés côté main (règle 5). Issu de la revue adversariale d'ARB-14 (PR #7).\nCritère : Ctrl+Maj+I et F12 n'ouvrent pas les DevTools de l'interface dans le build\nLes raccourcis voulus passent par le processus principal\nLe smoke test le vérifie",
+      "num": 101,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Fermer les DevTools et le menu par défaut dans le build"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Bug]\nsetWindowOpenHandler d'un onglet passe toute URL fournie par la page à createTab, puis normalizeUrl (qui garde file://) et loadURL depuis le main : un site peut ouvrir file:///C:/... dans un nouvel onglet, contournant le blocage http→file de Chromium. Aucun geste utilisateur exigé ni limite : une boucle window.open crée des onglets sans fin. C6 ne couvre que will-navigate. Issu de la revue adversariale d'ARB-14 (PR #7).\nCritère : window.open vers file:// ou un schéma non web depuis une page http est refusé\nUne rafale de window.open est limitée\nLe smoke test le vérifie",
+      "num": 102,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Filtrer window.open des pages : schémas et limite d'onglets"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "session.defaultSession n'a que setPermissionRequestHandler : setPermissionCheckHandler et setDevicePermissionHandler manquent, donc navigator.permissions.query et les contrôles de périphériques retombent sur les valeurs par défaut d'Electron. Contraire à la règle 3 (permissions refusées par défaut). Issu de la revue d'ARB-14 (PR #7).\nCritère : setPermissionCheckHandler et setDevicePermissionHandler renvoient false\nLe contrôle des permissions du smoke test couvre une vérification synchrone",
+      "num": 103,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Refuser aussi les vérifications de permission synchrones"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Bug]\nbrowser:set-content-bounds ne vérifie que Number.isFinite et un minimum à 0 : une valeur comme 1e300 passe et setBounds lève probablement une exception non rattrapée dans un listener ipcMain.on du main. L'émetteur est désormais authentifié, donc seule une interface boguée peut le déclencher. Issu de la revue adversariale d'ARB-14 (PR #7).\nCritère : Les dimensions sont bornées à la taille du contenu de la fenêtre (ou 0x7fffffff)\nUne valeur aberrante ne fait pas lever le processus principal",
+      "num": 104,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Borner les dimensions reçues par set-content-bounds"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "estUrlInterface refait new URL(URL_DEV) hors try à chaque message IPC (y compris set-content-bounds, fréquent au redimensionnement) : une ELECTRON_RENDERER_URL malformée fait échouer tous les appels et lever le listener. Analyser l'URL au chargement du module, repli ou échec clair si invalide ; mettre aussi en cache pathToFileURL(CHEMIN_INTERFACE). Rappel : la garde app.isPackaged n'a d'effet qu'après l'empaquetage (EP-14). Issu de la revue adversariale d'ARB-14 (PR #7).\nCritère : Une ELECTRON_RENDERER_URL invalide donne une erreur claire au démarrage, pas une exception par message IPC\nL'URL n'est analysée qu'une fois",
+      "num": 105,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Lire ELECTRON_RENDERER_URL une seule fois, avec repli"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "La CSP du build (vite-csp.ts) a img-src 'self' data: et style-src 'self' sans 'unsafe-inline' : les favicons distants des onglets et toute bibliothèque qui injecte des balises <style> seront bloqués sans bruit. C13 ne vérifie que le refus des scripts inline, pas le chargement des ressources légitimes. Issu de la revue adversariale d'ARB-14 (PR #7).\nCritère : Les favicons d'onglets s'affichent sans élargir script-src\nUn test vérifie qu'aucune violation CSP n'apparaît sur l'interface construite",
+      "num": 106,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Adapter la CSP de l'interface aux favicons et styles injectés"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "ARB-101 a retiré le menu d'application d'Electron (DevTools par Ctrl+Maj+I, rechargement Ctrl+R). Ce menu portait aussi F11 (plein écran) et le zoom Ctrl+=/-/0, qui ne fonctionnent plus. Ses rôles zoomaient d'ailleurs l'interface, pas la page de l'onglet. Gérer ces raccourcis dans before-input-event (fenêtre et onglets, règle 5) : zoom de la page de l'onglet actif, F11 sur la fenêtre. Issu de la revue d'ARB-101/102.\nCritère : Ctrl+=, Ctrl+- et Ctrl+0 zooment la page de l'onglet actif, focus dans la page ou dans l'interface\nF11 bascule le plein écran\nAucun raccourci n'ouvre les DevTools de l'interface\nLe smoke test le vérifie",
+      "num": 107,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Rétablir le zoom de page et le plein écran (F11) côté processus principal"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "ARB-102 limite le rythme (5 par onglet, 20 au total par 10 s) et le nombre (50 onglets ouverts) des ouvertures demandées par les pages, mais une ouverture sans geste de l'utilisateur passe encore : setWindowOpenHandler ne dit pas si un clic l'a déclenchée. Vrai bloqueur de popups : n'ouvrir que sur activation utilisateur, signaler les popups bloquées dans l'interface (et permettre de les autoriser), ouvrir en arrière-plan pour disposition background-tab au lieu de voler le focus. Revoir aussi : refus silencieux sans trace, quota d'un onglet qui le suit après changement de site, horloge monotone pour la fenêtre de 10 s (une horloge Windows reculée sature le quota). Issu de la revue adversariale d'ARB-101/102.\nCritère : window.open sans clic n'ouvre pas d'onglet, un clic sur target=_blank oui\nUne popup bloquée est signalée dans l'interface\nCtrl+clic ouvre l'onglet en arrière-plan\nLe smoke test le vérifie",
+      "num": 108,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Bloquer les popups ouvertes sans clic de l'utilisateur"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "À l'ouverture, la barre latérale s'affiche repliée (bande d'icônes) au lieu de déployée, pour laisser la place à la page. Le bouton de la barre et Ctrl+Maj+B la déploient toujours. Choix retenu : toujours repliée au démarrage (pas de mémorisation de l'état, qui relève d'EP-07 ; pas d'ouverture au survol, qui demanderait un suivi de la souris côté processus principal à cause des WebContentsView).\nCritère : Au démarrage, la barre latérale est repliée et la vue web occupe la largeur libérée\nLe bouton et Ctrl+Maj+B la déploient puis la replient\nLe smoke test le vérifie",
+      "num": 109,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Barre latérale repliée à l'ouverture de la fenêtre"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "[Bug]\nAu démarrage, la vue native de la barre latérale récupère parfois le focus clavier à la place de la page : C31 échoue de façon intermittente (environ 1 fois sur 6 sur main après ARB-33, plus souvent sous charge). Cause : src/main/index.ts ne donne jamais explicitement le focus au webContents de l'onglet actif ; l'ordre de chargement de la fenêtre, de la vue de la barre et de l'onglet décide. Repéré pendant le /ship d'ARB-29.\nCritère : Au démarrage, le focus clavier est dans la page de l'onglet actif, jamais dans la vue de la barre\nC31 passe 20 fois de suite (npx playwright test -g C31 --repeat-each 20)\nLe changement d'onglet garde le focus dans la page affichée",
+      "num": 110,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Donner le focus clavier à l'onglet au démarrage (C31 instable)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "[Bug]\ntests/developpement.spec.ts : dansOnglet() repère l'onglet par une URL http(s). Tant que la navigation du premier onglet (google.com) n'est pas validée, son webContents n'a pas d'URL et C28 échoue en quelques ms avec « aucun onglet trouvé ». Échec intermittent repéré pendant le /ship d'ARB-29 (test et processus principal non modifiés). Piste : attendre l'onglet (expect.poll) ou le repérer autrement que par son URL, ou charger une page locale servie sur 127.0.0.1 comme dans smoke.spec.ts.\nCritère : C28 passe 20 fois de suite, réseau lent ou coupé\ndansOnglet attend l'onglet au lieu d'échouer immédiatement",
+      "num": 111,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Rendre C28 indépendant du réseau (« aucun onglet trouvé »)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "[Bug]\nsrc/main/index.ts (createWindow) : au did-finish-load de la vue de la barre, webContents.focus() est appelé sur l'onglet actif. Sous Windows, si l'utilisateur est passé à une autre application pendant le démarrage, cet appel peut ramener Arbalète au premier plan. Repéré par la revue adversariale du /ship d'ARB-29 (PR #12).\nCritère : Démarrer Arbalète puis passer à une autre application avant la fin du chargement : Arbalète ne repasse pas au premier plan\nAu démarrage normal, la page de l'onglet actif garde le focus clavier (C31)",
+      "num": 112,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Le focus de démarrage ne doit pas ramener la fenêtre au premier plan"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "[Bug]\nsrc/main/index.ts : la règle de focus de démarrage (ARB-110) est posée avec once('did-finish-load'). Si la vue de la barre se recharge (plantage du renderer, HMR en développement), elle peut reprendre le focus clavier alors qu'elle est masquée. Repéré par la revue adversariale du /ship d'ARB-29 (PR #12).\nCritère : Après un rechargement de la vue de la barre masquée, le focus clavier reste dans la page de l'onglet actif",
+      "num": 113,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Réappliquer le focus à la page quand la vue de la barre se recharge"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Deux trous de couverture relevés au /ship d'ARB-29 (PR #12) : (1) le correctif de rentrée rapide de la souris suppose que setSidebar('open') sur une barre déjà ouverte est sans effet (agirSurBarre côté main, previewApi.setSidebar côté aperçu) ; aucun test ne le verrouille. (2) Le focus de démarrage suppose que l'onglet actif existe encore au did-finish-load de la barre ; l'appel optionnel évite l'erreur mais rien ne le teste.\nCritère : Un test vérifie que deux setSidebar('open') successifs laissent la barre ouverte sans changer la mise en page\nUn test vérifie qu'aucune erreur ne survient si l'onglet actif est fermé avant la fin du chargement de la barre",
+      "num": 114,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Tester l'ouverture idempotente de la barre et le focus sans onglet"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "[Bug]\nsrc/renderer/src/state.ts : l'état initial (starterState, onglets de démonstration) s'affiche dans la barre latérale tant que getState() n'a pas répondu, ou indéfiniment s'il échoue. Défaut antérieur à ARB-29, relevé par la revue adversariale de son /ship (PR #12).\nCritère : Dans l'app Electron, la barre n'affiche jamais d'onglet de démonstration, même si getState() répond en retard ou échoue\nL'aperçu navigateur (npm run dev:web) garde ses onglets de démonstration",
+      "num": 115,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Ne pas afficher les onglets de démonstration si l'état réel tarde"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Dette relevée par l'audit de documentation du /ship d'ARB-29 (PR #12) : la description de C31 dans CLAUDE.md (Testing) ne mentionne pas la vérification du focus de la page ; arbalete-browser/README.md n'est lié ni depuis README.md ni depuis CLAUDE.md ; le README racine indique encore « prototype (0.1) » ; dans arbalete-browser/README.md, l'étape « Ajouter un vrai mode système via nativeTheme » contredit la ligne qui dit que le thème suit déjà nativeTheme.\nCritère : CLAUDE.md décrit C31 avec la vérification du focus\nLe README racine lie le README de l'app et donne l'état réel du projet (0.2)\nLe README de l'app ne se contredit plus sur nativeTheme",
+      "num": 116,
+      "prio": "P3",
+      "size": "S",
+      "status": "done",
+      "title": "Remettre à jour la documentation (C31, README, version, thème)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Relevé par la revue du /ship d'ARB-43 : deux instances lancées ensemble partagent arbalete.db. Dès qu'ARB-44 enregistre la session, chacune écraserait celle de l'autre. Utiliser app.requestSingleInstanceLock() : la seconde instance se ferme et passe ses arguments (adresse à ouvrir) à la première via second-instance, qui ouvre l'onglet et revient au premier plan. À faire avant ARB-44.\nCritère : Un second lancement ne crée pas de seconde fenêtre ni de seconde connexion à la base\nLa fenêtre existante revient au premier plan\nUne adresse passée au second lancement s'ouvre dans un onglet de la première instance",
+      "num": 117,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Une seule instance d'Arbalète à la fois"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Relevé par la revue du /ship d'ARB-43 : test:smoke lance l'app avec le dossier userData réel de l'utilisateur, donc sa vraie arbalete.db. Avec ARB-44/45, les tests liraient et écraseraient la session de l'utilisateur, et la session restaurée fausserait les tests. Donner à chaque lancement de test un dossier userData temporaire (variable d'environnement ou option de ligne de commande lue avant app.whenReady, ignorée hors test), nettoyé après. À faire avant ARB-45.\nCritère : Les tests Playwright n'ouvrent jamais la base du profil de l'utilisateur\nChaque lancement de test part d'une base vide, supprimée à la fin\nL'app construite lancée normalement garde son dossier de données habituel",
+      "num": 118,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Profil de données séparé pour les tests Playwright"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Relevé par la revue du /ship d'ARB-43 : si arbalete.db ne s'ouvre pas, Arbalète continue sans persistance et seule la console le dit. L'utilisateur perdrait sa session sans le savoir. Prévenir l'utilisateur (bandeau ou dialogue) ; si la base est corrompue (pas pour une base plus récente ni verrouillée), la renommer en arbalete.db.corrompue-<date> et en recréer une neuve. Lien avec ARB-46.\nCritère : Une base illisible est renommée avec la date et remplacée par une base neuve, l'utilisateur en est informé\nUne base d'une version plus récente n'est ni renommée ni modifiée, l'utilisateur est prévenu que rien ne sera conservé\nTest automatisé avec un fichier corrompu",
+      "num": 119,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Prévenir l'utilisateur et mettre de côté une base corrompue"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "Écart relevé par /cso (fin d'EP-07), rattaché à ARB-11 : la politique « permissions refusées par défaut » ne couvre que les demandes. Étendre le refus aux vérifications de permission et à l'accès aux périphériques.\nCritère : Les vérifications de permission des pages répondent « refusé »\nLes demandes d'accès aux périphériques (HID, série, USB) sont annulées\nTest automatisé",
+      "num": 120,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Refuser aussi les vérifications de permission et l'accès aux périphériques"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Référentiel §3 : Inter (interface), Manrope (titres, marque), JetBrains Mono (données techniques). Polices sous licence OFL, servies localement (la CSP a font-src 'self'), sans appel réseau ; repli sur Segoe UI. Appliquer l'échelle typographique (Display 28 → Caption 11) en tokens. Vérifier le rendu à 125 % et 150 % de mise à l'échelle Windows.\nCritère : Les trois polices se chargent hors ligne dans l'app construite\nAucune violation CSP\nLicences OFL ajoutées au dépôt",
+      "num": 121,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Embarquer les polices Inter, Manrope et JetBrains Mono"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Référentiel §6.1-6.2 : Button en variantes Primary, Secondary, Ghost, Icon et Destructive, sans dégradé ; IconButton avec infobulle quand l'icône n'est pas explicite ; Input avec surface neutre, focus identifiable et erreur explicite. États Disabled, Hover, Focus, Active. Icônes Lucide (16/14/20 px). Une seule implémentation par composant, remplaçant les boutons existants.\nCritère : Chaque variante et chaque état existent en Dark et Light\nLes composants actuels utilisent ces composants\nNavigation clavier et focus visible",
+      "num": 122,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Composants de base : Button, IconButton et Input"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Décision du 2026-11-03 : aux modes du référentiel (étendue 250 px, compacte 68 px avec icônes et infobulles) s'ajoute le mode masqué rappelé au survol d'ARB-33. Largeur de la barre étendue réglable dans des limites définies. État conservé au redémarrage (dépend d'ARB-59). La WebContentsView suit chaque mode.\nCritère : Les trois modes s'affichent et la page s'aligne dans chacun\nLe mode et la largeur survivent au redémarrage\nCtrl+Maj+B reste fonctionnel\nSmoke test",
+      "num": 123,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Barre latérale en trois états : étendue, compacte, masquée"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Référentiel §5.3 : extraire TabItem de TabList ; favicon, titre, indicateur de chargement, état actif, épinglé, indicateur sonore, fermeture. États Default, Hover, Active, Pinned, Loading, Muted, Error. L'onglet actif est identifiable sans fond fortement contrasté.\nCritère : Les sept états sont rendus en Dark et Light\nUn onglet qui joue du son affiche l'indicateur\nRéorganisation animée en 160 ms, coupée par prefers-reduced-motion",
+      "num": 124,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Composant TabItem et états visuels de l'onglet"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "spike",
+      "milestone": "EP-05",
+      "note": "Référentiel §10 : valider les contrastes avant production. Mesures du 2026-11-03 (texte normal, seuil AA 4,5:1) : en clair, Amber #B97949 donne 3,26:1 sur Cloud et 2,95:1 sur Mist ; Muted #687786 donne 3,8:1 sur Mist et 4,2:1 sur Cloud. Le sombre passe (Amber 7,5:1, Muted 5,6:1 sur Slate). Le texte sur bouton Amber doit être Obsidian (7,5:1), pas blanc (2,4:1). Proposer des valeurs corrigées et les faire valider avant de modifier le référentiel (§15.1).\nCritère : Tableau des contrastes texte, accent et focus pour les deux thèmes\nCorrections validées et reportées dans DESIGN.md",
+      "num": 125,
+      "prio": "P1",
+      "size": "S",
+      "status": "done",
+      "title": "Valider les contrastes WCAG des palettes"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-06",
+      "note": "Référentiel §6.3 et §8 : FloatingPanel commun (rayon 14 px, ombre et z-index en tokens) pour menus, infobulles, notifications et dialogues, affichés au-dessus de la page via la couche d'overlays (décision 0002). Ouverture 180 ms, fermeture 150 ms, courbes du référentiel, prefers-reduced-motion respecté.\nCritère : Une infobulle, un toast et une modale s'affichent au-dessus d'une page web\nModale utilisable au clavier (focus piégé, Échap)\nTokens d'ombre et de z-index définis",
+      "num": 126,
+      "prio": "P2",
+      "size": "M",
+      "status": "todo",
+      "title": "Tooltip, Toast et Modal dans la couche d'overlays"
+    },
+    {
+      "deps": [],
+      "epic": "phase-2-stabiliser-l-interface",
+      "kind": "tache",
+      "milestone": "EP-05",
+      "note": "Référentiel §14.2 : identité propre, sans ressemblance avec Arc ni affiliation apparente. Icône Windows (.ico multi-tailles) pour la fenêtre, la barre des tâches et l'installeur (ARB-75).\nCritère : Logo validé\nIcône visible dans la barre des tâches et l'installeur",
+      "num": 127,
+      "prio": "P3",
+      "size": "M",
+      "status": "done",
+      "title": "Logo et icône d'application Arbalète"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Référentiel §16 phase 5 et §17 : vérifier automatiquement les deux thèmes (captures de référence), la navigation clavier et le focus visible, le redimensionnement Windows, et qu'aucune règle CSS de l'interface n'atteint les pages web.\nCritère : Captures Dark et Light comparées en test\nParcours clavier de la barre latérale et de la barre de contrôle\nUne page de test garde ses styles par défaut quel que soit le thème",
+      "num": 128,
+      "prio": "P3",
+      "size": "M",
+      "status": "todo",
+      "title": "Tests de thèmes et d'accessibilité de l'interface"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "Relevé au ship d'ARB-125 (2026-11-03) : C42 (tests/smoke.spec.ts:1422) échoue par intermittence. Après l'arrêt forcé par taskkill puis la relance, le bandeau de restauration n'apparaît pas dans les 10 s (expect.poll ligne 1467). Relancé seul 10 fois : 9 réussites, 1 échec. Ni le test ni le code de session n'avaient changé (diff de documentation uniquement). Chercher la cause : session pas encore écrite au moment du kill, verrou ou marqueur d'ouverture lus trop tôt, ou délai trop court sous charge.\nAjout du 2026-11-07 (ship d'ARB-122) : C33 (barre latérale qui apparaît au survol du bord gauche et se retire à la sortie de la souris) a échoué une fois dans le pregate sous charge, puis réussi 3 fois sur 3. Même démarche : relance isolée répétée pour confirmer l'instabilité, puis chercher la cause avant de toucher aux délais.\\nPiste forte (2026-11-07) : le curseur physique de l'utilisateur. La barre latérale s'ouvre au survol réel du bord gauche (onMouseEnter) ; si la souris est dans la fenêtre de test pendant les tests, C34 échoue à coup sûr (5 sur 5, sur main aussi : la barre reste ouverte, la bande sidebar-hover-strip n'existe pas) et C33 devient instable. Souris déplacée hors de la fenêtre : C34 passe 3 sur 3 et la suite entière 46 sur 46. À corriger dans les tests (position de la fenêtre, ou souris Playwright déplacée avant), pas dans les délais.\nCritère : Cause identifiée et corrigée (dans le test ou dans le code)\nC42 réussit 20 fois sur 20 en relance isolée (--repeat-each=20)\nC33 réussit 20 fois sur 20 en relance isolée, y compris sous charge\nAucun délai d'attente simplement allongé sans explication",
+      "num": 129,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Stabiliser les smoke tests instables C42 et C33"
+    },
+    {
+      "deps": [],
+      "epic": "transverse-projet-open-source",
+      "kind": "tache",
+      "milestone": "EP-15",
+      "note": "Le logo et les icônes de branding/ ont été générés avec Gemini (ARB-127). La licence GPL-3.0-or-later du dépôt couvre le code, pas ces images. Vérifier ce que permettent les conditions du service pour une distribution publique et commerciale, puis écrire le régime retenu (mention dans branding/README.md, CONTRIBUTING.md ou LICENSE selon le cas). À faire avant ARB-91.\nCritère : Le régime de droits du logo et des icônes est écrit dans le dépôt\nbranding/README.md ne dit plus que la question est ouverte\nTraiter avant ARB-91 (dépôt public)",
+      "num": 130,
+      "prio": "P2",
+      "size": "S",
+      "status": "todo",
+      "title": "Trancher les droits du logo et des icônes générés par IA"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Prolonge ARB-119 : une base jugée corrompue était mise de côté sur une seule lecture, puis remplacée par une base vide. Elle est maintenant rouverte 3 fois (500 ms) avant d'être mise de côté, et une copie de secours (arbalete.db.sauvegarde, plus une génération .precedente d'au moins 24 h de plus) la remplace si elle est saine. Copie écrite à la fermeture normale et 30 s après le démarrage si la dernière a plus de 24 h, jamais depuis une base qui échoue à quick_check, suspendue pour une session démarrée sur une corruption non restaurée. Livré par la PR 46 (v0.12.8.0). Limites notées dans la PR : copie sans borne de taille ni de durée à la fermeture, âge de la copie absent du bandeau, échecs de copie seulement en console, rétention des copies.\nCritère : Une corruption qui ne se reproduit pas garde la base en place\nUne corruption confirmée est remplacée par la dernière copie saine, l'abîmée restant de côté\nLe bandeau indique que la copie de secours a été restaurée\nTests unitaires et smoke C52",
+      "num": 131,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Confirmer la corruption et restaurer une copie de secours de la base"
+    },
+    {
+      "deps": [],
+      "epic": "phase-3-fonctions-essentielles",
+      "kind": "tache",
+      "milestone": "EP-07",
+      "note": "Juste après un plantage ou un redémarrage rapide, Windows tient encore des fichiers du profil : SQLite répond « disk I/O error » et l'app démarrait sans persistance ni invite de restauration. L'ouverture réessaie jusqu'à 5 fois, à 500 ms, uniquement sur cette erreur (SQLITE_IOERR) ; base corrompue, plus récente, verrou déjà attendu ou droits ne sont pas réessayés. Livré par la PR 45 (v0.12.7.0). Découvert en stabilisant C42 (ARB-129).\nCritère : Deux échecs d'E/S puis une réussite récupèrent la base\nCinq échecs d'E/S laissent la base indisponible sans rien renommer\nUne erreur de verrou ou de droits n'est pas réessayée",
+      "num": 132,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Réessayer l'ouverture de la base sur erreur d'entrée-sortie"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-01",
+      "note": "Outillage /ship, pas du produit. Aujourd'hui /ship relance en local les trois lanes (typecheck, tests unitaires, smoke), environ 3 minutes. Un fichier .gstack/pregate.json sur main, avec ship_lanes_from, permettrait de reprendre le résultat des deux jobs de la CI (« Typecheck, tests unitaires, build » et « Smoke test (Electron) ») sur le même arbre. Il lie les noms des jobs comme le fait déjà le ruleset PR-Rule : renommer un job casse les deux. Le mappage se prouve par la simulation gstack-ci-carry find --simulate avant la PR. Détaché d'ARB-8 le 2026-11-08.\nCritère : Un /ship sur une branche dont la CI est verte reprend les lanes de la CI au lieu de les relancer\nLe mappage est prouvé par la simulation de gstack-ci-carry\nCLAUDE.md note le couplage avec les noms de jobs",
+      "num": 133,
+      "prio": "P3",
+      "size": "S",
+      "status": "todo",
+      "title": "Faire reprendre la CI par /ship (.gstack/pregate.json)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-4-productivite",
+      "kind": "tache",
+      "milestone": "EP-12",
+      "note": "Prolonge ARB-63 (la barre latérale porte un filet à la couleur de l'espace affiché) : l'utilisateur choisit lui-même la couleur de chaque espace. Clic droit sur le nom d'un espace dans le sélecteur (point coloré en barre compacte) : un menu contextuel personnalisé s'ouvre, avec « Changer la couleur… » (le renommage et la suppression d'ARB-62 peuvent s'y ranger plus tard). L'entrée ouvre une modale qui montre la cartouche de l'espace (point et nom) et une grille de 14 couleurs ; la couleur choisie s'applique partout où la couleur d'un espace sert (filet de la barre, point du sélecteur, liste du menu), selon les règles d'ARB-63 : couleurs fonctionnelles (accent, succès, avertissement, erreur) inchangées, aucune valeur hexadécimale hors de tokens.css.\n\nContraintes : (1) Menu et modale passent par la couche d'overlays (décision 0002, précédent du menu d'onglet d'ARB-39 ; la WebContentsView masque tout HTML de la zone de contenu), jamais par un contournement CSS ; Échap, clic extérieur et perte de focus les ferment, seule la vue de la barre les ouvre. (2) Nouveau canal IPC `browser:set-workspace-color`, typé dans types.ts, exposé par le preload, émetteur vérifié, argument validé contre la liste (un nom inconnu est refusé) ; il passe par `modifierEspace` (déjà capable de porter la couleur) et se persiste. (3) Les quatre couleurs actuelles gardent leur nom (personal, development, work, research) : aucune migration, les espaces existants restent valides ; une couleur inconnue en base se lit toujours comme `personal`. (4) La palette s'adapte au thème : chaque couleur a une variante sombre (claire, desaturée) et une variante claire (plus profonde), des tokens `--color-workspace-<nom>` dans les deux palettes de tokens.css ; la modale affiche les variantes du thème courant, qui bascule avec Dark, Light et System. (5) Repère non textuel : chaque couleur atteint au moins 3:1 sur la barre latérale dans son thème (mesuré, consigné dans DESIGN.md avec le tableau des contrastes).\n\nPalette proposée (14, direction Atmospheric Minimalism : teintes douces, peu saturées, froides en majorité ; ratios mesurés sur la barre, sombre #1C2833 et claire #E5EAF0) :\n- Glacier (personal) #56B8C8 / #3491A0 ; Iris (development) #8C91E8 / #757BE3 ; Amber (work) #D99A69 / #C27031 ; Sage (research) #83A78D / #658F71 : existantes, déjà validées (DESIGN.md).\n- Azur #81A6DA (6,0) / #3061A6 (5,1) ; Lagune #89D2C3 (8,6) / #37907E (3,2) ; Mousse #ABCA91 (8,3) / #668D44 (3,2) ; Sable #D2BF89 (8,3) / #9B823B (3,1) ; Améthyste #B085D6 (5,1) / #6F36A1 (6,4) ; Orchidée #CE8DCE (5,9) / #964096 (5,0) ; Rose #D685AB (5,6) / #A13668 (5,4) ; Framboise #D28995 (5,5) / #9B3B4B (5,6) ; Ardoise #A2AFB9 (6,7) / #5C6E7A (4,4) ; Brume #A69BBF (5,8) / #625483 (5,6).\nPoints à trancher pendant le ticket : Framboise (claire) frôle l'erreur #AE4949 et Sable / Amber le rapprochent de l'accent, à écarter ou assombrir si la distinction n'est pas nette ; ne jamais utiliser Amber d'accent comme couleur d'espace sur un état actif. Hors périmètre : couleur libre (« Custom » de DESIGN.md, saisie hexadécimale), qui demanderait de valider le contraste d'une valeur arbitraire dans les deux thèmes ; ordre des couleurs dans la grille ; réglage depuis la page Paramètres.\nCritère : Un clic droit sur le nom d'un espace du sélecteur ouvre un menu contextuel personnalisé (pas le menu natif), dans la couche d'overlays\nL'entrée « Changer la couleur… » ouvre une modale avec la cartouche de l'espace et 14 couleurs, la couleur actuelle repérée\nChoisir une couleur la applique aussitôt au filet de la barre, au point du sélecteur et à la liste des espaces, et elle revient au redémarrage\nLes couleurs affichées suivent le thème : variantes sombres en Dark, claires en Light, bascule avec System\nChaque couleur atteint 3:1 sur la barre dans les deux thèmes, mesuré et consigné dans DESIGN.md\nLes couleurs fonctionnelles (accent, succès, avertissement, erreur) restent inchangées ; aucun hex hors de tokens.css\nUn nom de couleur hors liste est refusé par l'IPC ; les quatre couleurs actuelles et les espaces existants restent valides sans migration\nÉchap, un clic hors de la modale ou la perte de focus la ferment ; le clavier sert à choisir (flèches, Entrée) ; en barre compacte, le clic droit sur le point d'espace ouvre le même menu\nTests unitaires (liste des couleurs, validation, tokens des deux palettes, contrastes) et smoke Playwright du menu, de la modale et de la persistance",
+      "num": 134,
+      "prio": "P2",
+      "size": "M",
+      "status": "done",
+      "title": "Choisir la couleur d'un espace (palette de 14 couleurs, menu contextuel et modale)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "[Bug]\nLe test smoke C33 (tests/smoke.spec.ts, « la barre apparaît au survol par-dessus la page et se retire ») échoue de façon intermittente : après `souris('mouseLeave', 240)`, `etatBarre()` reste à `{ open: true, pinned: false }` au lieu de `{ open: false, pinned: false }` pendant les 5 s du `expect.poll` (smoke.spec.ts, ligne 312 au moment du constat). Constaté pendant le /ship d'ARB-134 (PR 80), sans lien avec ce ticket : mesuré 1 échec sur 8 exécutions isolées sur `main` (worktree jetable à 6a4fbaa, v0.12.28.0), et 1 sur 3 sur la branche d'ARB-134 ; un smoke complet a échoué une fois sur ce test puis repassé. Un test instable fait échouer le job « Smoke test (Electron) », exigé par le ruleset PR-Rule, et fait relancer des PR sans raison.\n\nÀ faire : trouver la cause racine (pistes à confirmer, aucune n'est établie : l'événement natif mouseLeave envoyé à la vue de la barre peut arriver avant que la barre ait traité l'entrée précédente ; `keepOpen` de Sidebar.tsx retient la barre si le focus est dans un champ ou si le menu des espaces est ouvert ; la souris réelle de la machine de test peut survoler la fenêtre ; la minuterie ou l'ordre entre `setSidebar('open')` déclenché par mouseEnter et le retrait), puis corriger la cause, côté test (attente d'un état observable plutôt que d'un délai, déclenchement fiable du départ de la souris) ou côté code si le défaut est réel. Mesurer avant et après sur au moins 30 exécutions isolées de C33, sans relancer à l'aveugle.\nCritère : La cause de l'échec intermittent est identifiée et écrite dans le ticket ou la PR\nC33 passe 30 fois de suite en exécution isolée (`npx playwright test tests/smoke.spec.ts -g C33`), mesure avant et après consignée\nLe smoke complet reste vert\nAucune attente fixe ajoutée pour masquer le défaut ; si le défaut est dans le code, un test le verrouille",
+      "num": 135,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Stabiliser le test smoke C33 (la barre latérale se retire à la sortie de la souris)"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "[Bug]\nLa préparation commune de tests/smoke.spec.ts (test.beforeAll) attend que la page de démarrage de l'onglet actif ait le focus (`webContents.isFocused()`, délai de 15 s, ligne 82 au moment du constat) et expire de temps en temps : tous les tests du fichier sont alors marqués non exécutés. Constaté pendant ARB-135 : 3 échecs sur 100 exécutions isolées de C33, regroupés dans le temps ; mesuré ensuite sur `main` en exécutant C1 seul : 2 échecs sur 60 (environ 3 %).\n\nCause mesurée : au moment de l'échec, la fenêtre elle-même n'a pas le focus de Windows (`BrowserWindow.isFocused()` vaut false, aucune vue n'est focalisée, la fenêtre est pourtant visible et focalisable). L'application diffère volontairement le focus de la page jusqu'au retour du focus de la fenêtre (ARB-112, ARB-113) ; si une autre application garde le premier plan, la fenêtre lancée par Playwright ne l'obtient pas et l'attente expire. C'est une dépendance du test à l'état du bureau de la machine, pas un défaut du code de l'application. Dans l'historique récent de la CI GitHub (60 exécutions), aucun échec n'a cette forme (un 502 au téléchargement d'Electron, deux « cible fermée » dans les tests de développement, sujets distincts) : l'instabilité est observée en local.\n\nCorrectif : la préparation demande le focus à la fenêtre (`focus()`) à chaque itération de l'attente tant qu'elle ne l'a pas, comme le ferait un utilisateur qui clique dessus. Non reproductible à volonté (un autre programme au premier plan avant le lancement, ou réactivé toutes les 300 ms, ne suffit pas à provoquer l'échec) : mesure statistique, avant environ 3 %, après sur 200 exécutions de C1.\nCritère : La cause de l'attente expirée est identifiée et écrite (fenêtre sans focus Windows)\nLa préparation du smoke redemande le focus à la fenêtre au lieu de l'attendre passivement, sans attente fixe\nC1 seul passe 200 fois de suite après le correctif (avant : environ 2 échecs sur 60), mesure consignée\nLe smoke complet reste vert",
+      "num": 136,
+      "prio": "P2",
+      "size": "S",
+      "status": "done",
+      "title": "Stabiliser la préparation des smoke : la fenêtre de test n'obtient pas toujours le focus"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "[Sécurité] Écart E1 de la revue de la checklist Electron (ARB-11, docs/securite/arb-11-checklist-electron.md), recommandation 19.\nProblème : aucun fuse n'est posé (pas de @electron/fuses). Un binaire empaqueté reste lançable en mode Node (ELECTRON_RUN_AS_NODE) et accepte les arguments d'inspection. Sans objet en développement, moyen à la distribution.\nPiste : ajouter @electron/fuses et l'appeler après l'empaquetage (flipFuses, ou le hook afterPack d'electron-builder) : RunAsNode off, EnableNodeCliInspectArguments off, OnlyLoadAppFromAsar on, EnableEmbeddedAsarIntegrityValidation on. À faire avec l'installeur NSIS, impossible tant qu'il n'y a pas de build empaqueté.\nCritère : Le binaire empaqueté a les quatre fuses attendus\nUn test lit l'état des fuses du binaire produit",
+      "num": 137,
+      "prio": "P2",
+      "size": "S",
+      "status": "backlog",
+      "title": "Poser les fuses d'Electron sur le binaire empaqueté"
+    },
+    {
+      "deps": [],
+      "epic": "phase-6-usage-quotidien",
+      "kind": "tache",
+      "milestone": "EP-14",
+      "note": "[Sécurité] Écart E2 de la revue de la checklist Electron (ARB-11, docs/securite/arb-11-checklist-electron.md), recommandation 18.\nProblème : l'interface empaquetée est servie en file:// (loadFile), et les onglets acceptent file: même quand une page le demande : will-navigate ne bloque que les schémas autres que http(s) et file. Faible : Chromium refuse déjà de faire naviguer une page http vers file:, mais ce n'est pas démontré dans l'app.\nPistes : (1) rapide : dans le will-navigate des onglets, n'accepter file: que si la page courante est elle-même en file: ; la saisie dans la barre d'adresse passe par loadURL du processus principal, qui ne déclenche pas will-navigate (à vérifier par un test). (2) propre : un protocole personnalisé (ex. arbalete://interface/) enregistré avec protocol.handle pour servir out/renderer ; adapter estUrlInterface, la CSP et les tests C16 et C17, qui visent un chemin file:.\nCritère : Une page http ne peut pas naviguer vers file:\nLa saisie d'une adresse file:// dans la barre d'adresse fonctionne toujours\nL'interface empaquetée n'est plus servie en file:// (piste 2)",
+      "num": 138,
+      "prio": "P2",
+      "size": "M",
+      "status": "backlog",
+      "title": "Limiter file:// : navigation des onglets et interface sous protocole personnalisé"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Sécurité] Écart E3 de la revue de la checklist Electron (ARB-11, docs/securite/arb-11-checklist-electron.md), recommandation 13.\nProblème : seul will-navigate (cadre principal) filtre les adresses des onglets. will-frame-navigate et will-redirect ne sont pas branchés : un sous-cadre ou une redirection n'est filtré que par Chromium, pas par le code d'Arbalète. Faible.\nPiste : ajouter will-frame-navigate et will-redirect sur chaque onglet, avec le même filtre d'adresse que will-navigate. Vérifier la signature de l'événement (event.url ou paramètre) dans la documentation d'Electron 45 avant d'écrire le code ; sortir le filtre en fonction pure testable.\nCritère : Un sous-cadre ou une redirection vers un schéma non autorisé est annulé\nTest unitaire du filtre d'adresse",
+      "num": 139,
+      "prio": "P2",
+      "size": "S",
+      "status": "backlog",
+      "title": "Filtrer aussi les navigations de sous-cadres et les redirections des onglets"
+    },
+    {
+      "deps": [],
+      "epic": "phase-1-valider-le-socle",
+      "kind": "tache",
+      "milestone": "EP-02",
+      "note": "[Sécurité] Écart E4 de la revue de la checklist Electron (ARB-11, docs/securite/arb-11-checklist-electron.md), recommandations 13 et 14 en profondeur.\nProblème : aucun garde-fou global ; chaque vue (WebContentsView, pop-up) pose elle-même ses refus. Une future vue qui l'oublierait serait ouverte. Informationnel.\nPiste : un seul écouteur app.on('web-contents-created') qui pose par défaut setWindowOpenHandler(() => ({ action: 'deny' })) et bloque will-attach-webview. Les gestionnaires propres à chaque vue (onglets, pop-ups) s'y substituent ensuite : c'est voulu.\nCritère : Une vue sans réglage propre refuse l'ouverture de fenêtre\nLes ouvertures actuelles (onglets, pop-ups de connexion) fonctionnent comme avant",
+      "num": 140,
+      "prio": "P3",
+      "size": "S",
+      "status": "backlog",
+      "title": "Poser un refus par défaut sur tout nouveau contenu web (web-contents-created)"
+    }
+  ]
+}
+</script>
+
+<script>
+const STATUSES = [["backlog","Backlog"],["todo","À faire"],["doing","En cours"],["review","Revue"],["done","Terminé"]];
+const KIND_LABEL = { tache: "Tâche", decision: "Décision", spike: "Étude", jalon: "Jalon" };
+const PRIO_RANK = { P1: 0, P2: 1, P3: 2 };
+const DRAFT_KEY = "kanban-repo-draft";
+
+let plan = null;
+let cards = [];
+let brouillon = false;
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function msList() { return plan?.milestones || []; }
+function epicList() { return plan?.epics || []; }
+function msById(id) { return msList().find((m) => m.id === id); }
+function epicById(id) { return epicList().find((e) => e.id === id); }
+function msOrder(id) { const i = msList().findIndex((m) => m.id === id); return i < 0 ? 99 : i; }
+function isPost(c) { return msById(c.milestone)?.phase === "post"; }
+const CARD_PREFIX = "ARB-";
+function parseDeps(s) { return String(s || "").split(",").map((x) => x.trim()).filter(Boolean); }
+function depsLabel(c) { return (c.deps || []).join(", "); }
+
+function notice(text, kind) {
+  const n = $("#notice");
+  if (!text) { n.hidden = true; return; }
+  n.innerHTML = esc(text) + (kind === "draft" ? ' <button class="btn" id="notice-export">Exporter maintenant</button>' : "");
+  n.className = "notice" + (kind === "err" ? " err" : kind === "ok" ? " ok" : "");
+  n.hidden = false;
+  if (kind === "draft") n.querySelector("#notice-export")?.addEventListener("click", exporterFichier);
+}
+
+const ui = { view: "board", ms: "all", epic: "all", kind: "all", q: "", post: false };
+
+function filtered() {
+  const q = ui.q.trim().toLowerCase();
+  return cards.filter((c) => {
+    if (!ui.post && ui.ms !== "POST" && isPost(c)) return false;
+    if (ui.ms !== "all" && c.milestone !== ui.ms) return false;
+    if (ui.epic !== "all" && c.epic !== ui.epic) return false;
+    if (ui.kind !== "all" && c.kind !== ui.kind) return false;
+    if (q && !(`${cardCode(c)} ${c.title} ${c.note || ""}`.toLowerCase().includes(q))) return false;
+    return true;
+  }).sort((a, b) => msOrder(a.milestone) - msOrder(b.milestone) || (PRIO_RANK[a.prio] ?? 3) - (PRIO_RANK[b.prio] ?? 3) || (a.num ?? 0) - (b.num ?? 0));
+}
+
+function progress(list) {
+  const done = list.filter((c) => c.status === "done").length;
+  return { done, total: list.length, pct: list.length ? Math.round((done / list.length) * 100) : 0 };
+}
+
+function renderStats() {
+  const v1 = cards.filter((c) => !isPost(c));
+  const p = progress(v1);
+  const doing = v1.filter((c) => c.status === "doing" || c.status === "review").length;
+  const decisions = v1.filter((c) => c.kind === "decision" && c.status !== "done").length;
+  const mvp = progress(v1.filter((c) => msById(c.milestone)?.phase === "MVP"));
+  $("#stats").innerHTML = [
+    [p.pct + " %", "v1.0 terminée"],
+    [mvp.pct + " %", "MVP terminé"],
+    [p.total, "Cartes v1.0"],
+    [doing, "En cours / revue"],
+    [decisions, "Décisions ouvertes"],
+  ].map(([b, s]) => `<div class="stat"><b>${b}</b><small>${s}</small></div>`).join("");
+}
+
+function renderTrack() {
+  $("#track").innerHTML = msList().map((m) => {
+    const p = progress(cards.filter((c) => c.milestone === m.id));
+    const post = m.phase === "post";
+    return `<button class="ms${post ? " post" : ""}" data-ms="${esc(m.id)}" aria-pressed="${ui.ms === m.id}">
+      <span class="code"><span>${esc(m.id)} · ${esc(m.sprint)}</span><span class="phase-tag ${m.phase === "MVP" ? "mvp" : ""}">${post ? "HORS V1" : esc(m.phase)}</span></span>
+      <span class="name">${esc(m.name)}</span>
+      <span class="bar"><i style="width:${p.pct}%"></i></span>
+      <span class="count">${p.done}/${p.total}</span>
+    </button>`;
+  }).join("");
+}
+
+function cardHtml(c) {
+  const ep = epicById(c.epic);
+  return `<article class="card${c.status === "done" ? " is-done" : ""}" data-id="${esc(c.num)}" tabindex="0" draggable="true">
+    <div class="row"><span class="cid">${cardCode(c)}</span><span class="pill ${esc(c.prio)}">${esc(c.prio)}</span><span class="pill">${esc(c.size || "S")}</span>${c.kind !== "tache" ? `<span class="kind ${esc(c.kind)}">${esc(KIND_LABEL[c.kind] || c.kind)}</span>` : ""}</div>
+    <h3>${esc(c.title)}</h3>
+    <div class="row"><span class="epic"><i style="background:${esc(ep?.color || "#888")}"></i>${esc(ep?.name || c.epic)}</span><span class="msref">${esc(c.milestone)}</span></div>
+    ${depsLabel(c) ? `<div class="deps">dépend de : ${esc(depsLabel(c))}</div>` : ""}
+  </article>`;
+}
+
+function renderBoard() {
+  const list = filtered();
+  $("#board").innerHTML = STATUSES.map(([k, label]) => {
+    const inLane = list.filter((c) => (c.status || "backlog") === k);
+    return `<section class="lane" data-status="${k}">
+      <div class="lane-head"><h2>${label}</h2><span class="n">${inLane.length}</span></div>
+      <div class="cards">${inLane.map(cardHtml).join("") || `<div class="empty-lane">Aucune carte</div>`}</div>
+    </section>`;
+  }).join("");
+}
+
+function renderRoadmap() {
+  let activeFound = false;
+  $("#roadmap").innerHTML = msList().map((m) => {
+    const list = cards.filter((c) => c.milestone === m.id);
+    const p = progress(list);
+    const post = m.phase === "post";
+    let st = "next", stLabel = "À venir";
+    if (post) { stLabel = "Hors périmètre v1.0"; }
+    else if (p.total && p.done === p.total) { st = "done"; stLabel = "Terminé"; }
+    else if (!activeFound) { st = "active"; stLabel = "Milestone courante"; activeFound = true; }
+    const byEpic = {};
+    list.forEach((c) => { byEpic[c.epic] = byEpic[c.epic] || []; byEpic[c.epic].push(c); });
+    const chips = Object.keys(byEpic).sort((a, b) => byEpic[b].length - byEpic[a].length).map((eid) => {
+      const ep = epicById(eid); const pe = progress(byEpic[eid]);
+      return `<button data-goto-ms="${esc(m.id)}" data-goto-epic="${esc(eid)}"><span class="epic"><i style="background:${esc(ep?.color || "#888")}"></i>${esc(ep?.name || eid)} · ${pe.done}/${pe.total}</span></button>`;
+    }).join("");
+    return `<article class="rm${post ? " post" : ""}">
+      <div><div class="code">${esc(m.id)} · ${esc(m.sprint)}${post ? " · hors v1.0" : ""}</div><h3>${esc(m.name)}</h3></div>
+      <div><p>${esc(m.goal)}</p><div class="crit"><b>Validation :</b> ${esc(m.criterion)}</div><div class="chips">${chips}</div></div>
+      <div class="side"><span class="state ${st}">${stLabel}</span><span class="bar"><i style="width:${p.pct}%"></i></span><span class="count">${p.done}/${p.total} cartes · ${p.pct} %</span></div>
+    </article>`;
+  }).join("");
+}
+
+function renderMatrix() {
+  const ms = msList();
+  const head = `<thead><tr><th class="ep">Epic</th>${ms.map((m) => `<th${m.phase === "post" ? ' class="post-col"' : ""}>${esc(m.id)}</th>`).join("")}<th>v1.0</th></tr></thead>`;
+  const rows = epicList().map((e) => {
+    const mine = cards.filter((c) => c.epic === e.id);
+    if (!mine.length) return "";
+    const v1 = progress(mine.filter((c) => !isPost(c)));
+    const cells = ms.map((m) => {
+      const p = progress(mine.filter((c) => c.milestone === m.id));
+      const cls = [m.phase === "post" ? "post-col" : "", p.total && p.done === p.total ? "all-done" : ""].join(" ").trim();
+      return `<td class="${cls}">${p.total ? `${p.done}/${p.total}` : ""}</td>`;
+    }).join("");
+    return `<tr><th class="ep"><span class="epic"><i style="background:${esc(e.color)}"></i>${esc(e.name)}</span></th>${cells}<td class="tot">${v1.total ? `${v1.done}/${v1.total}` : "—"}</td></tr>`;
+  }).join("");
+  $("#matrix").innerHTML = head + `<tbody>${rows}</tbody>`;
+}
+
+function renderFilters() {
+  const sel = $("#f-epic-filter");
+  sel.innerHTML = `<option value="all">Tous les epics</option>` + epicList().map((e) => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join("");
+  sel.value = epicById(ui.epic) ? ui.epic : "all";
+  $("#f-kind-filter").value = ui.kind;
+  $("#f-search").value = ui.q;
+  $("#f-post").checked = ui.post;
+}
+
+function render() {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === ui.view)));
+  $("#view-board").hidden = ui.view !== "board";
+  $("#view-roadmap").hidden = ui.view !== "roadmap";
+  $("#view-epics").hidden = ui.view !== "epics";
+  $("#filters").style.visibility = ui.view === "board" ? "visible" : "hidden";
+  if (!plan) { notice("Plan absent : les blocs JSON du fichier sont corrompus. Restituez kanban.html depuis Git.", "err"); return; }
+  renderStats();
+  renderTrack();
+  renderFilters();
+  if (ui.view === "board") renderBoard();
+  if (ui.view === "roadmap") renderRoadmap();
+  if (ui.view === "epics") renderMatrix();
+}
+
+function marquerBrouillon() {
+  if (brouillon) return;
+  brouillon = true;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cards, savedAt: Date.now() })); } catch (e) {}
+  notice("Modifications non exportées : elles sont gardées dans ce navigateur. Exportez le fichier et commettez-le pour les versionner.", "draft");
+}
+
+/* Sheet */
+let editing = null;
+function openSheet(num) {
+  const c = num != null ? cards.find((x) => x.num === num) : null;
+  const base = c || { title: "", note: "", status: "backlog", prio: "P2", kind: "tache", milestone: ui.ms !== "all" ? ui.ms : (msList()[0]?.id || ""), epic: ui.epic !== "all" ? ui.epic : (epicList()[0]?.id || ""), size: "S", deps: [] };
+  editing = c ? c.num : null;
+  const fill = (el, items) => { el.innerHTML = items.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join(""); };
+  fill($("#e-status"), STATUSES);
+  fill($("#e-ms"), msList().map((m) => [m.id, `${m.id} · ${m.name}`]));
+  fill($("#e-epic"), epicList().map((e) => [e.id, e.name]));
+  $("#sheet-id").textContent = c ? cardCode(c) : "Nouvelle carte";
+  $("#sheet-title").textContent = c ? "Modifier la carte" : "Créer une carte";
+  $("#e-title").value = base.title || "";
+  $("#e-note").value = base.note || "";
+  $("#e-status").value = base.status || "backlog";
+  $("#e-prio").value = base.prio || "P2";
+  $("#e-ms").value = base.milestone;
+  $("#e-epic").value = base.epic;
+  $("#e-kind").value = base.kind || "tache";
+  $("#e-size").value = base.size || "S";
+  $("#e-deps").value = depsLabel(base);
+  $("#e-delete").hidden = !c;
+  $("#e-delete").classList.remove("armed");
+  $("#e-delete").textContent = "Supprimer";
+  $("#scrim").hidden = false;
+  $("#e-title").focus();
+}
+function closeSheet() { $("#scrim").hidden = true; editing = null; }
+
+$("#sheet").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const data = {
+    title: $("#e-title").value.trim(), note: $("#e-note").value.trim(), status: $("#e-status").value,
+    prio: $("#e-prio").value, kind: $("#e-kind").value, milestone: $("#e-ms").value,
+    epic: $("#e-epic").value, size: $("#e-size").value, deps: parseDeps($("#e-deps").value),
+  };
+  if (!data.title) { $("#e-title").focus(); return; }
+  if (editing != null) {
+    const c = cards.find((x) => x.num === editing);
+    Object.assign(c, data);
+  } else {
+    const num = Math.max(0, ...cards.map((c) => c.num || 0)) + 1;
+    cards.push({ num, ...data });
+  }
+  closeSheet();
+  marquerBrouillon();
+  render();
+});
+$("#e-cancel").addEventListener("click", closeSheet);
+$("#scrim").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeSheet(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#scrim").hidden) closeSheet(); });
+$("#e-delete").addEventListener("click", (e) => {
+  const b = e.currentTarget;
+  if (editing == null) return;
+  if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Confirmer la suppression"; return; }
+  cards = cards.filter((c) => c.num !== editing);
+  closeSheet();
+  marquerBrouillon();
+  render();
+});
+
+/* Interactions */
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-view]"); if (!b) return;
+  ui.view = b.dataset.view; render();
+});
+$("#track").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ms]"); if (!b) return;
+  ui.ms = ui.ms === b.dataset.ms ? "all" : b.dataset.ms;
+  if (ui.view !== "board") ui.view = "board";
+  render();
+});
+document.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-goto-ms]"); if (!g) return;
+  ui.ms = g.dataset.gotoMs; ui.epic = g.dataset.gotoEpic; ui.kind = "all"; ui.q = ""; ui.view = "board";
+  render(); window.scrollTo({ top: 0 });
+});
+$("#f-epic-filter").addEventListener("change", (e) => { ui.epic = e.target.value; render(); });
+$("#f-kind-filter").addEventListener("change", (e) => { ui.kind = e.target.value; render(); });
+$("#f-post").addEventListener("change", (e) => { ui.post = e.target.checked; render(); });
+let qTimer;
+$("#f-search").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; renderBoard(); }, 150); });
+$("#add-card").addEventListener("click", () => openSheet(null));
+
+const board = $("#board");
+board.addEventListener("click", (e) => { const c = e.target.closest(".card"); if (c) openSheet(+c.dataset.id); });
+board.addEventListener("keydown", (e) => {
+  const c = e.target.closest(".card"); if (!c) return;
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSheet(+c.dataset.id); }
+  if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+    const card = cards.find((x) => x.num === +c.dataset.id); if (!card) return;
+    const cur = STATUSES.findIndex(([k]) => k === (card.status || "backlog"));
+    const next = STATUSES[cur + (e.key === "ArrowRight" ? 1 : -1)];
+    if (next) { card.status = next[0]; marquerBrouillon(); render(); requestAnimationFrame(() => document.querySelector(`.card[data-id="${CSS.escape(card.num)}"]`)?.focus()); }
+  }
+});
+board.addEventListener("dragstart", (e) => {
+  const c = e.target.closest(".card"); if (!c) return;
+  e.dataTransfer.setData("text/plain", c.dataset.id); e.dataTransfer.effectAllowed = "move"; c.classList.add("dragging");
+});
+board.addEventListener("dragend", (e) => { e.target.closest(".card")?.classList.remove("dragging"); board.querySelectorAll(".lane.drop").forEach((l) => l.classList.remove("drop")); });
+board.addEventListener("dragover", (e) => {
+  const lane = e.target.closest(".lane"); if (!lane) return;
+  e.preventDefault(); board.querySelectorAll(".lane.drop").forEach((l) => l !== lane && l.classList.remove("drop")); lane.classList.add("drop");
+});
+board.addEventListener("dragleave", (e) => { const lane = e.target.closest(".lane"); if (lane && !lane.contains(e.relatedTarget)) lane.classList.remove("drop"); });
+board.addEventListener("drop", (e) => {
+  const lane = e.target.closest(".lane"); if (!lane) return;
+  e.preventDefault(); lane.classList.remove("drop");
+  const card = cards.find((x) => x.num === +e.dataTransfer.getData("text/plain"));
+  if (card && card.status !== lane.dataset.status) { card.status = lane.dataset.status; marquerBrouillon(); render(); }
+});
+
+/* Export : régénère kanban.html avec les données actuelles dans les blocs JSON */
+function jsonSafe(obj) { return JSON.stringify(obj, null, 2).replace(/<\//g, "<\\/"); }
+function exporterFichier() {
+  const clone = document.documentElement.cloneNode(true);
+  clone.querySelector("#bp-plan").textContent = jsonSafe(plan);
+  clone.querySelector("#bp-cards").textContent = jsonSafe({ cards });
+  // Vider le contenu rendu : il est régénéré au chargement par render().
+  ["#stats", "#track", "#board", "#roadmap", "#matrix", "#f-epic-filter", "#notice"].forEach((sel) => {
+    const el = clone.querySelector(sel); if (el) el.innerHTML = "";
+  });
+  clone.querySelectorAll("[aria-pressed]").forEach((el) => el.setAttribute("aria-pressed", "false"));
+  const tabs = clone.querySelectorAll(".tabs button");
+  tabs.forEach((el, i) => el.setAttribute("aria-selected", String(i === 0)));
+  const cloneView = clone.querySelectorAll("#view-board, #view-roadmap, #view-epics");
+  cloneView.forEach((el, i) => { el.hidden = i !== 0; });
+  clone.querySelector("#scrim").hidden = true;
+  const noticeEl = clone.querySelector("#notice"); if (noticeEl) noticeEl.hidden = true;
+  const search = clone.querySelector("#f-search"); if (search) search.value = "";
+  const post = clone.querySelector("#f-post"); if (post) post.checked = false;
+  const html = "<!doctype html>\n" + clone.outerHTML;
+  const blob = new Blob([html], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "kanban.html";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  brouillon = false;
+  notice("kanban.html téléchargé : remplacez le fichier du dépôt par celui-ci, puis commitez (les modifications sont désormais dans le fichier).", "ok");
+}
+$("#export-btn").addEventListener("click", exporterFichier);
+
+/* Chargement : le fichier est la source de vérité, le brouillon du navigateur s'applique au-dessus. */
+(async () => {
+  try {
+    plan = JSON.parse(document.getElementById("bp-plan").textContent);
+    cards = (JSON.parse(document.getElementById("bp-cards").textContent).cards) || [];
+  } catch (e) {
+    notice("JSON du fichier illisible : " + e.message, "err");
+    return;
+  }
+  try {
+    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+    if (draft && Array.isArray(draft.cards) && draft.cards.length) {
+      cards = draft.cards;
+      brouillon = true;
+      notice("Brouillon du navigateur restauré (" + new Date(draft.savedAt).toLocaleString() + ") : pensez à exporter et committer.", "draft");
+    }
+  } catch (e) {}
+  render();
+})();
+</script>
+
+</body>
+</html>
