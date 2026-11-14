@@ -945,6 +945,7 @@ function suivrePopup(fenetre: BrowserWindow) {
   // Pas de barre d'adresse : l'hôte réel précède le titre, que la page contrôle, contre l'usurpation d'une fenêtre de connexion.
   contenu.on('page-title-updated', (event, titre) => {
     event.preventDefault()
+    if (fenetre.isDestroyed()) return // un titre peut arriver après la fermeture de la pop-up
     let hote = ''
     try { hote = new URL(contenu.getURL()).host } catch { /* adresse pas encore connue */ }
     fenetre.setTitle(hote ? `${hote} — ${titre}` : titre)
