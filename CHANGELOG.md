@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.6] - 2026-11-14
+
+### Ajouté
+- `docs/extensions/arb-25-poc-electron-chrome-extensions.md` : résultat de l'essai de la bibliothèque `electron-chrome-extensions`. Sa barre d'actions, ses popups et `chrome.tabs` fonctionnent ; Bitwarden démarre désormais et affiche sa popup ; uBlock Origin Lite reste bloqué faute de `chrome.commands` (ARB-25).
+- `arbalete-browser/scripts/poc-electron-chrome-extensions.mjs` : script du POC, lancé à la main sous Electron, dans un profil jetable et hors de l'application. Le test des POC d'extensions couvre maintenant ses règles de sécurité.
+
+### Modifié
+- La carte ARB-25 passe à « Terminé » dans `kanban.html`.
+
 ## [0.12.44.5] - 2026-11-14
 
 ### Ajouté
