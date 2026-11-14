@@ -34,6 +34,8 @@ export type BrowserState = {
   favorite: boolean
   // Grille de favoris en haut de la barre latérale (ARB-49) : les 8 premiers favoris, adresse d'historique et titre.
   favorites: { url: string; title: string }[]
+  // Pop-ups bloquées sur la page de l'onglet actif, sans geste de l'utilisateur (ARB-108) ; 0 : rien à signaler.
+  popupsBloquees: number
 }
 
 // Barre latérale (ARB-33, ARB-123) : masquée par défaut, ouverte par-dessus la page au survol du bord gauche ;
@@ -133,6 +135,11 @@ export type BrowserAPI = {
   // Le champ reprend le clavier et sélectionne son texte (Ctrl+F sur une recherche ouverte). `reopened` : la recherche
   // vient de s'ouvrir, le champ et le compteur sont vidés.
   onFindFocus: (callback: (reopened: boolean) => void) => () => void
+  // Pop-ups bloquées (ARB-108) : l'icône de la barre d'adresse rouvre l'avis (`showBlockedPopups`) ; la vue de l'avis
+  // seule autorise les pop-ups du site de l'onglet actif (`allowPopups`) ou le ferme (`closePopupNotice`).
+  showBlockedPopups: () => Promise<void>
+  allowPopups: () => Promise<void>
+  closePopupNotice: () => Promise<void>
   // Ajoute la page de l'onglet actif aux favoris, ou l'en retire (ARB-47) ; sans effet sur une page hors du web. L'état
   // `favorite` en rend compte.
   toggleFavorite: () => Promise<void>

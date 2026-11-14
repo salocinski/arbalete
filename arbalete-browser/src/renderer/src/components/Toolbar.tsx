@@ -13,6 +13,7 @@ type ToolbarProps = {
   sidebarPinned: boolean
   themeChoice: ThemeChoice
   favorite: boolean
+  popupsBloquees: number
   address: string
   addressRef: RefObject<HTMLInputElement | null>
   onAddressChange: (value: string) => void
@@ -20,12 +21,12 @@ type ToolbarProps = {
   onNavigate: () => void
 }
 
-export function Toolbar({ activeTab, sidebarPinned, themeChoice, favorite, onNavigate, ...address }: ToolbarProps) {
+export function Toolbar({ activeTab, sidebarPinned, themeChoice, favorite, popupsBloquees, onNavigate, ...address }: ToolbarProps) {
   return (
     <header className="toolbar">
       <PinButton pinned={sidebarPinned} />
       <NavigationControls activeTab={activeTab} />
-      <AddressBar {...address} onSubmit={onNavigate} favorite={favorite} favoritable={/^https?:/i.test(activeTab?.url ?? '')} />
+      <AddressBar {...address} onSubmit={onNavigate} favorite={favorite} popupsBloquees={popupsBloquees} favoritable={/^https?:/i.test(activeTab?.url ?? '')} />
       <IconButton variant="secondary" title="Nouvel onglet" onClick={() => void window.arbalete.createTab()}><Plus size={16}/></IconButton>
       <IconButton variant="secondary" title="Thème : changer le mode" onClick={() => void window.arbalete.setTheme(nextTheme[themeChoice])}>
         {themeChoice === 'system' ? <Monitor size={16}/> : themeChoice === 'dark' ? <Moon size={16}/> : <Sun size={16}/>}

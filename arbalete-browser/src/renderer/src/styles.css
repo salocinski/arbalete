@@ -123,6 +123,11 @@ html.vue-barre .sidebar-zone { right: 0; }
 /* Recherche dans la page (ARB-70) : la vue native a la taille de la barre (44 px), arrondie par setBorderRadius. */
 html.vue-recherche, html.vue-recherche body { background: transparent; min-width: 0; min-height: 0; overflow: hidden; }
 .find-bar { box-sizing: border-box; display: flex; align-items: center; gap: var(--space-1); height: 100vh; padding: 0 var(--space-2) 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); }
+/* Avis « pop-up bloquée » (ARB-108) : vue native en bas à gauche de la page, mêmes plans que la recherche. */
+html.vue-popup, html.vue-popup body { background: transparent; min-width: 0; min-height: 0; overflow: hidden; }
+.popup-notice { box-sizing: border-box; display: flex; align-items: center; gap: var(--space-2); height: 100vh; padding: 0 var(--space-2) 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-floating); background: var(--color-surface); color: var(--color-text-primary); box-shadow: var(--shadow-floating); font-size: 13px; }
+.popup-notice-icon { color: var(--color-warning); flex: none; }
+.popup-notice-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .find-input { flex: 1; min-width: 0; border: 0; background: transparent; color: inherit; font-size: 13px; outline: none; }
 .find-input::placeholder { color: var(--color-text-secondary); }
 .find-count { color: var(--color-text-secondary); font-size: 12px; white-space: nowrap; }
@@ -181,6 +186,9 @@ kbd { color: var(--color-text-secondary); font: 10px var(--font-ui); border: 1px
 .address-bar { display: flex; flex: 1; min-width: 120px; }
 .address-bar .ui-field-group { flex: 1; }
 .favorite-on { color: var(--color-accent); }
+/* Icône des pop-ups bloquées (ARB-108), à droite de l'étoile : couleur d'avertissement, compteur en coin. */
+.popup-blocked { position: relative; color: var(--color-warning); }
+.popup-blocked-count { position: absolute; top: -2px; right: -2px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box; border-radius: 7px; background: var(--color-warning); color: var(--color-background); font: 700 9px/14px var(--font-ui); text-align: center; }
 .secure-icon { color: var(--color-success); flex-shrink: 0; }
 .app-banner { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 20px; background: var(--color-sidebar); border-bottom: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 11px; position: relative; z-index: var(--z-chrome); }
 .app-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }

@@ -104,7 +104,8 @@ export function installPreviewApi(): boolean {
     workspaces: [...workspaces],
     activeWorkspaceId,
     favorite: favorites.has(active()?.url ?? ''),
-    favorites: [...favorites].slice(0, 8).map((url) => ({ url, title: titleFor(url) }))
+    favorites: [...favorites].slice(0, 8).map((url) => ({ url, title: titleFor(url) })),
+    popupsBloquees: 0
   })
   const emit = () => {
     const state = snapshot()
@@ -326,6 +327,9 @@ export function installPreviewApi(): boolean {
     closeFind: async () => undefined,
     onFindResult: () => () => undefined,
     onFindFocus: () => () => undefined,
+    showBlockedPopups: async () => undefined,
+    allowPopups: async () => undefined,
+    closePopupNotice: async () => undefined,
     getDownloads: async () => downloads,
     onDownloads: (callback) => {
       downloadListeners.add(callback)

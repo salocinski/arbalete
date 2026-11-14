@@ -273,6 +273,10 @@ async function resultatDansOngletActif<T>(code: string): Promise<T> {
   return app.evaluate(async ({ BrowserWindow, WebContentsView }, source) => {
     const fenetre = BrowserWindow.getAllWindows().find((f) => !f.getParentWindow())! // les pop-ups (ARB-16) sont des fenêtres filles
     const vue = fenetre.contentView.children.find((enfant) => enfant instanceof WebContentsView && !enfant.webContents.getURL().includes('vue=barre')) as InstanceType<typeof WebContentsView>
+    // ARB-108 : un window.open n'aboutit que peu après un geste de l'utilisateur ; on en envoie un vrai (sauf test « sans geste »).
+    if ((source.includes('window.open') || source.includes('.click()')) && !source.includes('SANS_GESTE')) vue.webContents.sendInputEvent({ type: 'mouseDown', x: 1, y: 1, button: 'left', clickCount: 1 })
+    // sendInputEvent et executeJavaScript suivent deux canaux : sans attente, le script peut passer avant que le geste soit noté.
+    if ((source.includes('window.open') || source.includes('.click()')) && !source.includes('SANS_GESTE')) await new Promise((fin) => setTimeout(fin, 100))
     return vue.webContents.executeJavaScript(source, true)
   }, code) as Promise<T>
 }
@@ -1345,6 +1349,50 @@ test('C20 : window.open d’une page n’ouvre que des adresses web', async () =
   await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
   await attendreUrlActive(`${origine}/page-b.html`)
   expect((await etat()).tabs.filter((tab) => !/^https?:\/\//.test(tab.url))).toEqual([])
+})
+
+// Value: protects=blocage des ouvertures sans geste (ARB-108) : un window.open lancé par script seul n'ouvre rien,
+//   le même après un clic ouvre un onglet;
+//   fails_when=setWindowOpenHandler ne regarde plus le dernier geste de l'utilisateur;
+//   why_new=C20 à C27 envoient un geste avant chaque window.open (helper), aucun n'en testait l'absence; seam=none
+//   (l'ouverture avec geste sert de repère : les demandes sont traitées dans l'ordre);
+//   no_claim=ne couvre ni le Ctrl+clic en arrière-plan ni le délai de 5 s (popup.test.ts pour le délai).
+test('C88 : un window.open sans geste de l’utilisateur n’ouvre pas d’onglet', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+
+  await dansOngletActif("/* SANS_GESTE */ window.open('/page-b.html?sans-geste')")
+  await dansOngletActif("window.open('/page-b.html?avec-geste')")
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+  await attendreUrlActive(`${origine}/page-b.html?avec-geste`)
+  expect((await etat()).tabs.some((tab) => tab.url.includes('sans-geste'))).toBe(false)
+})
+
+// Value: protects=signalement d'une pop-up bloquée (ARB-108) : l'icône à droite de l'étoile s'allume, l'avis (vue native
+//   ?vue=popup) apparaît, « Autoriser » mémorise le site (les ouvertures sans geste passent ensuite) et éteint l'icône;
+//   fails_when=le blocage reste silencieux, l'avis n'est plus piloté par le processus principal, ou l'autorisation n'est pas lue;
+//   why_new=C88 ne vérifie que l'absence d'onglet; seam=none; no_claim=ni le minuteur de 6 s, ni le placement réel en bas à
+//   gauche, ni le rendu (manuels). Après C88 : l'autorisation de 127.0.0.1 reste dans le profil de test jusqu'à la fin.
+test('C89 : une pop-up bloquée allume l’icône et l’avis, Autoriser la laisse passer', async () => {
+  await saisirAdresse(`${origine}/page-a.html`)
+  await attendreUrlActive(`${origine}/page-a.html`)
+  const avant = (await etat()).tabs.length
+
+  await dansOngletActif("/* SANS_GESTE */ window.open('/page-b.html?bloquee')")
+  await expect(ui.getByTestId('popup-blocked')).toBeVisible()
+  expect((await etat()).popupsBloquees).toBe(1)
+  const cliquerAutoriser = () => app.evaluate(({ webContents }) => {
+    const avis = webContents.getAllWebContents().find((w) => w.getURL().includes('vue=popup'))!
+    return avis.executeJavaScript("[...document.querySelectorAll('button')].find((b) => b.textContent === 'Autoriser')?.click()")
+  })
+  await expect.poll(async () => app.evaluate(({ webContents }) => webContents.getAllWebContents().some((w) => w.getURL().includes('vue=popup')))).toBe(true)
+  await expect(async () => { await cliquerAutoriser(); expect((await etat()).popupsBloquees).toBe(0) }).toPass()
+  await expect(ui.getByTestId('popup-blocked')).toHaveCount(0)
+
+  await dansOngletActif("/* SANS_GESTE */ window.open('/page-b.html?autorisee')")
+  await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
+  await attendreUrlActive(`${origine}/page-b.html?autorisee`)
 })
 
 // Value: protects=limite d'ouvertures par page (ARB-102) : une rafale de window.open n'ouvre que 5 onglets;
@@ -3714,8 +3762,10 @@ test('C87 : les options hostiles d’une pop-up sont ignorées, un onglet d’ar
     await ui.evaluate((url) => window.arbalete.createTab(url), `${origine}/page-b.html`)
     await expect.poll(async () => ongletActif(await etat())?.id).not.toBe(fond)
     const avant = (await etat()).tabs.length
-    await app.evaluate(({ webContents }) => {
+    await app.evaluate(async ({ webContents }) => {
       const page = webContents.getAllWebContents().find((w) => w.getURL().endsWith('/page-a.html'))!
+      page.sendInputEvent({ type: 'mouseDown', x: 1, y: 1, button: 'left', clickCount: 1 }) // ARB-108 : geste requis
+      await new Promise((fin) => setTimeout(fin, 100)) // le geste est noté de façon asynchrone
       void page.executeJavaScript("void window.open('/page-popup.html', 'bg', 'width=300,height=300')")
     })
     await expect.poll(async () => (await etat()).tabs.length).toBe(avant + 1)
