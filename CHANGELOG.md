@@ -2,6 +2,11 @@
 
 Toutes les évolutions notables d'Arbalète. Versions à 4 segments (`MAJEUR.MINEUR.CORRECTIF.MICRO`), gérées par `/ship`.
 
+## [0.12.44.4] - 2026-11-14
+
+### Modifié
+- La carte ARB-5 (premier lancement réel du prototype) passe à « Terminé » dans `kanban.html`, avec la raison de sa clôture.
+
 ## [0.12.44.3] - 2026-11-14
 
 ### Ajouté
