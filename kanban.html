@@ -570,11 +570,11 @@ main.wrap { padding-block: 20px 48px; display: grid; gap: 18px; }
       "epic": "phase-1-valider-le-socle",
       "kind": "spike",
       "milestone": "EP-02",
-      "note": "Lancer /cso (gstack) puis passer en revue la checklist officielle Electron ; créer un ticket par écart. Nécessite les outils C++ de Visual Studio 2022 pour l'analyse complète de /cso.\nCritère : Liste des écarts documentée\nAvancement 2026-11-13 : /cso statique lancé deux fois (second run plus complet, 119 fichiers lus par le helper), aucun constat étayé, statut partiel (Docker absent : pas de scanner, ni /cso --comprehensive ; historique Git retenu à 44 commits sur 99). Checklist officielle Electron passée en revue : 17 recommandations sur 20 respectées ou sans objet, 4 écarts de durcissement (fuses non posés, file://, will-frame-navigate et will-redirect absents, pas de garde-fou global web-contents-created), aucun exploitable. Liste dans docs/securite/arb-11-checklist-electron.md. Reste : un ticket par écart (E1 et E2 relèvent d'EP-14) et la PR.",
+      "note": "Lancer /cso (gstack) puis passer en revue la checklist officielle Electron ; créer un ticket par écart. Nécessite les outils C++ de Visual Studio 2022 pour l'analyse complète de /cso.\nCritère : Liste des écarts documentée\nAvancement 2026-11-13 : /cso statique lancé deux fois (second run plus complet, 119 fichiers lus par le helper), aucun constat étayé, statut partiel (Docker absent : pas de scanner, ni /cso --comprehensive ; historique Git retenu à 44 commits sur 99). Checklist officielle Electron passée en revue : 17 recommandations sur 20 respectées ou sans objet, 4 écarts de durcissement (fuses non posés, file://, will-frame-navigate et will-redirect absents, pas de garde-fou global web-contents-created), aucun exploitable. Liste dans docs/securite/arb-11-checklist-electron.md. Reste : un ticket par écart (E1 et E2 relèvent d'EP-14) et la PR. Fusionné (PR 98), terminé le 2026-11-14.",
       "num": 11,
       "prio": "P1",
       "size": "S",
-      "status": "review",
+      "status": "done",
       "title": "Auditer le projet avec la checklist de sécurité Electron"
     },
     {

@@ -11,18 +11,17 @@ Langue de travail : **français** (code, commentaires, commits et documentation)
 | Sujet | Où |
 |---|---|
 | Vision et stratégie | Document « Synthèse du projet » du projet Claude *Arbalete* |
-| Backlog, epics, statuts | **Arbalète Suivi** : https://claude.ai/artifact/FpicMw6k8toB6GKWEp6BhW (tickets `ARB-n`, epics `EP-nn`) |
+| Backlog, epics, statuts | **`kanban.html`** (racine) : référence unique des tâches (cartes `ARB-n`, jalons, epics `EP-nn`) |
 | Design | `DESIGN.md` (racine) : référentiel Atmospheric Minimalism, voir « Référentiel graphique obligatoire » |
 | Décisions techniques | `docs/decisions/` (une fiche numérotée par choix structurant, ex. `0001-stockage.md`) |
 | Revues de sécurité | `docs/securite/` : revues datées de la posture de sécurité (ex. `arb-11-checklist-electron.md`, checklist officielle d'Electron, écarts suivis par ARB-137 à ARB-140) ; une faille confirmée n'y est jamais détaillée, voir « Audits de sécurité » |
-| Kanban versionné | `kanban.html` (racine) : tableau de suivi tenu dans le dépôt (cartes `ARB-n`, jalons, epics), compagnon d'Arbalète Suivi qui reste la référence du backlog |
 | Maquettes | `docs/maquettes/` : pages HTML statiques de design validé, sans effet sur l'application (ex. `arb-28-mise-en-page.html`, mise en page cible, composition A) |
 | Historique des versions | `VERSION` et `CHANGELOG.md` |
 | Identité visuelle | `branding/` : sources du logo et des icônes (ARB-127), voir son README |
 | Licence | **GPL-3.0-or-later** (`LICENSE`) : tout code ajouté doit être compatible (pas de dépendance sous licence propriétaire ou incompatible GPL) |
 | Contribution externe | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` |
 
-Le backlog vit dans Arbalète Suivi (privé pour l'instant ; les issues GitHub deviendront le backlog public à l'ouverture du dépôt), pas dans un fichier. Si un skill gstack (`/ship`, `/review`…)
+Le backlog vit dans `kanban.html` (versionné ; l'artifact Arbalète Suivi est abandonné). Un ticket démarré passe à `doing` et un ticket fini à `done` dans ce fichier, dans la PR du ticket. Si un skill gstack (`/ship`, `/review`…)
 propose de créer `TODOS.md`, répondre **Skip** et signaler les éléments à ajouter au tableau.
 
 ## Structure
@@ -129,7 +128,7 @@ cd arbalete-browser && npm run typecheck && npm run test:unit
 ```
 
 `npm run test:smoke` n'est lancé en local que dans trois cas, la CI (job `smoke`, exigé par `PR-Rule`) le couvrant sinon :
-la PR clôt le **dernier ticket d'une epic** (les autres étant Terminé dans Arbalète Suivi), le diff touche
+la PR clôt le **dernier ticket d'une epic** (les autres étant `done` dans `kanban.html`), le diff touche
 `src/main`, `src/preload` ou l'IPC, ou l'utilisateur le demande. Ne pas relancer `typecheck` ni `test:unit`
 si le dernier commit les a déjà passés au vert. Pendant le travail, préférer les `*.test.ts` du module modifié.
 
@@ -206,7 +205,7 @@ modifier `DESIGN.md` qu'après validation.
 ## Cycle de travail avec gstack
 
 gstack enchaîne Réfléchir → Planifier → Construire → Revoir → Tester → Livrer → Rétro. Correspondance
-avec le tableau Arbalète Suivi :
+avec le tableau `kanban.html` :
 
 | Étape | Skill gstack | Quand l'utiliser sur Arbalète | Statut du ticket |
 |---|---|---|---|
